@@ -1,6 +1,8 @@
 flask==3.1.0
+flask-session==0.8.0
 requests==2.32.3
 gunicorn==23.0.0
 gevent==24.2.1
 psycopg2-binary==2.9.9
 telethon==1.42.0
+bcrypt==4.1.2

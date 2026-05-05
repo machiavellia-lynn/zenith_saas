@@ -1,34 +1,32 @@
 """
-scraper_weekly.py — Zenith Weekly Backfill
-==========================================
-Scrape all messages from the past 7 days across all 4 topics.
-INSERT OR IGNORE ensures no duplicates.
+scraper_weekly.py — Zenith 2.0 Weekly Backfill
+Scrape messages from past N days. Deduplication via ON CONFLICT DO NOTHING.
 
 Usage:
-    python scraper_weekly.py
-
-Can also be triggered via:
-    GET /admin/scraper-weekly?secret=zenith2026
+    python scraper_weekly.py          (CLI, standalone)
+    GET /admin/scraper-weekly         (triggered from admin panel)
 """
-
 import asyncio
 import re
-import sqlite3
 import os
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
-# Reuse all parsers and DB functions from scraper_daily
-from scraper_daily import (
-    parse_joker_message, parse_mf_message,
-    save_sm_bm_rows, save_mf_rows,
-    get_scraper_db, get_message_topic_id,
-    rebuild_summary_for_date, ensure_summary_table,
-    enrich_daily_prices, compute_analytics_for_date,
-    GROUP_ID, ALL_TOPICS, SM_BM_TOPICS, MF_TOPICS,
-    TOPIC_LABELS, TOPIC_CHANNELS,
-    API_ID, API_HASH, SESSION_PATH, WIB,
+from config import (
+    WIB, TG_API_ID as API_ID, TG_API_HASH as API_HASH,
+    TG_SESSION_PATH as SESSION_PATH,
+    TG_GROUP_ID as GROUP_ID,
 )
+from core.db import get_scraper_db
+from scraper.scraper_parser import parse_joker_message, parse_mf_message
+from scraper.scraper_saver import save_sm_bm_rows, save_mf_rows
+from scraper.scraper_daily import (
+    get_message_topic_id, ALL_TOPICS, SM_BM_TOPICS,
+    TOPIC_LABELS, TOPIC_CHANNELS,
+)
+from algo.summary_rebuild import rebuild_summary_for_date
+from algo.analytics_daily import compute_analytics_for_date
+from data.price_fetch import backfill_prices
 
 log = logging.getLogger("zenith.weekly")
 log.setLevel(logging.INFO)
@@ -41,10 +39,9 @@ DAYS_BACK = 7
 
 
 async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK):
-    """Scrape messages from the past N days. Skips duplicates via INSERT OR IGNORE."""
-
+    """Scrape messages from past N days. Returns {scanned, saved}."""
     own_client = client is None
-    own_conn = conn is None
+    own_conn   = conn is None
 
     if own_conn:
         conn = get_scraper_db()
@@ -55,34 +52,24 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK):
         await client.connect()
         if not await client.is_user_authorized():
             log.error("❌ Session not authorized")
-            return
+            return {"scanned": 0, "saved": 0}
         await client.get_dialogs()
 
-    # Build set of valid dates (DD-MM-YYYY)
-    now_wib = datetime.now(WIB)
-    valid_dates = set()
-    for i in range(days):
-        d = now_wib - timedelta(days=i)
-        valid_dates.add(d.strftime("%d-%m-%Y"))
-
-    date_range = f"{(now_wib - timedelta(days=days-1)).strftime('%d-%m-%Y')} → {now_wib.strftime('%d-%m-%Y')}"
+    now_wib     = datetime.now(WIB)
+    valid_dates = {(now_wib - timedelta(days=i)).strftime("%d-%m-%Y") for i in range(days)}
+    date_range  = f"{(now_wib - timedelta(days=days-1)).strftime('%d-%m-%Y')} → {now_wib.strftime('%d-%m-%Y')}"
     log.info(f"🔄 WEEKLY BACKFILL: {days} days ({date_range})")
 
-    total_scanned = 0
-    total_saved = 0
+    total_scanned = total_saved = 0
 
     for topic_id in ALL_TOPICS:
-        label = TOPIC_LABELS[topic_id]
+        label   = TOPIC_LABELS[topic_id]
         channel = TOPIC_CHANNELS[topic_id]
-        scanned = 0
-        saved = 0
-        consecutive_old = 0  # count messages older than our range
+        scanned = saved = consecutive_old = 0
 
         async for message in client.iter_messages(GROUP_ID, reply_to=topic_id, limit=None):
             if not message.text:
                 continue
-
-            # Extract date from message text
             text_clean = message.text.replace("```", "").replace("`", "")
             date_match = re.search(r"(\d{2}-\d{2}-\d{4})", text_clean)
             if not date_match:
@@ -93,25 +80,19 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK):
 
             if msg_date in valid_dates:
                 consecutive_old = 0
-                # Parse and save
                 msg_id = message.id
                 if topic_id in SM_BM_TOPICS:
                     rows = parse_joker_message(message.text, channel)
                     if rows:
                         n = save_sm_bm_rows(conn, msg_id, rows)
                         saved += n
-                        if n:
-                            log.info(f"  ✅ {label} msg={msg_id} ({msg_date}) → {n} row(s)")
                 else:
                     rows = parse_mf_message(message.text, channel)
                     if rows:
                         n = save_mf_rows(conn, msg_id, rows)
                         saved += n
-                        if n:
-                            log.info(f"  ✅ {label} msg={msg_id} ({msg_date}) → {n} row(s)")
             else:
                 consecutive_old += 1
-                # If we see 100 consecutive messages outside our date range, stop
                 if consecutive_old > 100:
                     break
 
@@ -120,38 +101,32 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK):
 
         log.info(f"  {label}: scanned={scanned}, new_rows={saved}")
         total_scanned += scanned
-        total_saved += saved
+        total_saved   += saved
 
-    log.info(f"✅ WEEKLY BACKFILL complete: scanned={total_scanned}, new_rows={total_saved}")
-
-    # Rebuild summaries for all backfilled dates
     if total_saved > 0:
-        log.info(f"📊 Rebuilding summaries for {len(valid_dates)} dates...")
-        ensure_summary_table(conn)
         dates_sorted = sorted(valid_dates, key=lambda x: datetime.strptime(x, "%d-%m-%Y"))
+        log.info(f"📊 Rebuilding summaries for {len(dates_sorted)} dates...")
 
-        # Step 1: rebuild summary rows from raw data
         for d in dates_sorted:
             try:
                 rebuild_summary_for_date(conn, d)
             except Exception:
                 pass
 
-        # Step 2: fill price_close BEFORE computing analytics
         try:
-            from scraper_daily import backfill_prices
             backfill_prices(conn, date_from=dates_sorted[0], date_to=dates_sorted[-1])
         except Exception as e:
             log.warning(f"⚠️ Price backfill failed: {e}")
 
-        # Step 3: compute analytics with price_close available — gain%, phase, action
         for d in dates_sorted:
             try:
                 compute_analytics_for_date(conn, d)
             except Exception:
                 pass
 
-        log.info(f"✅ Summaries + prices + analytics rebuilt")
+        log.info("✅ Summaries + prices + analytics rebuilt")
+
+    log.info(f"✅ WEEKLY BACKFILL complete: scanned={total_scanned}, new_rows={total_saved}")
 
     if own_client:
         await client.disconnect()
@@ -162,18 +137,13 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK):
 
 
 async def main():
-    """Standalone CLI entry point."""
     from telethon import TelegramClient
-
-    conn = get_scraper_db()
+    conn   = get_scraper_db()
     client = TelegramClient(SESSION_PATH, API_ID, API_HASH)
-
     async with client:
         log.info("🔗 Connected to Telegram")
         await client.get_dialogs()
-        log.info("✅ Dialog cache loaded")
         await run_weekly_backfill(client, conn)
-
     conn.close()
 
 

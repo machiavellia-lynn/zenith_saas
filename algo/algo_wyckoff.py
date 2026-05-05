@@ -1,10 +1,8 @@
 """
-logic.py — Zenith Phase Classification Engine v3.1
-====================================================
-Single source of truth for all phase/action/watch computation.
-Imported by app.py, scraper_daily.py, and backtest engine.
-
-DO NOT duplicate this logic elsewhere. If thresholds change, change here only.
+algo_wyckoff.py — Zenith Phase Classification Engine v3.1
+RULE: Pure functions ONLY. Zero DB, zero HTTP. Input: dict/list. Output: primitive.
+      Single source of truth for all phase/action/watch computation.
+      If thresholds change, change here only.
 """
 
 
@@ -36,10 +34,10 @@ def classify_zenith_v3_1(
     -------
     str : phase label
     """
-    atr      = atr_pct if atr_pct and atr_pct > 0 else 2.5
-    th_up    = max(atr * 0.8, 1.0)   # significant up   (min 1%)
-    th_down  = max(atr * 0.4, 0.5)   # significant down (min 0.5%)
-    th_flat  = atr * 0.5             # flat zone
+    atr     = atr_pct if atr_pct and atr_pct > 0 else 2.5
+    th_up   = max(atr * 0.8, 1.0)   # significant up   (min 1%)
+    th_down = max(atr * 0.4, 0.5)   # significant down (min 0.5%)
+    th_flat = atr * 0.5             # flat zone
 
     # BM activity gate: BM today must be ≥50% of its own 10-day avg
     # Prevents DISTRI firing on days SM is absent but BM is just noise
@@ -104,9 +102,9 @@ def get_action(
                              SOS: max(atr × 3.5, 7.0)  — SOS allowed to run higher
                              Others: max(atr × 2.0, 5.0)
     """
-    atr       = atr_pct if atr_pct and atr_pct > 0 else 2.5
-    th_sos_h  = max(atr * 3.5, 7.0)   # SOS: more room to run
-    th_buy_h  = max(atr * 2.0, 5.0)   # SPRING / ABSORB / ACCUM
+    atr      = atr_pct if atr_pct and atr_pct > 0 else 2.5
+    th_sos_h = max(atr * 3.5, 7.0)   # SOS: more room to run
+    th_buy_h = max(atr * 2.0, 5.0)   # SPRING / ABSORB / ACCUM
 
     BUY_PHASES  = ("SOS", "SPRING", "ABSORB", "ACCUM")
     SELL_PHASES = ("UPTHRUST", "DISTRI")
@@ -183,11 +181,11 @@ def detect_trade_detail_gate(
     return None
 
 
-# ── Technical Indicator Helpers (pure, no DB) ────────────────────────────────
+# ── Technical Indicator Helpers ───────────────────────────────────────────────
 
 def compute_ma(closes: list, period: int):
     """Simple Moving Average. closes = chronological list (oldest first).
-    Returns None if insufficient data (< period required)."""
+    Returns None if insufficient data."""
     if len(closes) < period:
         return None
     return round(sum(closes[-period:]) / period, 2)
@@ -198,9 +196,9 @@ def compute_rsi14(closes: list):
     if len(closes) < 15:
         return None
     relevant = closes[-15:]
-    diffs = [relevant[i] - relevant[i - 1] for i in range(1, 15)]
-    gains  = [max(d, 0)   for d in diffs]
-    losses = [abs(min(d, 0)) for d in diffs]
+    diffs    = [relevant[i] - relevant[i - 1] for i in range(1, 15)]
+    gains    = [max(d, 0)    for d in diffs]
+    losses   = [abs(min(d, 0)) for d in diffs]
     avg_gain = sum(gains)  / 14
     avg_loss = sum(losses) / 14
     if avg_loss == 0:
@@ -214,7 +212,7 @@ def compute_cm_streak(closes: list, ma5):
     Returns None if insufficient data."""
     if ma5 is None or not closes:
         return None
-    above = closes[-1] > ma5
+    above  = closes[-1] > ma5
     streak = 0
     for c in reversed(closes):
         if (c > ma5) == above:
@@ -224,7 +222,7 @@ def compute_cm_streak(closes: list, ma5):
     return streak if above else -streak
 
 
-# ── MA Structure Classifier (v3.1 — 8 types) ──────────────────────────────────
+# ── MA Structure Classifier (v3.1 — 8 types) ─────────────────────────────────
 
 def get_ma_structure(price, ma5, ma13, ma34, ma200=None) -> str:
     """
@@ -257,13 +255,12 @@ def get_ma_structure(price, ma5, ma13, ma34, ma200=None) -> str:
         return "N/A"
     gap = (ma_max - ma_min) / ma_min * 100
 
-    above_ma200 = (ma200 is None) or (price > ma200)
+    above_ma200  = (ma200 is None) or (price > ma200)
+    aligned_up   = ma5 > ma13 > ma34
+    aligned_down = ma5 < ma13 < ma34
 
     if gap < 3.0:
         return "Cluster on Macro Uptrend" if above_ma200 else "Cluster on Macro Downtrend"
-
-    aligned_up   = ma5 > ma13 > ma34
-    aligned_down = ma5 < ma13 < ma34
 
     if aligned_up:
         return "Strong Uptrend" if above_ma200 else "Transitional Uptrend"
