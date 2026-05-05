@@ -297,16 +297,31 @@ def backfill_prices(conn, days: int = 30, date_from: str = None, date_to: str = 
     """Backfill price_close in eod_summary for a date range.
     delay_ms: sleep between dates to avoid Yahoo rate limit.
     Caller is responsible for commit."""
-    if date_from and date_to:
-        rows = fetchall(conn, "SELECT DISTINCT date FROM eod_summary WHERE date >= %s AND date <= %s ORDER BY date", [date_from, date_to])
-    else:
-        rows = fetchall(conn, "SELECT DISTINCT date FROM eod_summary ORDER BY date DESC LIMIT %s", [days])
+    try:
+        if date_from and date_to:
+            log.info(f"💰 Backfill prices: {date_from} → {date_to}")
+            rows = fetchall(conn, "SELECT DISTINCT date FROM eod_summary WHERE date >= %s AND date <= %s ORDER BY date", [date_from, date_to])
+        else:
+            log.info(f"💰 Backfill prices: last {days} days")
+            rows = fetchall(conn, "SELECT DISTINCT date FROM eod_summary ORDER BY date DESC LIMIT %s", [days])
 
-    for r in rows:
-        enrich_daily_prices(conn, r["date"])
-        conn.commit()
-        if delay_ms > 0:
-            time.sleep(delay_ms / 1000)
+        if not rows:
+            log.warning("⚠️ No dates found in eod_summary for backfill")
+            return
+
+        log.info(f"  Processing {len(rows)} dates...")
+        for i, r in enumerate(rows, 1):
+            try:
+                enrich_daily_prices(conn, r["date"])
+                conn.commit()
+                log.debug(f"  [{i}/{len(rows)}] {r['date']} ✓")
+            except Exception as e:
+                log.error(f"  ❌ {r['date']}: {e}")
+            if delay_ms > 0:
+                time.sleep(delay_ms / 1000)
+        log.info(f"✅ Backfill prices complete: {len(rows)} dates")
+    except Exception as e:
+        log.error(f"❌ Backfill prices failed: {e}")
 
 
 def backfill_price_history_200d(conn):
