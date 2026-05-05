@@ -293,16 +293,20 @@ def enrich_daily_prices(conn, date_str: str) -> int:
     return updated
 
 
-def backfill_prices(conn, days: int = 30, date_from: str = None, date_to: str = None):
+def backfill_prices(conn, days: int = 30, date_from: str = None, date_to: str = None, delay_ms: int = 500):
     """Backfill price_close in eod_summary for a date range.
+    delay_ms: sleep between dates to avoid Yahoo rate limit.
     Caller is responsible for commit."""
     if date_from and date_to:
-        rows = fetchall(conn, "SELECT DISTINCT date FROM eod_summary WHERE date >= %s AND date <= %s", [date_from, date_to])
+        rows = fetchall(conn, "SELECT DISTINCT date FROM eod_summary WHERE date >= %s AND date <= %s ORDER BY date", [date_from, date_to])
     else:
         rows = fetchall(conn, "SELECT DISTINCT date FROM eod_summary ORDER BY date DESC LIMIT %s", [days])
 
     for r in rows:
         enrich_daily_prices(conn, r["date"])
+        conn.commit()
+        if delay_ms > 0:
+            time.sleep(delay_ms / 1000)
 
 
 def backfill_price_history_200d(conn):

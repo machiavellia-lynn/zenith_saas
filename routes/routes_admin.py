@@ -68,12 +68,38 @@ def recompute_analytics():
 def admin_backfill_prices():
     if not is_authed():
         return redirect("/")
-    days = int(request.args.get("days", 30))
+    days      = int(request.args.get("days", 30))
+    date_from = request.args.get("date_from", "").strip()
+    date_to   = request.args.get("date_to", "").strip()
+    delay_ms  = int(request.args.get("delay_ms", 500))
+
+    # Normalize DD-MM-YYYY → YYYY-MM-DD for DB query
+    def _normalize(d):
+        if d and len(d) == 10 and d[2] == "-" and d[5] == "-":
+            return f"{d[6:]}-{d[3:5]}-{d[:2]}"
+        return d
+
+    date_from = _normalize(date_from) or None
+    date_to   = _normalize(date_to)   or None
+
     import threading
     from data.price_fetch import backfill_prices
     from core.db import get_db
-    threading.Thread(target=lambda: backfill_prices(get_db(), days=days), daemon=True).start()
-    return jsonify({"ok": True, "days": days})
+
+    def _run():
+        conn = get_db()
+        backfill_prices(conn, days=days, date_from=date_from, date_to=date_to, delay_ms=delay_ms)
+        conn.commit()
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({
+        "ok":       True,
+        "mode":     "range" if (date_from and date_to) else "days",
+        "date_from": date_from,
+        "date_to":   date_to,
+        "days":      days if not (date_from and date_to) else None,
+        "delay_ms":  delay_ms,
+    })
 
 
 @bp_admin.route("/admin/backfill-200d")
