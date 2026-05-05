@@ -2,7 +2,10 @@
 app.py — Zenith 2.0 Entry Point
 RULE: Flask init + register blueprints only. Zero business logic here.
 """
+import sys
 import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 import logging
 from flask import Flask
 
