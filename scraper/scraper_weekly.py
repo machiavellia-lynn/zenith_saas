@@ -135,11 +135,12 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK):
         # This ensures that dates updated by backfill_prices (including stale data from previous runs)
         # also get their analytics recalculated
         log.info("📊 Computing analytics for all updated dates...")
+        # Note: eod_summary.date is DD-MM-YYYY format, so use dates_sorted directly (not converted)
         all_eod_dates = [r["date"] for r in fetchall(conn, """
             SELECT DISTINCT date FROM eod_summary
             WHERE date >= %s AND date <= %s
             ORDER BY date
-        """, [_to_iso(dates_sorted[0]), _to_iso(dates_sorted[-1])])]
+        """, [dates_sorted[0], dates_sorted[-1]])]
 
         analytics_count = 0
         for d in all_eod_dates:
