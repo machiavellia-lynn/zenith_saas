@@ -88,7 +88,7 @@ def rebuild_summary_for_date(conn, date_str: str, full_reset: bool = False):
 def rebuild_all_summaries(conn):
     """Rebuild eod_summary for all dates present in raw_messages.
     Commits per-date to avoid holding a large transaction during full rebuild."""
-    dates = [r["date"] for r in fetchall(conn, "SELECT DISTINCT date FROM raw_messages ORDER BY date")]
+    dates = [r["date"] for r in fetchall(conn, "SELECT DISTINCT date FROM raw_messages ORDER BY TO_DATE(date, 'DD-MM-YYYY')")]
     log.info("Rebuilding summary for %d dates", len(dates))
     for date_str in dates:
         rebuild_summary_for_date(conn, date_str, full_reset=True)

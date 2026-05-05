@@ -40,7 +40,10 @@ def rebuild_summary():
         return redirect("/")
     date_str = request.args.get("date", "")
     if not date_str:
-        return jsonify({"error": "date required"}), 400
+        # No date = queue full rebuild via scraper daemon
+        from scraper.scraper_daily import request_rebuild
+        result = request_rebuild()
+        return jsonify(result)
     from algo.summary_rebuild import rebuild_summary_for_date
     from core.db import get_scraper_db, transaction
     conn = get_scraper_db()

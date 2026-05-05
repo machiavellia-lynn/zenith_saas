@@ -138,8 +138,9 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK):
         # Note: eod_summary.date is DD-MM-YYYY format, so use dates_sorted directly (not converted)
         all_eod_dates = [r["date"] for r in fetchall(conn, """
             SELECT DISTINCT date FROM eod_summary
-            WHERE date >= %s AND date <= %s
-            ORDER BY date
+            WHERE TO_DATE(date, 'DD-MM-YYYY') >= TO_DATE(%s, 'DD-MM-YYYY')
+              AND TO_DATE(date, 'DD-MM-YYYY') <= TO_DATE(%s, 'DD-MM-YYYY')
+            ORDER BY TO_DATE(date, 'DD-MM-YYYY')
         """, [dates_sorted[0], dates_sorted[-1]])]
 
         analytics_count = 0

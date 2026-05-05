@@ -78,8 +78,8 @@ def _compute_one(conn, ticker: str, date_str: str, row: dict) -> dict:
         SELECT sm_val, bm_val, tx_count, tx_sm, tx_bm,
                price_close, volx_gap
         FROM eod_summary
-        WHERE ticker = %s AND date <= %s
-        ORDER BY date DESC
+        WHERE ticker = %s AND TO_DATE(date, 'DD-MM-YYYY') <= TO_DATE(%s, 'DD-MM-YYYY')
+        ORDER BY TO_DATE(date, 'DD-MM-YYYY') DESC
         LIMIT 10
     """, [ticker, date_str])
 
@@ -129,6 +129,7 @@ def _compute_one(conn, ticker: str, date_str: str, row: dict) -> dict:
         WHERE ticker = %s AND date <= %s
         ORDER BY date DESC LIMIT 210
     """, [ticker, date_str])
+    # Note: price_history.date is YYYY-MM-DD so string comparison is correct
     closes_hist = list(reversed([r["close"] for r in ph if r["close"]]))
 
     ma5   = compute_ma(closes_hist, 5)
@@ -160,8 +161,10 @@ def _compute_one(conn, ticker: str, date_str: str, row: dict) -> dict:
 def _get_prev_close(conn, ticker: str, date_str: str):
     rows = fetchall(conn, """
         SELECT price_close FROM eod_summary
-        WHERE ticker = %s AND date < %s AND price_close IS NOT NULL
-        ORDER BY date DESC LIMIT 1
+        WHERE ticker = %s
+          AND TO_DATE(date, 'DD-MM-YYYY') < TO_DATE(%s, 'DD-MM-YYYY')
+          AND price_close IS NOT NULL
+        ORDER BY TO_DATE(date, 'DD-MM-YYYY') DESC LIMIT 1
     """, [ticker, date_str])
     return rows[0]["price_close"] if rows else None
 
@@ -177,7 +180,9 @@ def compute_analytics_range(conn, date_from: str, date_to: str):
     """Run compute_analytics_for_date for every date in range."""
     dates = [r["date"] for r in fetchall(conn, """
         SELECT DISTINCT date FROM eod_summary
-        WHERE date >= %s AND date <= %s ORDER BY date
+        WHERE TO_DATE(date, 'DD-MM-YYYY') >= TO_DATE(%s, 'DD-MM-YYYY')
+          AND TO_DATE(date, 'DD-MM-YYYY') <= TO_DATE(%s, 'DD-MM-YYYY')
+        ORDER BY TO_DATE(date, 'DD-MM-YYYY')
     """, [date_from, date_to])]
     for d in dates:
         compute_analytics_for_date(conn, d)
