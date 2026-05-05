@@ -307,9 +307,15 @@ def backfill_prices(conn, days: int = 30, date_from: str = None, date_to: str = 
 
         if date_from and date_to:
             date_from = _to_ddmmyyyy(date_from)
-            date_to = _to_ddmmyyyy(date_to)
+            date_to   = _to_ddmmyyyy(date_to)
             log.info(f"💰 Backfill prices: {date_from} → {date_to}")
-            rows = fetchall(conn, "SELECT DISTINCT date FROM eod_summary WHERE date >= %s AND date <= %s ORDER BY date", [date_from, date_to])
+            fmt = "%d-%m-%Y"
+            dt_f = datetime.strptime(date_from, fmt)
+            dt_t = datetime.strptime(date_to,   fmt)
+            all_rows = fetchall(conn, "SELECT DISTINCT date FROM eod_summary ORDER BY date")
+            rows = [r for r in all_rows
+                    if dt_f <= datetime.strptime(r["date"], fmt) <= dt_t]
+            rows = sorted(rows, key=lambda r: datetime.strptime(r["date"], fmt))
         else:
             log.info(f"💰 Backfill prices: last {days} days")
             rows = fetchall(conn, "SELECT DISTINCT date FROM eod_summary ORDER BY date DESC LIMIT %s", [days])
