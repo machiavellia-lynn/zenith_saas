@@ -30,6 +30,7 @@ from data.price_fetch import backfill_prices
 
 log = logging.getLogger("zenith.weekly")
 log.setLevel(logging.INFO)
+log.propagate = False
 if not log.handlers:
     h = logging.StreamHandler()
     h.setFormatter(logging.Formatter("[%(asctime)s] WEEKLY %(levelname)s — %(message)s", "%H:%M:%S"))

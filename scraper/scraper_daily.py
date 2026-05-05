@@ -30,6 +30,7 @@ from algo.algo_backtest import run_backtest
 
 log = logging.getLogger("zenith.scraper")
 log.setLevel(logging.INFO)
+log.propagate = False
 if not log.handlers:
     h = logging.StreamHandler()
     h.setFormatter(logging.Formatter("[%(asctime)s] SCRAPER %(levelname)s — %(message)s", "%H:%M:%S"))
