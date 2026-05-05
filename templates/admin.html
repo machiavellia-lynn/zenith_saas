@@ -261,6 +261,7 @@ header::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;back
           <input type="number" class="num-input" id="bfDays" value="7" min="1" max="365"/>
           <span style="font-size:11px;color:var(--muted)">hari</span>
           <button class="btn" id="bfBtn" onclick="triggerBackfill()">Trigger Backfill</button>
+          <button class="btn outline" id="bfAllBtn" onclick="triggerBackfill(365)">Backfill Semua</button>
         </div>
         <div class="progress-wrap" id="bfProgress"><div class="progress-bar indeterminate" id="bfBar"></div></div>
         <div class="status" id="bfStatus"></div>
@@ -381,14 +382,16 @@ function uploadSession(){
 }
 
 let bfPolling=null;
-function triggerBackfill(){
-  const days=document.getElementById('bfDays').value||7;
+function triggerBackfill(presetDays){
+  const days=presetDays||document.getElementById('bfDays').value||7;
   const btn=document.getElementById('bfBtn');
+  const btnAll=document.getElementById('bfAllBtn');
   const pw=document.getElementById('bfProgress');
   const st=document.getElementById('bfStatus');
   btn.disabled=true;btn.textContent='Running...';
+  btnAll.disabled=true;
   pw.classList.add('active');
-  st.className='status';st.textContent='Backfill queued...';
+  st.className='status';st.textContent=presetDays?`Backfill semua (${days} hari) queued...`:'Backfill queued...';
   setBubble('Lagi scraping data nih... 🔍');
   fetch(`/admin/scraper-weekly?secret=${encodeURIComponent(SECRET)}&days=${days}`)
     .then(r=>r.json()).then(d=>{
@@ -401,6 +404,7 @@ function triggerBackfill(){
               clearInterval(bfPolling);bfPolling=null;
               pw.classList.remove('active');
               btn.disabled=false;btn.textContent='Trigger Backfill';
+              btnAll.disabled=false;
               const r=bf.result||{};
               st.className='status ok';st.textContent=`✅ Done! Scanned: ${r.scanned||0}, Saved: ${r.saved||0} rows`;
               setBubble('Backfill selesai! Nice~ 🎉');
@@ -409,6 +413,7 @@ function triggerBackfill(){
               clearInterval(bfPolling);bfPolling=null;
               pw.classList.remove('active');
               btn.disabled=false;btn.textContent='Trigger Backfill';
+              btnAll.disabled=false;
               st.className='status err';st.textContent='❌ '+bf.result;
               setBubble('Aduh, ada yang error... 😅');
             }else{
