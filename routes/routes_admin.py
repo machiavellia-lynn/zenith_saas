@@ -2,6 +2,7 @@
 routes_admin.py — Blueprint: /admin/*
 RULE: Routing + status reporting only. All ops (rebuild, backfill, scraper) in dedicated modules.
 """
+import os
 from flask import Blueprint, render_template, jsonify, request, redirect
 from core.auth import is_authed
 
@@ -93,4 +94,58 @@ def trigger_backtest():
     days = int(request.args.get("days", 30))
     from algo.algo_backtest import request_backtest
     request_backtest(days)
+    return jsonify({"ok": True})
+
+
+@bp_admin.route("/admin/upload-session", methods=["POST"])
+def upload_session():
+    if not is_authed():
+        return "Unauthorized", 401
+    data = request.get_data()
+    if not data:
+        return "No file data", 400
+    from config import TG_SESSION_PATH
+    os.makedirs(os.path.dirname(TG_SESSION_PATH) or "/data", exist_ok=True)
+    with open(TG_SESSION_PATH, "wb") as f:
+        f.write(data)
+    return f"✅ Session uploaded ({len(data):,} bytes) → {TG_SESSION_PATH}"
+
+
+@bp_admin.route("/admin/users")
+def list_users():
+    if not is_authed():
+        return jsonify({"error": "unauthorized"}), 401
+    from core.db import get_db, fetchall
+    conn = get_db()
+    users = fetchall(conn, "SELECT id, username, role, created_at FROM users ORDER BY id")
+    return jsonify([dict(u) for u in users])
+
+
+@bp_admin.route("/admin/users/add", methods=["POST"])
+def add_user():
+    if not is_authed():
+        return jsonify({"ok": False}), 401
+    data = request.get_json() or {}
+    username = (data.get("username") or "").strip()
+    password = (data.get("password") or "").strip()
+    role     = data.get("role", "guest")
+    if not username or not password:
+        return jsonify({"ok": False, "error": "Username dan password wajib"})
+    if role not in ("admin", "guest"):
+        return jsonify({"ok": False, "error": "Role harus admin atau guest"})
+    from core.auth import register
+    ok = register(username, password, role)
+    if ok:
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "Username sudah dipakai"})
+
+
+@bp_admin.route("/admin/users/delete/<int:user_id>", methods=["POST"])
+def delete_user(user_id):
+    if not is_authed():
+        return jsonify({"ok": False}), 401
+    from core.db import get_db, execute, transaction
+    conn = get_db()
+    with transaction(conn):
+        execute(conn, "DELETE FROM users WHERE id = %s", [user_id])
     return jsonify({"ok": True})

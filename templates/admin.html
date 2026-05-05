@@ -203,6 +203,35 @@ header::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;back
     </div>
   </div>
 
+  <!-- USER MANAGEMENT -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">User Management</div>
+      <div class="card-sub">Kelola akses pengguna — hanya admin yang bisa tambah/hapus</div>
+    </div>
+    <div class="card-body">
+      <div class="card-row">
+        <div class="row-label">Tambah User</div>
+        <div style="display:flex;flex-direction:column;gap:8px;max-width:320px">
+          <input type="text" class="num-input" id="newUsername" placeholder="username" style="width:100%;text-align:left"/>
+          <input type="password" class="num-input" id="newPassword" placeholder="password" style="width:100%;text-align:left"/>
+          <div class="btn-row">
+            <select id="newRole" style="background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:8px 12px;font-family:'Space Mono',monospace;font-size:11px;outline:none;cursor:pointer">
+              <option value="guest">guest</option>
+              <option value="admin">admin</option>
+            </select>
+            <button class="btn" onclick="addUser()">Add User</button>
+          </div>
+        </div>
+        <div class="status" id="addUserStatus"></div>
+      </div>
+      <div class="card-row">
+        <div class="row-label">Daftar User</div>
+        <div id="userList" style="display:flex;flex-direction:column;gap:6px;margin-top:4px"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- SCRAPER -->
   <div class="card">
     <div class="card-header">
@@ -504,9 +533,51 @@ function drawChart(data){
   });
 }
 
+function loadUsers(){
+  fetch('/admin/users').then(r=>r.json()).then(users=>{
+    const list=document.getElementById('userList');
+    if(!users.length){list.innerHTML='<span style="font-family:Space Mono,monospace;font-size:10px;color:var(--muted)">Belum ada user</span>';return}
+    list.innerHTML=users.map(u=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px">
+        <div>
+          <span style="font-family:Space Mono,monospace;font-size:11px;color:var(--text)">${u.username}</span>
+          <span style="font-family:Space Mono,monospace;font-size:10px;color:${u.role==='admin'?'var(--accent)':'var(--muted)'};margin-left:8px">${u.role}</span>
+        </div>
+        <button class="btn danger" style="padding:4px 10px;font-size:10px" onclick="deleteUser(${u.id},'${u.username}')">Hapus</button>
+      </div>`).join('');
+  }).catch(()=>{});
+}
+
+async function addUser(){
+  const username=document.getElementById('newUsername').value.trim();
+  const password=document.getElementById('newPassword').value.trim();
+  const role=document.getElementById('newRole').value;
+  const st=document.getElementById('addUserStatus');
+  if(!username||!password){st.className='status err';st.textContent='Username dan password wajib!';return}
+  st.className='status';st.textContent='Adding...';
+  try{
+    const r=await fetch('/admin/users/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,role})});
+    const d=await r.json();
+    if(d.ok){
+      st.className='status ok';st.textContent=`✅ User "${username}" berhasil ditambahkan!`;
+      document.getElementById('newUsername').value='';document.getElementById('newPassword').value='';
+      setBubble('User baru ditambahkan! 🎉');loadUsers();
+    }else{st.className='status err';st.textContent='❌ '+(d.error||'Gagal')}
+  }catch(e){st.className='status err';st.textContent='Error: '+e.message}
+}
+
+async function deleteUser(id,username){
+  if(!confirm(`Hapus user "${username}"?`))return;
+  try{
+    const r=await fetch(`/admin/users/delete/${id}`,{method:'POST'});
+    const d=await r.json();
+    if(d.ok){setBubble('User dihapus~ 👋');loadUsers()}
+  }catch(e){}
+}
+
 let statusInterval;
 function startPolling(){statusInterval=setInterval(()=>{if(!document.hidden){refreshStatus();loadAnalytics()}},5000)}
-document.addEventListener('DOMContentLoaded',()=>{refreshStatus();loadAnalytics();startPolling()});
+document.addEventListener('DOMContentLoaded',()=>{refreshStatus();loadAnalytics();loadUsers();startPolling()});
 </script>
 <script src="/static/shortcuts.js" defer></script>
 </main>

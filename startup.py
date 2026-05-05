@@ -14,6 +14,7 @@ def do_startup(app):
     """Run all startup tasks inside Flask app context."""
     with app.app_context():
         _init_schema()
+        _seed_admin()
         _start_scraper()
         _start_backtest()
 
@@ -25,6 +26,24 @@ def _init_schema():
         log.info("Schema OK")
     except Exception as e:
         log.error("Schema init failed: %s", e)
+
+
+def _seed_admin():
+    """Create initial admin user from ADMIN_INIT_PASSWORD env var if no users exist."""
+    import os
+    init_password = os.environ.get("ADMIN_INIT_PASSWORD", "").strip()
+    if not init_password:
+        return
+    try:
+        from core.db import get_db, fetchone
+        from core.auth import register
+        conn = get_db()
+        if fetchone(conn, "SELECT id FROM users LIMIT 1"):
+            return
+        if register("admin", init_password, "admin"):
+            log.info("Default admin user created")
+    except Exception as e:
+        log.warning("Admin seed failed: %s", e)
 
 
 def _start_scraper():

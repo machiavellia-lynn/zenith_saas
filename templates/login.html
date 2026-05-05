@@ -46,21 +46,24 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
   <div class="logo">ZENITH</div>
   <div class="tagline">Smart Money Analysis Platform</div>
   <div class="form">
-    <span class="form-label">Access Key</span>
-    <input type="password" class="form-input" id="keyInput" placeholder="Enter access key..." autofocus/>
+    <span class="form-label">Username</span>
+    <input type="text" class="form-input" id="usernameInput" placeholder="Username..." autofocus autocomplete="username"/>
+    <span class="form-label">Password</span>
+    <input type="password" class="form-input" id="passwordInput" placeholder="Password..." autocomplete="current-password"/>
     <button class="form-btn" id="authBtn" onclick="doAuth()">Authenticate →</button>
     <div class="msg" id="msg"></div>
   </div>
 </div>
-<div class="footer">zenith project v1.0 | by machiavellia</div>
+<div class="footer">zenith project v1.0 | by machiavellia &nbsp;·&nbsp; <a href="/admin" style="color:var(--muted);text-decoration:none;opacity:.35;font-size:9px;letter-spacing:.08em">admin</a></div>
 <script>
 async function doAuth(){
-  const key=document.getElementById('keyInput').value.trim();
-  if(!key)return;
+  const username=document.getElementById('usernameInput').value.trim();
+  const password=document.getElementById('passwordInput').value.trim();
+  if(!username||!password)return;
   const btn=document.getElementById('authBtn');
   btn.disabled=true;btn.textContent='Authenticating...';
   try{
-    const fd=new FormData();fd.append('key',key);
+    const fd=new FormData();fd.append('username',username);fd.append('password',password);
     const res=await fetch('/',{method:'POST',body:fd});
     const d=await res.json();
     const msg=document.getElementById('msg');
@@ -69,8 +72,8 @@ async function doAuth(){
       setTimeout(()=>location.href='/hub',600);
     }else{
       msg.className='msg error';msg.textContent='⚠ ACCESS DENIED';
-      document.getElementById('keyInput').value='';
-      document.getElementById('keyInput').focus();
+      document.getElementById('passwordInput').value='';
+      document.getElementById('usernameInput').focus();
       btn.disabled=false;btn.textContent='Authenticate →';
     }
   }catch(e){
@@ -79,7 +82,8 @@ async function doAuth(){
     btn.disabled=false;btn.textContent='Authenticate →';
   }
 }
-document.getElementById('keyInput').addEventListener('keydown',e=>{if(e.key==='Enter')doAuth()});
+document.getElementById('passwordInput').addEventListener('keydown',e=>{if(e.key==='Enter')doAuth()});
+document.getElementById('usernameInput').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('passwordInput').focus()});
 </script>
 <script src="/static/shortcuts.js" defer></script>
 </main>
