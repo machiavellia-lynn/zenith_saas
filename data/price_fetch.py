@@ -316,21 +316,25 @@ def backfill_prices(conn, days: int = 30, date_from: str = None, date_to: str = 
 
         if not rows:
             log.warning("⚠️ No dates found in eod_summary for backfill")
-            return
+            return 0
 
         log.info(f"  Processing {len(rows)} dates...")
+        total_updated = 0
         for i, r in enumerate(rows, 1):
             try:
-                enrich_daily_prices(conn, r["date"])
+                n = enrich_daily_prices(conn, r["date"])
+                total_updated += n
                 conn.commit()
-                log.debug(f"  [{i}/{len(rows)}] {r['date']} ✓")
+                log.debug(f"  [{i}/{len(rows)}] {r['date']} → {n} prices ✓")
             except Exception as e:
                 log.error(f"  ❌ {r['date']}: {e}")
             if delay_ms > 0:
                 time.sleep(delay_ms / 1000)
-        log.info(f"✅ Backfill prices complete: {len(rows)} dates")
+        log.info(f"✅ Backfill prices complete: {len(rows)} dates, {total_updated} prices updated")
+        return total_updated
     except Exception as e:
         log.error(f"❌ Backfill prices failed: {e}")
+        return 0
 
 
 def backfill_price_history_200d(conn):
