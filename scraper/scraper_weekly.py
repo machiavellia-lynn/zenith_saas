@@ -103,6 +103,10 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK):
         total_scanned += scanned
         total_saved   += saved
 
+    # Commit raw messages regardless of whether any were saved
+    conn.commit()
+    log.info(f"💾 Raw data committed: {total_scanned} scanned, {total_saved} saved")
+
     if total_saved > 0:
         dates_sorted = sorted(valid_dates, key=lambda x: datetime.strptime(x, "%d-%m-%Y"))
         log.info(f"📊 Rebuilding summaries for {len(dates_sorted)} dates...")
@@ -110,19 +114,28 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK):
         for d in dates_sorted:
             try:
                 rebuild_summary_for_date(conn, d)
-            except Exception:
-                pass
+                conn.commit()
+            except Exception as e:
+                log.error(f"  ❌ Rebuild {d}: {e}")
+                conn.rollback()
+
+        # Convert DD-MM-YYYY → YYYY-MM-DD for backfill_prices SQL comparison
+        def _to_iso(d):
+            dd, mm, yyyy = d.split("-")
+            return f"{yyyy}-{mm}-{dd}"
 
         try:
-            backfill_prices(conn, date_from=dates_sorted[0], date_to=dates_sorted[-1])
+            backfill_prices(conn, date_from=_to_iso(dates_sorted[0]), date_to=_to_iso(dates_sorted[-1]))
         except Exception as e:
             log.warning(f"⚠️ Price backfill failed: {e}")
 
         for d in dates_sorted:
             try:
                 compute_analytics_for_date(conn, d)
-            except Exception:
-                pass
+                conn.commit()
+            except Exception as e:
+                log.error(f"  ❌ Analytics {d}: {e}")
+                conn.rollback()
 
         log.info("✅ Summaries + prices + analytics rebuilt")
 
