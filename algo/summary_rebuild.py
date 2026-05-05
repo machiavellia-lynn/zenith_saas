@@ -8,6 +8,7 @@ import logging
 from core.db import get_db, fetchall, execute
 
 log = logging.getLogger("zenith.summary_rebuild")
+log.setLevel(logging.INFO)
 
 
 def rebuild_summary_for_date(conn, date_str: str, full_reset: bool = False):
@@ -52,6 +53,9 @@ def rebuild_summary_for_date(conn, date_str: str, full_reset: bool = False):
     """, [date_str])
 
     mf_map = {r["ticker"]: r for r in mf_rows}
+
+    if not sm_rows:
+        log.warning("⚠️ No SM/BM data found in raw_messages for date=%s", date_str)
 
     for row in sm_rows:
         ticker = row["ticker"]

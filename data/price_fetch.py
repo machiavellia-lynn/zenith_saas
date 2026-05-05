@@ -17,6 +17,7 @@ from core.utils import parse_date
 from core.db import fetchall, execute, get_db
 
 log = logging.getLogger("zenith.price")
+log.setLevel(logging.INFO)
 
 GAIN_EXECUTOR = ThreadPoolExecutor(max_workers=10)
 
@@ -334,6 +335,10 @@ def backfill_prices(conn, days: int = 30, date_from: str = None, date_to: str = 
                 log.debug(f"  [{i}/{len(rows)}] {r['date']} → {n} prices ✓")
             except Exception as e:
                 log.error(f"  ❌ {r['date']}: {e}")
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
             if delay_ms > 0:
                 time.sleep(delay_ms / 1000)
         log.info(f"✅ Backfill prices complete: {len(rows)} dates, {total_updated} prices updated")

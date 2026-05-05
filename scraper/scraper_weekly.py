@@ -119,13 +119,14 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK):
                 log.error(f"  ❌ Rebuild {d}: {e}")
                 conn.rollback()
 
-        # Convert DD-MM-YYYY → YYYY-MM-DD for backfill_prices SQL comparison
+        # Convert DD-MM-YYYY → YYYY-MM-DD for backfill_prices
         def _to_iso(d):
             dd, mm, yyyy = d.split("-")
             return f"{yyyy}-{mm}-{dd}"
 
         try:
-            backfill_prices(conn, date_from=_to_iso(dates_sorted[0]), date_to=_to_iso(dates_sorted[-1]))
+            prices_count = backfill_prices(conn, date_from=_to_iso(dates_sorted[0]), date_to=_to_iso(dates_sorted[-1]))
+            log.info(f"💰 Price backfill result: {prices_count} prices updated")
         except Exception as e:
             log.warning(f"⚠️ Price backfill failed: {e}")
 
@@ -135,7 +136,6 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK):
                 conn.commit()
             except Exception as e:
                 log.error(f"  ❌ Analytics {d}: {e}")
-                conn.rollback()
                 conn.rollback()
 
         log.info("✅ Summaries + prices + analytics rebuilt")

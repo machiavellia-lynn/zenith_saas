@@ -42,11 +42,14 @@ def rebuild_summary():
     if not date_str:
         return jsonify({"error": "date required"}), 400
     from algo.summary_rebuild import rebuild_summary_for_date
-    from core.db import get_db, transaction
-    conn = get_db()
-    with transaction(conn):
-        rebuild_summary_for_date(conn, date_str)
-    return jsonify({"ok": True})
+    from core.db import get_scraper_db, transaction
+    conn = get_scraper_db()
+    try:
+        with transaction(conn):
+            rebuild_summary_for_date(conn, date_str)
+        return jsonify({"ok": True})
+    finally:
+        conn.close()
 
 
 @bp_admin.route("/admin/recompute-analytics")
@@ -57,11 +60,14 @@ def recompute_analytics():
     if not date_str:
         return jsonify({"error": "date required"}), 400
     from algo.analytics_daily import compute_analytics_for_date
-    from core.db import get_db, transaction
-    conn = get_db()
-    with transaction(conn):
-        n = compute_analytics_for_date(conn, date_str)
-    return jsonify({"ok": True, "updated": n})
+    from core.db import get_scraper_db, transaction
+    conn = get_scraper_db()
+    try:
+        with transaction(conn):
+            n = compute_analytics_for_date(conn, date_str)
+        return jsonify({"ok": True, "updated": n})
+    finally:
+        conn.close()
 
 
 @bp_admin.route("/admin/backfill-prices")

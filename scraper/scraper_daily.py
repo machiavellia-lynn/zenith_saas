@@ -276,10 +276,10 @@ async def scraper_main():
             with _backfill_lock:
                 bf_status = _backfill_request.get("status", "idle")
                 pending_days = _backfill_request["days"] if bf_status == "pending" else None
-                if pending_days:
+                if pending_days is not None and pending_days > 0:
                     log.info(f"📥 Backfill request detected: days={pending_days}, setting status→running")
                     _backfill_request["status"] = "running"
-                else:
+                elif bf_status != "idle":
                     log.debug(f"Backfill status={bf_status}, days={_backfill_request.get('days')}")
 
             if pending_days:

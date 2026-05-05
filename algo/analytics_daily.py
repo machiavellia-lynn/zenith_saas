@@ -15,6 +15,7 @@ from algo.algo_wyckoff import (
 from config import WIB
 
 log = logging.getLogger("zenith.analytics")
+log.setLevel(logging.INFO)
 
 _28_DAYS = 28
 
