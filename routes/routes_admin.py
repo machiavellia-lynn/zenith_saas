@@ -80,25 +80,27 @@ def admin_backfill_prices():
     try:
         from data.price_fetch import backfill_prices
         from algo.analytics_daily import compute_analytics_for_date
-        from core.db import get_db, fetchall
+        from core.db import get_scraper_db, fetchall
         from datetime import datetime
+        import logging
+        log = logging.getLogger("zenith.admin")
 
-        conn = get_db()
+        conn = get_scraper_db()
 
-        # Fetch prices
-        prices_updated = backfill_prices(
-            conn,
-            days=days,
-            date_from=date_from_input,
-            date_to=date_to_input,
-            delay_ms=delay_ms
-        )
+        try:
+            # Fetch prices
+            prices_updated = backfill_prices(
+                conn,
+                days=days,
+                date_from=date_from_input,
+                date_to=date_to_input,
+                delay_ms=delay_ms
+            )
 
-        # Recompute analytics for the date range so gain%, phase, action reflect new prices
-        analytics_recomputed = 0
-        if prices_updated > 0 and date_from_input:
-            fmt = "%d-%m-%Y"
-            try:
+            # Recompute analytics for the date range
+            analytics_recomputed = 0
+            if date_from_input:
+                fmt = "%d-%m-%Y"
                 dt_f = datetime.strptime(date_from_input, fmt)
                 dt_t = datetime.strptime(date_to_input, fmt) if date_to_input else datetime.now()
 
@@ -109,31 +111,30 @@ def admin_backfill_prices():
                 ])
 
                 for d in dates_to_recompute:
-                    n = compute_analytics_for_date(conn, d)
-                    analytics_recomputed += n
-                    conn.commit()
-            except Exception as e:
-                import logging
-                logging.getLogger("zenith.admin").error(f"Analytics recompute failed: {e}")
+                    try:
+                        n = compute_analytics_for_date(conn, d)
+                        analytics_recomputed += n
+                        conn.commit()
+                    except Exception as e:
+                        log.error(f"Analytics recompute failed for {d}: {e}")
+                        conn.rollback()
+        finally:
+            conn.close()
 
-        conn.close()
         return jsonify({
-            "ok":                     True,
-            "prices_updated":         prices_updated,
-            "analytics_recomputed":   analytics_recomputed,
-            "mode":                   "range" if date_from_input else "days",
-            "date_from":              date_from_input,
-            "date_to":                date_to_input,
-            "days":                   days if not date_from_input else None,
-            "delay_ms":               delay_ms,
+            "ok":                   True,
+            "prices_updated":       prices_updated,
+            "analytics_recomputed": analytics_recomputed,
+            "mode":                 "range" if date_from_input else "days",
+            "date_from":            date_from_input,
+            "date_to":              date_to_input,
+            "days":                 days if not date_from_input else None,
+            "delay_ms":             delay_ms,
         })
     except Exception as e:
         import logging
         logging.getLogger("zenith.admin").error(f"Backfill prices failed: {e}")
-        return jsonify({
-            "ok":    False,
-            "error": str(e),
-        }), 500
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @bp_admin.route("/admin/backfill-200d")

@@ -136,6 +136,7 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK):
             except Exception as e:
                 log.error(f"  ❌ Analytics {d}: {e}")
                 conn.rollback()
+                conn.rollback()
 
         log.info("✅ Summaries + prices + analytics rebuilt")
 
