@@ -73,33 +73,67 @@ def admin_backfill_prices():
     date_to   = request.args.get("date_to", "").strip()
     delay_ms  = int(request.args.get("delay_ms", 500))
 
-    # Normalize DD-MM-YYYY → YYYY-MM-DD for DB query
-    def _normalize(d):
-        if d and len(d) == 10 and d[2] == "-" and d[5] == "-":
-            return f"{d[6:]}-{d[3:5]}-{d[:2]}"
-        return d
+    # Keep DD-MM-YYYY format for return response
+    date_from_input = date_from or None
+    date_to_input   = date_to or None
 
-    date_from = _normalize(date_from) or None
-    date_to   = _normalize(date_to)   or None
+    try:
+        from data.price_fetch import backfill_prices
+        from algo.analytics_daily import compute_analytics_for_date
+        from core.db import get_db, fetchall
+        from datetime import datetime
 
-    import threading
-    from data.price_fetch import backfill_prices
-    from core.db import get_db
-
-    def _run():
         conn = get_db()
-        backfill_prices(conn, days=days, date_from=date_from, date_to=date_to, delay_ms=delay_ms)
-        conn.commit()
 
-    threading.Thread(target=_run, daemon=True).start()
-    return jsonify({
-        "ok":       True,
-        "mode":     "range" if (date_from and date_to) else "days",
-        "date_from": date_from,
-        "date_to":   date_to,
-        "days":      days if not (date_from and date_to) else None,
-        "delay_ms":  delay_ms,
-    })
+        # Fetch prices
+        prices_updated = backfill_prices(
+            conn,
+            days=days,
+            date_from=date_from_input,
+            date_to=date_to_input,
+            delay_ms=delay_ms
+        )
+
+        # Recompute analytics for the date range so gain%, phase, action reflect new prices
+        analytics_recomputed = 0
+        if prices_updated > 0 and date_from_input:
+            fmt = "%d-%m-%Y"
+            try:
+                dt_f = datetime.strptime(date_from_input, fmt)
+                dt_t = datetime.strptime(date_to_input, fmt) if date_to_input else datetime.now()
+
+                all_rows = fetchall(conn, "SELECT DISTINCT date FROM eod_summary ORDER BY date")
+                dates_to_recompute = sorted([
+                    r["date"] for r in all_rows
+                    if dt_f <= datetime.strptime(r["date"], fmt) <= dt_t
+                ])
+
+                for d in dates_to_recompute:
+                    n = compute_analytics_for_date(conn, d)
+                    analytics_recomputed += n
+                    conn.commit()
+            except Exception as e:
+                import logging
+                logging.getLogger("zenith.admin").error(f"Analytics recompute failed: {e}")
+
+        conn.close()
+        return jsonify({
+            "ok":                     True,
+            "prices_updated":         prices_updated,
+            "analytics_recomputed":   analytics_recomputed,
+            "mode":                   "range" if date_from_input else "days",
+            "date_from":              date_from_input,
+            "date_to":                date_to_input,
+            "days":                   days if not date_from_input else None,
+            "delay_ms":               delay_ms,
+        })
+    except Exception as e:
+        import logging
+        logging.getLogger("zenith.admin").error(f"Backfill prices failed: {e}")
+        return jsonify({
+            "ok":    False,
+            "error": str(e),
+        }), 500
 
 
 @bp_admin.route("/admin/backfill-200d")
