@@ -136,12 +136,16 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK):
         # also get their analytics recalculated
         log.info("📊 Computing analytics for all updated dates...")
         # Note: eod_summary.date is DD-MM-YYYY format, so use dates_sorted directly (not converted)
-        all_eod_dates = [r["date"] for r in fetchall(conn, """
+        # Fetch all dates in range, then sort in Python (avoid PostgreSQL DISTINCT + ORDER BY issue)
+        all_eod_rows = fetchall(conn, """
             SELECT DISTINCT date FROM eod_summary
-            WHERE TO_DATE(date, 'DD-MM-YYYY') >= TO_DATE(%s, 'DD-MM-YYYY')
-              AND TO_DATE(date, 'DD-MM-YYYY') <= TO_DATE(%s, 'DD-MM-YYYY')
-            ORDER BY TO_DATE(date, 'DD-MM-YYYY')
-        """, [dates_sorted[0], dates_sorted[-1]])]
+            WHERE date IS NOT NULL
+        """, [])
+        all_eod_dates = sorted([
+            r["date"] for r in all_eod_rows
+            if datetime.strptime(r["date"], "%d-%m-%Y") >= datetime.strptime(dates_sorted[0], "%d-%m-%Y")
+            and datetime.strptime(r["date"], "%d-%m-%Y") <= datetime.strptime(dates_sorted[-1], "%d-%m-%Y")
+        ], key=lambda d: datetime.strptime(d, "%d-%m-%Y"))
 
         analytics_count = 0
         for d in all_eod_dates:
