@@ -17,7 +17,7 @@ from config import (
     TG_SESSION_PATH as SESSION_PATH,
     TG_GROUP_ID as GROUP_ID,
 )
-from core.db import get_scraper_db
+from core.db import get_scraper_db, fetchall
 from scraper.scraper_parser import parse_joker_message, parse_mf_message
 from scraper.scraper_saver import save_sm_bm_rows, save_mf_rows
 from scraper.scraper_daily import (
@@ -131,13 +131,27 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK):
         except Exception as e:
             log.warning(f"⚠️ Price backfill failed: {e}")
 
-        for d in dates_sorted:
+        # Compute analytics for ALL dates in eod_summary that have prices, not just dates_sorted
+        # This ensures that dates updated by backfill_prices (including stale data from previous runs)
+        # also get their analytics recalculated
+        log.info("📊 Computing analytics for all updated dates...")
+        all_eod_dates = [r["date"] for r in fetchall(conn, """
+            SELECT DISTINCT date FROM eod_summary
+            WHERE date >= %s AND date <= %s
+            ORDER BY date
+        """, [_to_iso(dates_sorted[0]), _to_iso(dates_sorted[-1])])]
+
+        analytics_count = 0
+        for d in all_eod_dates:
             try:
-                compute_analytics_for_date(conn, d)
+                n = compute_analytics_for_date(conn, d)
+                analytics_count += n
                 conn.commit()
             except Exception as e:
                 log.error(f"  ❌ Analytics {d}: {e}")
                 conn.rollback()
+
+        log.info(f"💰 Analytics recomputed for {len(all_eod_dates)} dates, {analytics_count} tickers updated")
 
         log.info("✅ Summaries + prices + analytics rebuilt")
 
