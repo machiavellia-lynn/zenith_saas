@@ -240,6 +240,8 @@ async def scraper_main():
             now_wib    = datetime.now(WIB)
             today_str  = now_wib.strftime("%Y-%m-%d")
 
+            log.debug(f"⏰ Loop iteration at {now_wib.strftime('%H:%M:%S')}")
+
             if today_str != last_check_date:
                 first_pass_done = second_pass_done = backtest_done_today = False
                 last_check_date = today_str
@@ -272,9 +274,13 @@ async def scraper_main():
                     backtest_done_today = True
 
             with _backfill_lock:
-                pending_days = _backfill_request["days"] if _backfill_request["status"] == "pending" else None
+                bf_status = _backfill_request.get("status", "idle")
+                pending_days = _backfill_request["days"] if bf_status == "pending" else None
                 if pending_days:
+                    log.info(f"📥 Backfill request detected: days={pending_days}, setting status→running")
                     _backfill_request["status"] = "running"
+                else:
+                    log.debug(f"Backfill status={bf_status}, days={_backfill_request.get('days')}")
 
             if pending_days:
                 try:
