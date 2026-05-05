@@ -295,10 +295,19 @@ def enrich_daily_prices(conn, date_str: str) -> int:
 
 def backfill_prices(conn, days: int = 30, date_from: str = None, date_to: str = None, delay_ms: int = 500):
     """Backfill price_close in eod_summary for a date range.
+    Accepts both DD-MM-YYYY and YYYY-MM-DD formats for date_from/date_to.
     delay_ms: sleep between dates to avoid Yahoo rate limit.
     Caller is responsible for commit."""
     try:
+        # Convert YYYY-MM-DD to DD-MM-YYYY if needed (eod_summary stores DD-MM-YYYY)
+        def _to_ddmmyyyy(d):
+            if d and len(d) == 10 and d[4] == "-":  # YYYY-MM-DD format
+                return f"{d[8:]}-{d[5:7]}-{d[:4]}"
+            return d
+
         if date_from and date_to:
+            date_from = _to_ddmmyyyy(date_from)
+            date_to = _to_ddmmyyyy(date_to)
             log.info(f"💰 Backfill prices: {date_from} → {date_to}")
             rows = fetchall(conn, "SELECT DISTINCT date FROM eod_summary WHERE date >= %s AND date <= %s ORDER BY date", [date_from, date_to])
         else:
