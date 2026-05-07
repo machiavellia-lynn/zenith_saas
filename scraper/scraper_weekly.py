@@ -17,7 +17,7 @@ from config import (
     TG_SESSION_PATH as SESSION_PATH,
     TG_GROUP_ID as GROUP_ID,
 )
-from core.db import get_scraper_db, fetchall
+from core.db import get_scraper_db, fetchall, transaction
 from scraper.scraper_parser import parse_joker_message, parse_mf_message
 from scraper.scraper_saver import save_sm_bm_rows, save_mf_rows
 from scraper.scraper_daily import (
@@ -82,16 +82,21 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK):
             if msg_date in valid_dates:
                 consecutive_old = 0
                 msg_id = message.id
-                if topic_id in SM_BM_TOPICS:
-                    rows = parse_joker_message(message.text, channel)
-                    if rows:
-                        n = save_sm_bm_rows(conn, msg_id, rows)
-                        saved += n
-                else:
-                    rows = parse_mf_message(message.text, channel)
-                    if rows:
-                        n = save_mf_rows(conn, msg_id, rows)
-                        saved += n
+                try:
+                    if topic_id in SM_BM_TOPICS:
+                        rows = parse_joker_message(message.text, channel)
+                        if rows:
+                            with transaction(conn):
+                                n = save_sm_bm_rows(conn, msg_id, rows)
+                            saved += n
+                    else:
+                        rows = parse_mf_message(message.text, channel)
+                        if rows:
+                            with transaction(conn):
+                                n = save_mf_rows(conn, msg_id, rows)
+                            saved += n
+                except Exception as e:
+                    log.warning(f"  ⚠️ {label} msg={msg_id} save failed: {e}")
             else:
                 consecutive_old += 1
                 if consecutive_old > 100:
@@ -104,9 +109,7 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK):
         total_scanned += scanned
         total_saved   += saved
 
-    # Commit raw messages regardless of whether any were saved
-    conn.commit()
-    log.info(f"💾 Raw data committed: {total_scanned} scanned, {total_saved} saved")
+    log.info(f"💾 Raw data: {total_scanned} scanned, {total_saved} saved")
 
     if total_saved > 0:
         dates_sorted = sorted(valid_dates, key=lambda x: datetime.strptime(x, "%d-%m-%Y"))
