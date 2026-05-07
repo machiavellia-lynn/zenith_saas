@@ -78,61 +78,52 @@ def admin_backfill_prices():
     if not is_authed():
         return redirect("/")
     days      = int(request.args.get("days", 30))
-    date_from = request.args.get("date_from", "").strip()
-    date_to   = request.args.get("date_to", "").strip()
-    delay_ms  = int(request.args.get("delay_ms", 333))
+    date_from = request.args.get("date_from", "").strip() or None
+    date_to   = request.args.get("date_to", "").strip() or None
 
-    import threading
     from data.price_fetch import backfill_prices
     from algo.analytics_daily import compute_analytics_for_date
     from core.db import get_scraper_db, fetchall
     from datetime import datetime
     import logging
+    log = logging.getLogger("zenith.admin")
 
-    def _backfill_task():
-        log = logging.getLogger("zenith.admin")
-        conn = get_scraper_db()
-        try:
-            prices_updated = backfill_prices(
-                conn,
-                days=days,
-                date_from=date_from,
-                date_to=date_to,
-                delay_ms=delay_ms
-            )
+    conn = get_scraper_db()
+    try:
+        prices_updated = backfill_prices(conn, days=days, date_from=date_from, date_to=date_to)
 
-            if date_from:
-                fmt = "%d-%m-%Y"
-                dt_f = datetime.strptime(date_from, fmt)
-                dt_t = datetime.strptime(date_to, fmt) if date_to else datetime.now()
+        analytics_recomputed = 0
+        if date_from:
+            fmt = "%d-%m-%Y"
+            dt_f = datetime.strptime(date_from, fmt)
+            dt_t = datetime.strptime(date_to, fmt) if date_to else datetime.now()
+            all_rows = fetchall(conn, "SELECT DISTINCT date FROM eod_summary ORDER BY date")
+            dates_to_recompute = sorted([
+                r["date"] for r in all_rows
+                if dt_f <= datetime.strptime(r["date"], fmt) <= dt_t
+            ])
+            for d in dates_to_recompute:
+                try:
+                    n = compute_analytics_for_date(conn, d)
+                    analytics_recomputed += n
+                    conn.commit()
+                except Exception as e:
+                    log.error(f"Analytics recompute failed for {d}: {e}")
+                    conn.rollback()
 
-                all_rows = fetchall(conn, "SELECT DISTINCT date FROM eod_summary ORDER BY date")
-                dates_to_recompute = sorted([
-                    r["date"] for r in all_rows
-                    if dt_f <= datetime.strptime(r["date"], fmt) <= dt_t
-                ])
-
-                for d in dates_to_recompute:
-                    try:
-                        compute_analytics_for_date(conn, d)
-                        conn.commit()
-                    except Exception as e:
-                        log.error(f"Analytics recompute failed for {d}: {e}")
-                        conn.rollback()
-            log.info(f"✅ Backfill complete: {prices_updated} prices updated")
-        except Exception as e:
-            log.error(f"❌ Backfill failed: {e}")
-        finally:
-            conn.close()
-
-    threading.Thread(target=_backfill_task, daemon=True).start()
-    return jsonify({
-        "ok": True,
-        "status": "Backfill started in background",
-        "date_from": date_from or None,
-        "date_to": date_to or None,
-        "days": days if not date_from else None,
-    })
+        return jsonify({
+            "ok": True,
+            "prices_updated": prices_updated,
+            "analytics_recomputed": analytics_recomputed,
+            "date_from": date_from,
+            "date_to": date_to,
+            "days": days if not date_from else None,
+        })
+    except Exception as e:
+        log.error(f"Backfill prices failed: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        conn.close()
 
 
 @bp_admin.route("/admin/backfill-200d")
