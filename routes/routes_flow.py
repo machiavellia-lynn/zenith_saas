@@ -9,7 +9,7 @@ from core.auth import is_authed
 from config import WIB, YF_HEADERS, INTERVAL_MAP, SECTORS
 from core.utils import parse_date, date_range
 from core.db import get_db, fetchall
-from data.price_fetch import get_gains_batch, fetch_ohlcv
+from data.price_fetch import fetch_ohlcv
 from algo.algo_wyckoff import (
     classify_zenith_v3_1, get_action, get_watch_flag,
     get_ma_structure, get_phase_narrative, detect_trade_detail_gate,
@@ -152,11 +152,6 @@ def flow():
 
     if not data:
         return jsonify({"tickers": [], "totals": {}})
-
-    missing = [t for t in data if t not in gains_map or gains_map.get(t, {}).get("gain") is None]
-    if missing:
-        for t, g in get_gains_batch(missing, date_from, date_to).items():
-            gains_map[t] = g
 
     tickers = []
     for t, d in data.items():

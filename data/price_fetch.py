@@ -139,22 +139,44 @@ def get_gains_batch(tickers: list, date_from: str, date_to: str) -> dict:
     return result
 
 
-def _fetch_close(ticker: str):
-    """Fetch latest close price for a single ticker."""
+def _fetch_close(ticker: str, target_date: str = None):
+    """Fetch close for ticker. If target_date (DD-MM-YYYY) given, returns close
+    on-or-before that date. Otherwise returns latest close."""
     symbol = f"{ticker}.JK"
     try:
+        params = {"interval": "1d", "includeAdjustedClose": "false"}
+        target_str = None
+        if target_date:
+            d = parse_date(target_date)
+            params["period1"] = int((datetime(d.year, d.month, d.day, tzinfo=WIB) - timedelta(days=10)).timestamp())
+            params["period2"] = int((datetime(d.year, d.month, d.day, tzinfo=WIB) + timedelta(days=2)).timestamp())
+            target_str = d.strftime("%Y-%m-%d")
+        else:
+            params["range"] = "5d"
+
         resp = requests.get(
             f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
-            headers=YF_HEADERS,
-            params={"interval": "1d", "range": "5d"},
-            timeout=8,
+            headers=YF_HEADERS, params=params, timeout=8,
         )
         r = resp.json().get("chart", {}).get("result", [None])[0]
         if not r:
             return ticker, None
-        closes = r.get("indicators", {}).get("quote", [{}])[0].get("close", [])
-        closes = [c for c in closes if c]
-        return ticker, round(closes[-1], 0) if closes else None
+        timestamps = r.get("timestamp", []) or []
+        closes     = r.get("indicators", {}).get("quote", [{}])[0].get("close", []) or []
+
+        if target_str is None:
+            valid = [c for c in closes if c and float(c) > 0]
+            return ticker, int(round(float(valid[-1]))) if valid else None
+
+        best = None
+        for i, ts in enumerate(timestamps):
+            c = closes[i] if i < len(closes) else None
+            if not c or float(c) <= 0:
+                continue
+            ds = datetime.fromtimestamp(ts, tz=WIB).strftime("%Y-%m-%d")
+            if ds <= target_str:
+                best = float(c)
+        return ticker, int(round(best)) if best else None
     except Exception:
         return ticker, None
 
@@ -281,7 +303,7 @@ def enrich_daily_prices(conn, date_str: str) -> int:
 
     updated = 0
     with ThreadPoolExecutor(max_workers=15) as ex:
-        futures = {ex.submit(_fetch_close, t): t for t in tickers}
+        futures = {ex.submit(_fetch_close, t, date_str): t for t in tickers}
         for fut in as_completed(futures, timeout=120):
             try:
                 ticker, close = fut.result()
