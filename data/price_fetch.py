@@ -318,52 +318,81 @@ def enrich_daily_prices(conn, date_str: str) -> int:
 
 def backfill_prices(conn, days: int = 30, date_from: str = None, date_to: str = None, delay_ms: int = 333):
     """Backfill price_close in eod_summary for a date range.
+    Efficient: 1 Yahoo request per ticker (covers entire date range), not per-date.
     Accepts both DD-MM-YYYY and YYYY-MM-DD formats for date_from/date_to.
-    delay_ms: sleep between dates to avoid Yahoo rate limit.
+    delay_ms: sleep between tickers to avoid Yahoo rate limit.
     Caller is responsible for commit."""
     try:
-        # Convert YYYY-MM-DD to DD-MM-YYYY if needed (eod_summary stores DD-MM-YYYY)
         def _to_ddmmyyyy(d):
-            if d and len(d) == 10 and d[4] == "-":  # YYYY-MM-DD format
+            if d and len(d) == 10 and d[4] == "-":
                 return f"{d[8:]}-{d[5:7]}-{d[:4]}"
             return d
 
+        fmt = "%d-%m-%Y"
         if date_from and date_to:
             date_from = _to_ddmmyyyy(date_from)
-            date_to   = _to_ddmmyyyy(date_to)
-            log.info(f"💰 Backfill prices: {date_from} → {date_to}")
-            fmt = "%d-%m-%Y"
+            date_to = _to_ddmmyyyy(date_to)
             dt_f = datetime.strptime(date_from, fmt)
-            dt_t = datetime.strptime(date_to,   fmt)
-            all_rows = fetchall(conn, "SELECT DISTINCT date FROM eod_summary ORDER BY date")
-            rows = [r for r in all_rows
-                    if dt_f <= datetime.strptime(r["date"], fmt) <= dt_t]
-            rows = sorted(rows, key=lambda r: datetime.strptime(r["date"], fmt))
+            dt_t = datetime.strptime(date_to, fmt)
         else:
-            log.info(f"💰 Backfill prices: last {days} days")
-            rows = fetchall(conn, "SELECT DISTINCT date FROM eod_summary ORDER BY date DESC LIMIT %s", [days])
+            all_dates = fetchall(conn, "SELECT DISTINCT date FROM eod_summary ORDER BY TO_DATE(date, 'DD-MM-YYYY') DESC LIMIT %s", [days])
+            if all_dates:
+                dt_t = datetime.strptime(all_dates[0]["date"], fmt)
+                dt_f = datetime.strptime(all_dates[-1]["date"], fmt)
+                date_from = dt_f.strftime(fmt)
+                date_to = dt_t.strftime(fmt)
+            else:
+                log.warning("⚠️ No dates found in eod_summary for backfill")
+                return 0
 
-        if not rows:
-            log.warning("⚠️ No dates found in eod_summary for backfill")
+        log.info(f"💰 Backfill prices: {date_from} → {date_to}")
+
+        valid_dates = set()
+        rows = fetchall(conn, "SELECT DISTINCT date FROM eod_summary ORDER BY date")
+        for r in rows:
+            try:
+                d = datetime.strptime(r["date"], fmt)
+                if dt_f <= d <= dt_t:
+                    valid_dates.add(r["date"])
+            except Exception:
+                pass
+
+        if not valid_dates:
+            log.warning("⚠️ No dates in range found in eod_summary")
             return 0
 
-        log.info(f"  Processing {len(rows)} dates...")
+        tickers = [r["ticker"] for r in fetchall(conn,
+            "SELECT DISTINCT ticker FROM eod_summary WHERE date = ANY(%s)",
+            [list(valid_dates)])]
+        log.info(f"  Tickers: {len(tickers)}, Dates: {len(valid_dates)}")
+
         total_updated = 0
-        for i, r in enumerate(rows, 1):
+        dt_f_dt = datetime(dt_f.year, dt_f.month, dt_f.day, tzinfo=WIB)
+        dt_t_dt = datetime(dt_t.year, dt_t.month, dt_t.day, tzinfo=WIB)
+
+        for i, ticker in enumerate(tickers, 1):
             try:
-                n = enrich_daily_prices(conn, r["date"])
-                total_updated += n
+                _, prices = _fetch_close_history(ticker, dt_f_dt, dt_t_dt)
+                for date_str, close in prices:
+                    if date_str in valid_dates:
+                        yyyy_mm_dd = date_str
+                        dd_mm_yyyy = f"{yyyy_mm_dd[8:]}-{yyyy_mm_dd[5:7]}-{yyyy_mm_dd[:4]}"
+                        execute(conn, "UPDATE eod_summary SET price_close = %s WHERE date = %s AND ticker = %s",
+                                [close, dd_mm_yyyy, ticker])
+                        total_updated += 1
                 conn.commit()
-                log.debug(f"  [{i}/{len(rows)}] {r['date']} → {n} prices ✓")
+                if i % 10 == 0:
+                    log.debug(f"  [{i}/{len(tickers)}] {ticker} ✓")
             except Exception as e:
-                log.error(f"  ❌ {r['date']}: {e}")
+                log.warning(f"  ⚠️ {ticker}: {e}")
                 try:
                     conn.rollback()
                 except Exception:
                     pass
             if delay_ms > 0:
                 time.sleep(delay_ms / 1000)
-        log.info(f"✅ Backfill prices complete: {len(rows)} dates, {total_updated} prices updated")
+
+        log.info(f"✅ Backfill prices complete: {total_updated} prices updated for {len(tickers)} tickers")
         return total_updated
     except Exception as e:
         log.error(f"❌ Backfill prices failed: {e}")
