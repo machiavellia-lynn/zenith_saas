@@ -80,7 +80,7 @@ def admin_backfill_prices():
     days      = int(request.args.get("days", 30))
     date_from = request.args.get("date_from", "").strip()
     date_to   = request.args.get("date_to", "").strip()
-    delay_ms  = int(request.args.get("delay_ms", 500))
+    delay_ms  = int(request.args.get("delay_ms", 333))
 
     # Keep DD-MM-YYYY format for return response
     date_from_input = date_from or None

@@ -316,7 +316,7 @@ def enrich_daily_prices(conn, date_str: str) -> int:
     return updated
 
 
-def backfill_prices(conn, days: int = 30, date_from: str = None, date_to: str = None, delay_ms: int = 500):
+def backfill_prices(conn, days: int = 30, date_from: str = None, date_to: str = None, delay_ms: int = 333):
     """Backfill price_close in eod_summary for a date range.
     Accepts both DD-MM-YYYY and YYYY-MM-DD formats for date_from/date_to.
     delay_ms: sleep between dates to avoid Yahoo rate limit.
