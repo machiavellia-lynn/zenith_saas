@@ -57,8 +57,10 @@ def flow_page():
 def last_date():
     if not is_authed():
         return jsonify({"error": "unauthorized"}), 401
-    row = fetchone(get_db(), "SELECT MAX(date) AS last_date FROM eod_summary")
-    return jsonify({"date": row["last_date"] if row else None})
+    row = fetchone(get_db(),
+        "SELECT date FROM eod_summary ORDER BY TO_DATE(date, 'DD-MM-YYYY') DESC LIMIT 1")
+    date_str = row["date"].replace("-", "/") if row and row["date"] else None
+    return jsonify({"date": date_str})
 
 
 @bp_main.route("/api/ihsg")
