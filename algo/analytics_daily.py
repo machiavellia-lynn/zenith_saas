@@ -124,12 +124,13 @@ def _compute_one(conn, ticker: str, date_str: str, row: dict) -> dict:
     bm_sma10 = round(sum(abs(h["bm_val"]) for h in history_reversed[-10:]) / min(len(history_reversed), 10), 2) if history_reversed else 0
 
     # ── MA & RSI from price_history ───────────────────────────────────────
+    # date_str is DD-MM-YYYY; price_history.date is YYYY-MM-DD — convert for string comparison
+    date_yyyy_mm_dd = f"{date_str[6:10]}-{date_str[3:5]}-{date_str[:2]}"
     ph = fetchall(conn, """
         SELECT close FROM price_history
         WHERE ticker = %s AND date <= %s
         ORDER BY date DESC LIMIT 210
-    """, [ticker, date_str])
-    # Note: price_history.date is YYYY-MM-DD so string comparison is correct
+    """, [ticker, date_yyyy_mm_dd])
     closes_hist = list(reversed([r["close"] for r in ph if r["close"]]))
 
     ma5   = compute_ma(closes_hist, 5)
