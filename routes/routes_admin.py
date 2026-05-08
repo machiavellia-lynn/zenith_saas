@@ -92,6 +92,10 @@ def admin_backfill_prices():
     try:
         prices_updated = backfill_prices(conn, days=days, date_from=date_from, date_to=date_to)
 
+        from data.price_fetch import backfill_price_history_200d
+        backfill_price_history_200d(conn)
+        conn.commit()
+
         analytics_recomputed = 0
         if date_from:
             fmt = "%d-%m-%Y"
@@ -132,9 +136,23 @@ def admin_backfill_200d():
         return redirect("/")
     import threading
     from data.price_fetch import backfill_price_history_200d
-    from core.db import get_db
-    threading.Thread(target=lambda: backfill_price_history_200d(get_db()), daemon=True).start()
-    return jsonify({"ok": True})
+    from core.db import get_scraper_db
+    import logging as _logging
+    _log = _logging.getLogger("zenith.admin")
+
+    def _run():
+        conn = get_scraper_db()
+        try:
+            backfill_price_history_200d(conn)
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            _log.error(f"price_history backfill failed: {e}")
+        finally:
+            conn.close()
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"ok": True, "message": "200d price history backfill started"})
 
 
 @bp_admin.route("/admin/trigger-backtest")

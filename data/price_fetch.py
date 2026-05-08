@@ -401,10 +401,14 @@ def backfill_price_history_200d(conn):
     Caller is responsible for commit."""
     tickers = [r["ticker"] for r in fetchall(conn, "SELECT DISTINCT ticker FROM eod_summary")]
     cutoff  = datetime.now(WIB) - timedelta(days=210)
+    now     = datetime.now(WIB)
     log.info("Backfilling price_history for %d tickers since %s", len(tickers), cutoff.date())
 
-    for ticker in tickers:
-        _, rows = _fetch_close_history(ticker, date_from=cutoff, date_to=datetime.now(WIB))
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        results = list(ex.map(lambda t: _fetch_close_history(t, cutoff, now), tickers))
+
+    inserted = 0
+    for ticker, rows in results:
         for r in rows:
             try:
                 execute(conn, """
@@ -412,8 +416,10 @@ def backfill_price_history_200d(conn):
                     VALUES (%s, %s, %s)
                     ON CONFLICT (date, ticker) DO NOTHING
                 """, [r["date"], ticker, r["close"]])
+                inserted += 1
             except Exception as e:
                 log.warning("price_history insert fail ticker=%s date=%s: %s", ticker, r["date"], e)
+    log.info("price_history backfill done: %d rows for %d tickers", inserted, len(tickers))
 
 
 def fetch_all_gains_to_db(conn, date_str: str, delay_ms: int = 333):
