@@ -91,5 +91,5 @@ def rebuild_all_summaries(conn):
     dates = [r["date"] for r in fetchall(conn, "SELECT DISTINCT date FROM raw_messages ORDER BY date")]
     log.info("Rebuilding summary for %d dates", len(dates))
     for date_str in dates:
-        rebuild_summary_for_date(conn, date_str, full_reset=True)
+        rebuild_summary_for_date(conn, date_str, full_reset=False)
         conn.commit()
