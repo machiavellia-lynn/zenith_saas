@@ -313,23 +313,6 @@ def enrich_daily_prices(conn, date_str: str) -> int:
                     updated += 1
             except Exception as e:
                 log.warning("enrich_daily_prices failed ticker=%s date=%s: %s", futures[fut], date_str, e)
-
-    # Also fetch IHSG (Indonesian index) and store in price_history
-    try:
-        _, ihsg_price = _fetch_close("IHSG", date_str)
-        if ihsg_price is not None:
-            d = parse_date(date_str)
-            date_yyyy_mm_dd = d.strftime("%Y-%m-%d")
-            execute(conn, """
-                INSERT INTO price_history (date, ticker, close)
-                VALUES (%s, %s, %s)
-                ON CONFLICT (date, ticker) DO UPDATE SET close = EXCLUDED.close
-            """, [date_yyyy_mm_dd, "IHSG", ihsg_price])
-            updated += 1
-            log.info("IHSG fetched: %s = %d", date_str, ihsg_price)
-    except Exception as e:
-        log.warning("IHSG fetch failed date=%s: %s", date_str, e)
-
     return updated
 
 

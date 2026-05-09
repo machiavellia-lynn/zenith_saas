@@ -68,5 +68,5 @@ def ihsg():
     if not is_authed():
         return jsonify({"error": "unauthorized"}), 401
     today = datetime.now(WIB).strftime("%d-%m-%Y")
-    gain, price = fetch_gain_range("^JKSE", today, today)
-    return jsonify({"gain": gain, "price": price})
+    gain_pct, price = fetch_gain_range("^JKSE", today, today)
+    return jsonify({"gain_pct": gain_pct, "price": price})
