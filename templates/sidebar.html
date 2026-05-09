@@ -1,9 +1,18 @@
 <aside class="sidebar" id="sidebar">
 
-  <!-- Brand: combined SVG (icon + ZENITH text dalam satu unit) -->
+  <!-- Brand -->
   <div class="sidebar-brand">
     <a href="/hub" class="sidebar-brand-link">
-      <!-- Full logo (expanded state) -->
+      <!-- Mini icon: always visible when collapsed, fades out on expand -->
+      <svg class="sidebar-logo-mini" viewBox="28 6 148 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M43 53 L83 29 M94 28 L119 38 M130 37 L161 18"
+              stroke="white" stroke-width="2.8" stroke-linecap="round"/>
+        <circle cx="38"  cy="56" r="6" fill="none" stroke="white" stroke-width="2.8"/>
+        <circle cx="88"  cy="26" r="6" fill="none" stroke="white" stroke-width="2.8"/>
+        <circle cx="125" cy="40" r="6" fill="none" stroke="white" stroke-width="2.8"/>
+        <circle cx="166" cy="15" r="6" fill="none" stroke="white" stroke-width="2.8"/>
+      </svg>
+      <!-- Full logo: absolute centered, fades in on expand -->
       <svg class="sidebar-logo-svg" viewBox="0 0 210 82" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M43 53 L83 29 M94 28 L119 38 M130 37 L161 18"
               stroke="white" stroke-width="2.8" stroke-linecap="round"/>
@@ -15,15 +24,6 @@
               text-anchor="middle" fill="white"
               font-family="'Space Mono','IBM Plex Mono',monospace"
               font-weight="700" font-size="20" letter-spacing="8">ZENITH</text>
-      </svg>
-      <!-- Mini icon: tight crop to just the constellation (collapsed state) -->
-      <svg class="sidebar-logo-mini" viewBox="28 6 148 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M43 53 L83 29 M94 28 L119 38 M130 37 L161 18"
-              stroke="white" stroke-width="2.8" stroke-linecap="round"/>
-        <circle cx="38"  cy="56" r="6" fill="none" stroke="white" stroke-width="2.8"/>
-        <circle cx="88"  cy="26" r="6" fill="none" stroke="white" stroke-width="2.8"/>
-        <circle cx="125" cy="40" r="6" fill="none" stroke="white" stroke-width="2.8"/>
-        <circle cx="166" cy="15" r="6" fill="none" stroke="white" stroke-width="2.8"/>
       </svg>
     </a>
   </div>
@@ -102,7 +102,7 @@
     if (el) el.classList.toggle('open');
   }
 
-  // ── Auto-collapse hover (desktop only) ──
+  /* ── Auto-collapse hover (desktop only) ── */
   function expandSidebar() {
     if (window.innerWidth <= 768) return;
     clearTimeout(collapseTimer);
@@ -120,11 +120,14 @@
   sb.addEventListener('mouseenter', expandSidebar);
   sb.addEventListener('mouseleave', scheduleSidebarCollapse);
 
-  // ── Mobile open/close ──
+  /* ── Mobile open/close ── */
   function sidebarOpen() {
     sb.classList.add('open');
     var ov = document.getElementById('sidebarOverlay');
-    if (ov) { ov.style.display = 'block'; requestAnimationFrame(function(){ ov.classList.add('visible'); }); }
+    if (ov) {
+      ov.style.display = 'block';
+      requestAnimationFrame(function(){ ov.classList.add('visible'); });
+    }
     document.body.style.overflow = 'hidden';
   }
 
