@@ -94,7 +94,7 @@ header::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;back
 /* Spotlight onboarding */
 .spotlight-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0);pointer-events:none;transition:background .4s ease}
 .spotlight-overlay.active{background:rgba(0,0,0,.75);pointer-events:all}
-.spotlight-target{position:relative;z-index:1001!important;pointer-events:all!important}
+.spotlight-target{z-index:1001!important;pointer-events:all!important}
 .spotlight-target::after{content:'';position:absolute;inset:-8px;border-radius:50%;box-shadow:0 0 0 4px var(--accent),0 0 0 9999px rgba(0,0,0,.75);animation:spotPulse 1.5s ease-in-out infinite;pointer-events:none}
 @keyframes spotPulse{0%,100%{box-shadow:0 0 0 4px var(--accent),0 0 0 9999px rgba(0,0,0,.75)}50%{box-shadow:0 0 0 8px rgba(0,232,162,.5),0 0 0 9999px rgba(0,0,0,.75)}}
 .onboard-bubble{position:fixed;z-index:1002;background:var(--surface);border:1px solid var(--accent);border-radius:8px;padding:18px 20px;font-family:'Space Mono',monospace;font-size:11px;color:var(--text);line-height:1.5;max-width:280px;opacity:0;transform:translateY(4px);transition:opacity .3s ease,transform .3s ease;pointer-events:none}
@@ -283,8 +283,8 @@ function initOnboarding(){
     const infoBtn=document.querySelector('.info-btn');
     if(!infoBtn)return;
     overlay.classList.add('active');
-    infoBtn.classList.add('spotlight-target');
     const rect=infoBtn.getBoundingClientRect();
+    infoBtn.classList.add('spotlight-target');
     bubble.style.top=(rect.bottom+12)+'px';
     bubble.style.right=(window.innerWidth-rect.right-10)+'px';
     setTimeout(()=>bubble.classList.add('visible'),200);
