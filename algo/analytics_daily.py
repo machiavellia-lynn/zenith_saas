@@ -108,8 +108,9 @@ def _compute_one(conn, ticker: str, date_str: str, row: dict) -> dict:
     # ── RPR (Relative Pressure Ratio) ────────────────────────────────────
     rpr = round(tx_bm / tx_total, 3) if tx_total > 0 else 0
 
-    # ── VolxGap ───────────────────────────────────────────────────────────
-    volx_gap = row.get("volx_gap")
+    # ── VolxGap: gap between close price and smart money VWAP (%) ────────
+    vwap_sm_val = row.get("vwap_sm")
+    volx_gap = round((price_close - vwap_sm_val) / vwap_sm_val * 100, 2) if price_close and vwap_sm_val and vwap_sm_val > 0 else None
 
     # ── ATR% ──────────────────────────────────────────────────────────────
     closes_10 = [h["price_close"] for h in history_reversed if h.get("price_close")]

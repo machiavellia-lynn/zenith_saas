@@ -197,6 +197,7 @@ select.sel{background:var(--bg);border:1px solid var(--border2);color:var(--text
         <div class="section-label">Rebuild EOD Summary</div>
         <div class="btn-row">
           <button class="btn outline" id="rbBtn" onclick="triggerRebuild()">Rebuild Summary</button>
+          <button class="btn outline" id="raBtn" onclick="triggerRecomputeAll()">Recompute All Analytics</button>
         </div>
         <div class="progress-wrap" id="rbProgress"><div class="progress-bar indeterminate"></div></div>
         <div class="status" id="rbStatus"></div>
@@ -420,6 +421,35 @@ function triggerRebuild() {
             }
           });
       }, 3000);
+    })
+    .catch(e => {
+      st.className = 'status err'; st.textContent = 'Error: ' + e.message;
+      pw.classList.remove('active'); btn.disabled = false;
+    });
+}
+
+// ── Recompute All Analytics (volx_gap backfill) ───────────────────────────────
+function triggerRecomputeAll() {
+  const st  = document.getElementById('rbStatus');
+  const pw  = document.getElementById('rbProgress');
+  const btn = document.getElementById('raBtn');
+
+  btn.disabled = true;
+  pw.classList.add('active');
+  st.className = 'status'; st.textContent = 'Memulai recompute semua analytics (background)...';
+
+  fetch('/admin/recompute-analytics-all')
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) {
+        st.className = 'status ok';
+        st.textContent = d.message + ' — cek server log untuk progress.';
+      } else {
+        st.className = 'status err';
+        st.textContent = d.error || 'Gagal.';
+      }
+      pw.classList.remove('active');
+      btn.disabled = false;
     })
     .catch(e => {
       st.className = 'status err'; st.textContent = 'Error: ' + e.message;

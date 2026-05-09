@@ -153,6 +153,39 @@ def recompute_analytics():
         conn.close()
 
 
+@bp_admin.route("/admin/recompute-analytics-all")
+def recompute_analytics_all():
+    if not is_authed():
+        return redirect("/")
+    import threading
+    import logging as _logging
+    _log = _logging.getLogger("zenith.admin")
+
+    def _run():
+        from algo.analytics_daily import compute_analytics_for_date
+        from core.db import get_scraper_db, fetchall
+        conn = get_scraper_db()
+        try:
+            dates = [r["date"] for r in fetchall(conn,
+                "SELECT DISTINCT date FROM eod_summary ORDER BY TO_DATE(date,'DD-MM-YYYY')")]
+            _log.info("Recomputing analytics for %d dates", len(dates))
+            total = 0
+            for d in dates:
+                try:
+                    n = compute_analytics_for_date(conn, d)
+                    total += n
+                    conn.commit()
+                except Exception as e:
+                    conn.rollback()
+                    _log.error("analytics failed for %s: %s", d, e)
+            _log.info("Recompute-all done: %d rows updated", total)
+        finally:
+            conn.close()
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"ok": True, "message": "Analytics recompute for all dates started in background"})
+
+
 @bp_admin.route("/admin/backfill-prices")
 def admin_backfill_prices():
     if not is_authed():
