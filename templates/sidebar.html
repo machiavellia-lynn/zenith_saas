@@ -3,12 +3,11 @@
   <!-- Brand / Logo -->
   <div class="sidebar-brand">
     <a href="/hub">
-      <!-- Constellation icon from official Zenith logo -->
       <svg class="sidebar-logo-icon" viewBox="-100 -30 148 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M-90 10 L-20 -20 L40 5" stroke="#00e8a2" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="-90" cy="10" r="7" fill="#00e8a2"/>
-        <circle cx="-20" cy="-20" r="7" fill="#00e8a2"/>
-        <circle cx="40" cy="5" r="7" fill="#00e8a2"/>
+        <path d="M-90 10 L-20 -20 L40 5" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="-90" cy="10" r="7" fill="none" stroke="#ffffff" stroke-width="3"/>
+        <circle cx="-20" cy="-20" r="7" fill="none" stroke="#ffffff" stroke-width="3"/>
+        <circle cx="40" cy="5" r="7" fill="none" stroke="#ffffff" stroke-width="3"/>
       </svg>
       <div class="sidebar-logo-text">
         <span class="sidebar-logo-name">ZENITH</span>
@@ -21,52 +20,47 @@
   <nav class="sidebar-nav">
 
     <a href="/hub" class="s-item{% if request.path == '/hub' %} active{% endif %}">
-      <span class="s-icon">🏠</span>
-      <span class="s-label">Dashboard</span>
+      <span class="s-icon">⊙</span>
+      <span class="s-label">Hub</span>
     </a>
 
     <a href="/chart" class="s-item{% if request.path == '/chart' %} active{% endif %}">
-      <span class="s-icon">📊</span>
+      <span class="s-icon">⬡</span>
       <span class="s-label">Charts</span>
     </a>
 
-    <a href="/flow" class="s-item{% if request.path == '/flow' %} active{% endif %}">
-      <span class="s-icon">〰️</span>
-      <span class="s-label">Wyckoff</span>
-    </a>
+    <!-- Algo (collapsible) -->
+    <div class="s-group{% if request.path in ['/flow'] %} open{% endif %}" id="group-algo">
+      <button class="s-group-toggle" onclick="sidebarToggleGroup('group-algo')">
+        <span class="s-icon">◧</span>
+        <span class="s-label">Algo</span>
+        <span class="s-chevron">▾</span>
+      </button>
+      <div class="s-group-items">
+        <div class="s-group-items-inner">
+          <a href="/flow" class="s-item s-sub{% if request.path == '/flow' %} active{% endif %}">
+            <span class="s-icon">⊞</span>Wyckoff
+          </a>
+          <div class="s-coming-soon">More coming soon</div>
+        </div>
+      </div>
+    </div>
 
     <!-- Analysis (collapsible) -->
-    <div class="s-group{% if request.path in ['/sector', '/backtest', '/journal'] %} open{% endif %}" id="group-analysis">
+    <div class="s-group{% if request.path in ['/sector', '/backtest'] %} open{% endif %}" id="group-analysis">
       <button class="s-group-toggle" onclick="sidebarToggleGroup('group-analysis')">
-        <span class="s-icon">📈</span>
+        <span class="s-icon">◈</span>
         <span class="s-label">Analysis</span>
         <span class="s-chevron">▾</span>
       </button>
       <div class="s-group-items">
         <div class="s-group-items-inner">
           <a href="/sector" class="s-item s-sub{% if request.path == '/sector' %} active{% endif %}">
-            Sector
+            <span class="s-icon">◉</span>Sector
           </a>
           <a href="/backtest" class="s-item s-sub{% if request.path == '/backtest' %} active{% endif %}">
-            Backtest
+            <span class="s-icon">▤</span>Backtest
           </a>
-          <a href="/journal" class="s-item s-sub{% if request.path == '/journal' %} active{% endif %}">
-            Journal
-          </a>
-        </div>
-      </div>
-    </div>
-
-    <!-- Algo (collapsible) -->
-    <div class="s-group" id="group-algo">
-      <button class="s-group-toggle" onclick="sidebarToggleGroup('group-algo')">
-        <span class="s-icon">🧮</span>
-        <span class="s-label">Algo</span>
-        <span class="s-chevron">▾</span>
-      </button>
-      <div class="s-group-items">
-        <div class="s-group-items-inner">
-          <div class="s-coming-soon">Coming Soon</div>
         </div>
       </div>
     </div>
@@ -81,8 +75,7 @@
 (function() {
   function sidebarToggleGroup(id) {
     var el = document.getElementById(id);
-    if (!el) return;
-    el.classList.toggle('open');
+    if (el) el.classList.toggle('open');
   }
   function sidebarOpen() {
     document.getElementById('sidebar').classList.add('open');

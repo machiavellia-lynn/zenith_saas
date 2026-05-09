@@ -149,10 +149,18 @@ body.sidebar-layout header .nav-group { display: none !important; }
 
 /* Sub-items (indented) */
 .s-item.s-sub {
-  padding-left: 38px;
+  padding-left: 24px;
   font-size: 12px;
 }
-.s-item.s-sub .s-icon { display: none; }
+
+/* No scale/shrink effect on click */
+.s-item:active,
+.s-group-toggle:active { transform: none; }
+
+/* Hide header home+leaderboard icon buttons on chart & flow pages
+   (sidebar handles navigation there; keep on hub/sector/backtest) */
+body[data-page="chart"] header a.info-btn,
+body[data-page="flow"] header a.info-btn { display: none !important; }
 
 /* ── COLLAPSIBLE GROUP ───────────────────────────────────── */
 .s-group { display: flex; flex-direction: column; }
@@ -222,6 +230,18 @@ body.sidebar-layout header .nav-group { display: none !important; }
   border: 1px dashed var(--border);
   border-radius: 4px;
   text-align: center;
+}
+
+/* ── HUB MOBILE BAR (hub has no header, needs its own) ─────── */
+.hub-mobile-bar {
+  display: none;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+@media (max-width: 768px) {
+  .hub-mobile-bar { display: flex; }
 }
 
 /* ── MOBILE HAMBURGER ────────────────────────────────────── */
