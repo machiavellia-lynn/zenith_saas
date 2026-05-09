@@ -81,11 +81,15 @@ def ihsg():
 
         meta = result.get("meta", {})
         price = meta.get("regularMarketPrice")
-        prev = meta.get("chartPreviousClose") or meta.get("previousClose")
+
+        # Get yesterday's close from chart data (not chartPreviousClose which is range start)
+        closes = result.get("indicators", {}).get("quote", [{}])[0].get("close", []) or []
+        valid_closes = [c for c in closes if c and float(c) > 0]
+        prev = float(valid_closes[-2]) if len(valid_closes) >= 2 else meta.get("previousClose")
 
         gain_pct = None
         if price and prev and prev > 0:
-            gain_pct = round((price - prev) / prev * 100, 2)
+            gain_pct = round((float(price) - prev) / prev * 100, 2)
 
         return jsonify({
             "price": round(float(price), 2) if price else None,
