@@ -91,11 +91,17 @@ body[data-page="flow"]  header a.info-btn { display: none !important; }
   overflow: hidden;
 }
 
-/* ── DIVIDER ─────────────────────────────────────────────── */
+/* ── DIVIDER (always visible, both collapsed & expanded) ─── */
 .s-divider {
   height: 1px;
+  background: var(--border2);
+  margin: 6px 10px;
+  flex-shrink: 0;
+}
+.s-divider-sub {
+  height: 1px;
   background: var(--border);
-  margin: 4px 8px;
+  margin: 4px 18px;
   flex-shrink: 0;
 }
 

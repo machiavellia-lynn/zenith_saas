@@ -536,9 +536,19 @@ header::before {
   letter-spacing: .06em;
 }
 
+/* ── MAIN: flex column container so table-wrap can flex: 1 ───── */
+body.sidebar-layout main#main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+body.sidebar-layout .stats-bar,
+body.sidebar-layout .toolbar { flex-shrink: 0; }
+
 /* ── TABLE ───────────────────────────────────────── */
 .table-wrap {
-  flex: 1; overflow: auto;
+  flex: 1; min-height: 0; overflow: auto;
   padding: 0 24px 24px;
 }
 table {
