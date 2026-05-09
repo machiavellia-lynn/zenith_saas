@@ -98,7 +98,7 @@ body[data-page="flow"]  header a.info-btn { display: none !important; }
   height: 1px;
   background: var(--border);
   margin: 8px 4px;
-  opacity: 0;
+  opacity: .5;
   transition: opacity .2s ease;
 }
 .sidebar.expanded .s-divider { opacity: 1; }
@@ -145,11 +145,31 @@ body[data-page="flow"]  header a.info-btn { display: none !important; }
 .s-item:hover .s-svg,
 .s-item.active .s-svg { opacity: 1; }
 
-/* Remove gap when text is hidden (collapsed) */
-.sidebar:not(.expanded) .s-item { gap: 0; }
+/* Center icon when collapsed, left-align when expanded */
+.sidebar:not(.expanded) .s-item {
+  gap: 0;
+  justify-content: center;
+  padding: 9px 0;
+}
+.sidebar.expanded .s-item {
+  justify-content: flex-start;
+  padding: 9px 22px;
+}
+
+/* Group toggle collapsed state */
+.sidebar:not(.expanded) .s-group-toggle {
+  gap: 0;
+  justify-content: center;
+  padding: 9px 0;
+}
 
 /* Sub-items */
 .s-item.s-sub { padding-left: 26px; font-size: 13px; }
+.sidebar.expanded .s-item.s-sub { padding-left: 26px; }
+.sidebar:not(.expanded) .s-item.s-sub {
+  justify-content: center;
+  padding: 9px 0;
+}
 .s-item.s-sub .s-svg { width: 14px; height: 14px; }
 
 /* ── TEXT: fade + slight slide, never shown when collapsed ── */
@@ -173,6 +193,8 @@ body[data-page="flow"]  header a.info-btn { display: none !important; }
   align-items: center;
   gap: 10px;
   padding: 9px 22px;
+  justify-content: flex-start;
+}
   border-radius: 6px;
   background: none; border: none;
   color: var(--muted);
