@@ -6,9 +6,10 @@ from datetime import datetime
 from flask import Blueprint, render_template, redirect, request, jsonify
 
 from core.auth import is_authed, login, logout as auth_logout
-from config import WIB
+from config import WIB, YF_HEADERS
 from core.db import fetchone, get_db
 from data.price_fetch import fetch_gain_range
+import requests
 
 bp_main = Blueprint("main", __name__)
 
@@ -67,6 +68,23 @@ def last_date():
 def ihsg():
     if not is_authed():
         return jsonify({"error": "unauthorized"}), 401
-    today = datetime.now(WIB).strftime("%d-%m-%Y")
-    gain_pct, price = fetch_gain_range("^JKSE", today, today)
-    return jsonify({"gain_pct": gain_pct, "price": price})
+    try:
+        resp = requests.get(
+            "https://query1.finance.yahoo.com/v10/finance/quoteSummary/^JKSE",
+            headers=YF_HEADERS,
+            params={"modules": "price"},
+            timeout=8,
+        )
+        data = resp.json().get("quoteSummary", {}).get("result", [{}])[0].get("price", {})
+        if not data:
+            return jsonify({"price": None, "gain_pct": None})
+
+        price = data.get("regularMarketPrice")
+        change_pct = data.get("regularMarketChangePercent")
+
+        return jsonify({
+            "price": int(round(float(price))) if price else None,
+            "gain_pct": round(float(change_pct), 2) if change_pct else None,
+        })
+    except Exception as e:
+        return jsonify({"price": None, "gain_pct": None, "error": str(e)})
