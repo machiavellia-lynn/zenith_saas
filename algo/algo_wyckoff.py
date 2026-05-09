@@ -102,13 +102,13 @@ def get_action(
     Gate B — ARB Safety    : watch_flag == "ARB_SPRING" → HOLD
     Gate C — Anti-Pucuk    : pchg >= threshold per phase → HOLD
                              SOS: max(atr × 2.5, 6.0)
-                             Others: max(atr × 3.0, 6.0)
-    Filter SRI             : sri < 1.3 → HOLD (SM intensity insufficient)
-    Filter RSM             : rsm < 75.0 → HOLD (SM not dominant enough)
+                             Others: max(atr × 2.75, 5.5)
+    Filter SRI             : sri < 1.4 → HOLD (SM intensity insufficient)
+    Filter RSM             : rsm < 70.0 → HOLD (SM not dominant enough)
     """
     atr      = atr_pct if atr_pct and atr_pct > 0 else 2.5
     th_sos_h = max(atr * 2.5, 6.0)   # SOS: tighter ceiling
-    th_buy_h = max(atr * 3.0, 6.0)   # SPRING / ABSORB / ACCUM: more room
+    th_buy_h = max(atr * 2.75, 5.5)  # SPRING / ABSORB / ACCUM: more room
 
     BUY_PHASES  = ("SOS", "SPRING", "ABSORB", "ACCUM")
     SELL_PHASES = ("UPTHRUST", "DISTRI")
@@ -120,9 +120,9 @@ def get_action(
         return "HOLD"
 
     # SM Quality Filters — skip low-conviction SM entries
-    if sri > 0 and sri < 1.3:
+    if sri > 0 and sri < 1.4:
         return "HOLD"
-    if rsm > 0 and rsm < 75.0:
+    if rsm > 0 and rsm < 70.0:
         return "HOLD"
 
     # Gate A: Supply Gate — BM hari ini ≥ rata-rata normal = ada tekanan jual signifikan
