@@ -130,6 +130,7 @@ _backfill_request = {"days": None, "status": "idle", "result": None}
 _rebuild_request  = {"status": "idle", "result": None}
 _backtest_request = {"days": None, "status": "idle", "result": None}
 _backfill_lock    = threading.Lock()
+_scraper_thread   = None
 
 
 async def run_backfill(client, conn):
@@ -190,9 +191,10 @@ def request_rebuild() -> dict:
 def get_backfill_status() -> dict:
     with _backfill_lock:
         return {
-            "backfill": dict(_backfill_request),
-            "rebuild":  dict(_rebuild_request),
-            "backtest": dict(_backtest_request),
+            "backfill":     dict(_backfill_request),
+            "rebuild":      dict(_rebuild_request),
+            "backtest":     dict(_backtest_request),
+            "thread_alive": _scraper_thread is not None and _scraper_thread.is_alive(),
         }
 
 
@@ -341,6 +343,8 @@ async def scraper_main():
 
 
 def start_scraper_thread():
+    global _scraper_thread
+
     def _run():
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -351,7 +355,7 @@ def start_scraper_thread():
         finally:
             loop.close()
 
-    t = threading.Thread(target=_run, name="zenith-scraper", daemon=True)
-    t.start()
+    _scraper_thread = threading.Thread(target=_run, name="zenith-scraper", daemon=True)
+    _scraper_thread.start()
     log.info("🚀 Scraper thread started")
-    return t
+    return _scraper_thread

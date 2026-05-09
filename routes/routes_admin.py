@@ -21,7 +21,53 @@ def scraper_status():
     if not is_authed():
         return redirect("/")
     from scraper.scraper_daily import get_backfill_status
-    return jsonify(get_backfill_status())
+    from core.db import get_scraper_db, fetchall
+
+    status = get_backfill_status()
+
+    try:
+        conn = get_scraper_db()
+        ch_map = {"smart": "SM", "bm": "BM", "MF+": "MF+", "MF-": "MF-"}
+        first_data  = {}
+        latest_data = {}
+        row_counts  = {}
+
+        for ch, label in ch_map.items():
+            rows = fetchall(conn, """
+                SELECT MIN(date) AS first_date, MAX(date) AS last_date, COUNT(*) AS cnt
+                FROM raw_messages WHERE channel = %s
+            """, [ch])
+            if rows and rows[0]["cnt"]:
+                r = rows[0]
+                first_data[label]  = r["first_date"] or "—"
+                latest_data[label] = r["last_date"]  or "—"
+                row_counts[label]  = int(r["cnt"])
+            else:
+                first_data[label]  = "—"
+                latest_data[label] = "—"
+                row_counts[label]  = 0
+
+        eod = fetchall(conn, """
+            SELECT MIN(date) AS first_date, MAX(date) AS last_date, COUNT(*) AS cnt
+            FROM eod_summary
+        """)
+        if eod and eod[0]["cnt"]:
+            first_data["EOD"]  = eod[0]["first_date"] or "—"
+            latest_data["EOD"] = eod[0]["last_date"]  or "—"
+            row_counts["summary"] = int(eod[0]["cnt"])
+        else:
+            first_data["EOD"]  = "—"
+            latest_data["EOD"] = "—"
+            row_counts["summary"] = 0
+
+        status["first_data"]  = first_data
+        status["latest_data"] = latest_data
+        status["row_counts"]  = row_counts
+        conn.close()
+    except Exception as e:
+        status["db_error"] = str(e)
+
+    return jsonify(status)
 
 
 @bp_admin.route("/admin/scraper-weekly")
