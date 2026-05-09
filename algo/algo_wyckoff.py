@@ -92,19 +92,23 @@ def get_action(
     bm_val: float = 0,
     bm_sma10: float = 0,
     watch_flag=None,
+    sri: float = 0,
+    rsm: float = 0,
 ) -> str:
     """
-    Derive trading action from phase with 3 safety gates (v3.1).
+    Derive trading action from phase with 3 safety gates + SM quality filters (v3.2).
 
-    Gate A — Supply Gate   : bm_val > bm_sma10 × 3.0  → HOLD
+    Gate A — Supply Gate   : bm_val > bm_sma10 × 1.0  → HOLD
     Gate B — ARB Safety    : watch_flag == "ARB_SPRING" → HOLD
     Gate C — Anti-Pucuk    : pchg >= threshold per phase → HOLD
-                             SOS: max(atr × 3.5, 7.0)  — SOS allowed to run higher
-                             Others: max(atr × 2.0, 5.0)
+                             SOS: max(atr × 2.5, 6.0)
+                             Others: max(atr × 3.0, 6.0)
+    Filter SRI             : sri < 1.3 → HOLD (SM intensity insufficient)
+    Filter RSM             : rsm < 75.0 → HOLD (SM not dominant enough)
     """
     atr      = atr_pct if atr_pct and atr_pct > 0 else 2.5
-    th_sos_h = max(atr * 3.5, 7.0)   # SOS: more room to run
-    th_buy_h = max(atr * 2.0, 5.0)   # SPRING / ABSORB / ACCUM
+    th_sos_h = max(atr * 2.5, 6.0)   # SOS: tighter ceiling
+    th_buy_h = max(atr * 3.0, 6.0)   # SPRING / ABSORB / ACCUM: more room
 
     BUY_PHASES  = ("SOS", "SPRING", "ABSORB", "ACCUM")
     SELL_PHASES = ("UPTHRUST", "DISTRI")
@@ -115,15 +119,21 @@ def get_action(
     if phase not in BUY_PHASES:
         return "HOLD"
 
-    # Gate A: Supply Gate — BM hari ini 3x rata-rata normal = tembok penjual masif
-    if bm_sma10 > 0 and bm_val > bm_sma10 * 3.0:
+    # SM Quality Filters — skip low-conviction SM entries
+    if sri > 0 and sri < 1.3:
+        return "HOLD"
+    if rsm > 0 and rsm < 75.0:
+        return "HOLD"
+
+    # Gate A: Supply Gate — BM hari ini ≥ rata-rata normal = ada tekanan jual signifikan
+    if bm_sma10 > 0 and bm_val > bm_sma10 * 1.0:
         return "HOLD"
 
     # Gate B: ARB Safety — SPRING dengan penurunan ekstrim
     if watch_flag == "ARB_SPRING":
         return "HOLD"
 
-    # Gate C: Anti-Pucuk — SOS gets higher ceiling, other BUY phases stricter
+    # Gate C: Anti-Pucuk — SOS gets tighter ceiling, other BUY phases given more room
     limit = th_sos_h if phase == "SOS" else th_buy_h
     if pchg is not None and pchg >= limit:
         return "HOLD"
@@ -157,16 +167,16 @@ def detect_trade_detail_gate(
     """
     Detect which (if any) Gate condition is active for Trade Detail display.
 
-    Gate A: Supply Gate — BM today > BM SMA10 × 3.0 (abnormal selling pressure)
+    Gate A: Supply Gate — BM today > BM SMA10 × 1.0 (supply pressure active)
     Gate B: Extreme Panic — SPRING phase with pchg < -(ATR × 1.5) (ARB risk)
-    Gate C: Profit Taking — BUY action (SOS/SPRING/ABSORB/ACCUM) with pchg > ATR × 2.0
+    Gate C: Profit Taking — BUY action (SOS/SPRING/ABSORB/ACCUM) with pchg > ATR × 3.0
 
     Returns: "Gate A", "Gate B", "Gate C", or None
     """
     atr = atr_pct if atr_pct and atr_pct > 0 else 2.5
 
-    # Gate A: Abnormal supply (BM spike)
-    if bm_sma10 > 0 and bm_val > bm_sma10 * 3.0:
+    # Gate A: Supply pressure active (BM ≥ normal avg)
+    if bm_sma10 > 0 and bm_val > bm_sma10 * 1.0:
         return "Gate A"
 
     # Gate B: Extreme panic (SPRING with massive drop)
@@ -174,7 +184,7 @@ def detect_trade_detail_gate(
         return "Gate B"
 
     # Gate C: Profit taking (entry signal but price has run too far)
-    th_buy_h = max(atr * 2.0, 5.0)
+    th_buy_h = max(atr * 3.0, 6.0)
     if action == "BUY" and pchg is not None and pchg >= th_buy_h:
         return "Gate C"
 
@@ -351,9 +361,9 @@ _PHASE_NARRATIVE: dict = {
 # ── Gate Condition Overrides ──────────────────────────────────────────────────
 
 _GATE_NARRATIVES = {
-    "Gate A": "Abnormal Supply — Terdeteksi tekanan jual masif dari Bad Money (BM hari ini 3x+ rata-rata 10 hari), meskipun fase Smart Money menunjukkan akumulasi. Ada \"tembok penjual\" yang dapat mematikan momentum SM secara tiba-tiba. Tahan entry baru sampai supply abnormal ini mereda; risiko false signal sangat tinggi saat kondisi ini aktif.",
+    "Gate A": "Active Supply — Terdeteksi tekanan jual dari Bad Money (BM hari ini ≥ rata-rata 10 hari), meskipun fase Smart Money menunjukkan akumulasi. Ada tekanan penjual yang aktif yang dapat mematikan momentum SM. Tahan entry baru sampai supply mereda dan SM lebih dominan; risiko false signal meningkat saat kondisi ini aktif.",
     "Gate B": "Extreme Panic / Risiko ARB — Terdeteksi fase SPRING namun penurunan harga melampaui 1.5× volatilitas normal (ATR), mendekati zona Auto Rejection Bawah. SM mungkin benar dalam akumulasi jangka panjang, tapi momentum turun masih sangat kuat hari ini. Tunggu konfirmasi bounce di hari berikutnya sebelum entry; \"tangkap pisau jatuh\" adalah risiko utama di kondisi ini.",
-    "Gate C": "Profit Taking Zone — Signal BUY valid dari sisi fase SM, namun harga hari ini sudah naik melampaui batas toleransi volatilitas (≥2× ATR atau ≥5%). Entry di harga ini berarti beli di puncak harian; probabilitas pullback lebih tinggi dari probabilitas kelanjutan. Tunggu koreksi atau entry di hari berikutnya jika struktur masih intact.",
+    "Gate C": "Profit Taking Zone — Signal BUY valid dari sisi fase SM, namun harga hari ini sudah naik melampaui batas toleransi volatilitas (≥3× ATR atau ≥6%). Entry di harga ini berarti beli di puncak harian; probabilitas pullback lebih tinggi dari probabilitas kelanjutan. Tunggu koreksi atau entry di hari berikutnya jika struktur masih intact.",
 }
 
 

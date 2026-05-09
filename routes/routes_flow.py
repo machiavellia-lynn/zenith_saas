@@ -181,7 +181,7 @@ def flow():
             bm_raw       = d.get("bm_val") or 0
             phase        = classify_zenith_v3_1(sri, rsm, rpr_val, gain, bm_raw, bm_sma10, atr_pct)
             watch        = get_watch_flag(phase, gain, atr_pct)
-            action       = get_action(phase, gain, atr_pct, bm_val=bm_raw, bm_sma10=bm_sma10, watch_flag=watch)
+            action       = get_action(phase, gain, atr_pct, bm_val=bm_raw, bm_sma10=bm_sma10, watch_flag=watch, sri=sri, rsm=rsm)
             if watch is None and a.get("watch"):
                 watch = a.get("watch")
             ma_structure = get_ma_structure(price_now, a.get("ma5"), a.get("ma13"), a.get("ma34"), a.get("ma200"))

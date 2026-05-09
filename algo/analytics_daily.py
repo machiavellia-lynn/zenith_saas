@@ -144,7 +144,7 @@ def _compute_one(conn, ticker: str, date_str: str, row: dict) -> dict:
     # ── Phase classification ──────────────────────────────────────────────
     phase = classify_zenith_v3_1(sri, rsm, rpr, price_change, bm_val, bm_sma10, atr_pct)
     watch = get_watch_flag(phase, price_change, atr_pct)
-    action = get_action(phase, price_change, atr_pct, bm_val, bm_sma10, watch)
+    action = get_action(phase, price_change, atr_pct, bm_val, bm_sma10, watch, sri=sri, rsm=rsm)
     gate  = detect_trade_detail_gate(phase, price_change, bm_val, bm_sma10, atr_pct, action)
     narrative = get_phase_narrative(phase, ma_structure, gate)
 
