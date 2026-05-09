@@ -21,7 +21,7 @@ def rebuild_summary_for_date(conn, date_str: str, full_reset: bool = False):
     if full_reset:
         execute(conn, "DELETE FROM eod_summary WHERE date = %s", [date_str])
 
-    # ── SM/BM aggregation ────────────────────────────────────────────────
+    # ── SM/BM aggregation + volx_gap ────────────────────────────────────
     sm_rows = fetchall(conn, """
         SELECT ticker,
                SUM(CASE WHEN channel = 'smart' THEN value_numeric ELSE 0 END) AS sm_val,
@@ -36,7 +36,8 @@ def rebuild_summary_for_date(conn, date_str: str, full_reset: bool = False):
                SUM(CASE WHEN channel = 'bad' AND value_numeric != 0
                         THEN price * ABS(value_numeric) ELSE 0 END) /
                NULLIF(SUM(CASE WHEN channel = 'bad' AND value_numeric != 0
-                               THEN ABS(value_numeric) ELSE 0 END), 0) AS vwap_bm
+                               THEN ABS(value_numeric) ELSE 0 END), 0) AS vwap_bm,
+               AVG(CASE WHEN channel = 'smart' AND vol_x > 0 THEN vol_x ELSE NULL END) AS volx_gap
         FROM raw_messages
         WHERE date = %s AND channel IN ('smart', 'bad')
         GROUP BY ticker
@@ -62,8 +63,8 @@ def rebuild_summary_for_date(conn, date_str: str, full_reset: bool = False):
         mf     = mf_map.get(ticker, {})
         execute(conn, """
             INSERT INTO eod_summary (date, ticker, sm_val, bm_val, tx_count, tx_sm, tx_bm,
-                                     mf_plus, mf_minus, vwap_sm, vwap_bm)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                     mf_plus, mf_minus, vwap_sm, vwap_bm, volx_gap)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (date, ticker) DO UPDATE SET
                 sm_val   = EXCLUDED.sm_val,
                 bm_val   = EXCLUDED.bm_val,
@@ -73,13 +74,15 @@ def rebuild_summary_for_date(conn, date_str: str, full_reset: bool = False):
                 mf_plus  = EXCLUDED.mf_plus,
                 mf_minus = EXCLUDED.mf_minus,
                 vwap_sm  = EXCLUDED.vwap_sm,
-                vwap_bm  = EXCLUDED.vwap_bm
+                vwap_bm  = EXCLUDED.vwap_bm,
+                volx_gap = EXCLUDED.volx_gap
         """, [
             date_str, ticker,
             row.get("sm_val") or 0, row.get("bm_val") or 0,
             row.get("tx_count") or 0, row.get("tx_sm") or 0, row.get("tx_bm") or 0,
             mf.get("mf_plus"), mf.get("mf_minus"),
             row.get("vwap_sm"), row.get("vwap_bm"),
+            round(row.get("volx_gap"), 2) if row.get("volx_gap") else None,
         ])
 
     log.info("rebuild_summary_for_date %s: %d tickers", date_str, len(sm_rows))

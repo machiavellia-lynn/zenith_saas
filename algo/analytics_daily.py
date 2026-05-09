@@ -37,37 +37,6 @@ def compute_analytics_for_date(conn, date_str: str):
         log.warning("No eod_summary rows for %s", date_str)
         return 0
 
-    # ── Batch-compute volx_gap for all tickers in one query ───────────────
-    # Today's avg vol_x vs 10-day historical avg vol_x (% diff)
-    volx_gap_map = {}
-    try:
-        volx_rows = fetchall(conn, """
-            SELECT today.ticker,
-                   ((today.vt - hist.vh) / hist.vh * 100) AS gap
-            FROM (
-                SELECT ticker, AVG(vol_x) AS vt
-                FROM raw_messages
-                WHERE date = %s AND vol_x > 0
-                GROUP BY ticker
-            ) today
-            JOIN (
-                SELECT ticker, AVG(vol_x) AS vh
-                FROM raw_messages
-                WHERE TO_DATE(date, 'DD-MM-YYYY') >= TO_DATE(%s, 'DD-MM-YYYY') - INTERVAL '10 days'
-                  AND TO_DATE(date, 'DD-MM-YYYY') <  TO_DATE(%s, 'DD-MM-YYYY')
-                  AND vol_x > 0
-                GROUP BY ticker
-            ) hist ON today.ticker = hist.ticker
-            WHERE hist.vh > 0
-        """, [date_str, date_str, date_str])
-        volx_gap_map = {r["ticker"]: round(r["gap"], 2) for r in volx_rows if r.get("gap") is not None}
-    except Exception as e:
-        log.warning("volx_gap batch compute failed for %s: %s", date_str, e)
-
-    # Inject computed volx_gap into rows for _compute_one() to read
-    for row in rows:
-        row["volx_gap"] = volx_gap_map.get(row["ticker"])
-
     updated = 0
     for row in rows:
         ticker = row["ticker"]
