@@ -54,7 +54,7 @@ def run_backtest(conn, days: int = 30, date_from: str = None, date_to: str = Non
         date_to_cmp   = _to_cmp(date_to)
         all_rows = fetchall(conn, """
             SELECT ticker, date, price_close, phase, atr_pct,
-                   sri, rsm, bm_val, bm_sma10, price_change_pct, watch
+                   sri, sm_val, bm_val, bm_sma10, price_change_pct, watch
             FROM eod_summary ORDER BY ticker, date
         """)
         rows = [r for r in all_rows
@@ -70,23 +70,26 @@ def run_backtest(conn, days: int = 30, date_from: str = None, date_to: str = Non
         cutoff_cmp  = _to_cmp(cutoff_date)
         all_rows = fetchall(conn, """
             SELECT ticker, date, price_close, phase, atr_pct,
-                   sri, rsm, bm_val, bm_sma10, price_change_pct, watch
+                   sri, sm_val, bm_val, bm_sma10, price_change_pct, watch
             FROM eod_summary ORDER BY ticker, date
         """)
         rows = [r for r in all_rows
                 if _to_cmp(r["date"]) >= cutoff_cmp and r.get("price_close")]
 
     # Re-compute action using current algo settings (not stored DB value)
+    # rsm is not stored — compute from sm_val + bm_val
     def _recompute_action(r) -> str:
         try:
             sri      = float(r["sri"])      if r.get("sri")      else 0.0
-            rsm      = float(r["rsm"])      if r.get("rsm")      else 0.0
+            sm_val   = float(r["sm_val"])   if r.get("sm_val")   else 0.0
             bm_val   = float(r["bm_val"])   if r.get("bm_val")   else 0.0
             bm_sma10 = float(r["bm_sma10"]) if r.get("bm_sma10") else 0.0
             atr_pct  = float(r["atr_pct"])  if r.get("atr_pct")  else 2.5
             pchg     = float(r["price_change_pct"]) if r.get("price_change_pct") else None
             watch    = r.get("watch")
             phase    = r.get("phase") or "NEUTRAL"
+            total_flow = sm_val + abs(bm_val)
+            rsm = round(sm_val / total_flow * 100, 2) if total_flow > 0 else 50.0
             return get_action(phase, pchg, atr_pct, bm_val, bm_sma10, watch, sri=sri, rsm=rsm)
         except Exception:
             return "HOLD"
