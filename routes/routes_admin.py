@@ -167,7 +167,7 @@ def recompute_analytics_all():
         conn = get_scraper_db()
         try:
             dates = [r["date"] for r in fetchall(conn,
-                "SELECT DISTINCT date FROM eod_summary ORDER BY TO_DATE(date,'DD-MM-YYYY')")]
+                "SELECT date FROM (SELECT DISTINCT date FROM eod_summary) sub ORDER BY TO_DATE(date,'DD-MM-YYYY')")]
             _log.info("Recomputing analytics for %d dates", len(dates))
             total = 0
             for d in dates:
