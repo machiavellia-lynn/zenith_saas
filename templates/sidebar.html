@@ -4,7 +4,6 @@
   <div class="sidebar-brand">
     <a href="/hub" class="sidebar-brand-link">
       <!-- Full logo (expanded state) -->
-      <!-- Lines stop at circle edge (not center) to avoid overlap -->
       <svg class="sidebar-logo-svg" viewBox="0 0 210 82" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M43 53 L83 29 M94 28 L119 38 M130 37 L161 18"
               stroke="white" stroke-width="2.8" stroke-linecap="round"/>
@@ -87,13 +86,6 @@
 
   </nav>
 
-  <!-- Collapse toggle (desktop only) -->
-  <div class="sidebar-footer">
-    <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="sidebarToggleCollapse()" title="Toggle sidebar">
-      <svg class="scb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8L10 13"/></svg>
-      <span class="s-text">Collapse</span>
-    </button>
-  </div>
 </aside>
 
 <!-- Mobile overlay -->
@@ -101,20 +93,43 @@
 
 <script>
 (function() {
+  var sb = document.getElementById('sidebar');
+  var collapseTimer = null;
+
   function sidebarToggleGroup(id) {
-    var sb = document.getElementById('sidebar');
-    if (sb.classList.contains('collapsed')) return;
+    if (!sb.classList.contains('expanded') && window.innerWidth > 768) return;
     var el = document.getElementById(id);
     if (el) el.classList.toggle('open');
   }
+
+  // ── Auto-collapse hover (desktop only) ──
+  function expandSidebar() {
+    if (window.innerWidth <= 768) return;
+    clearTimeout(collapseTimer);
+    sb.classList.add('expanded');
+  }
+
+  function scheduleSidebarCollapse() {
+    if (window.innerWidth <= 768) return;
+    clearTimeout(collapseTimer);
+    collapseTimer = setTimeout(function() {
+      sb.classList.remove('expanded');
+    }, 400);
+  }
+
+  sb.addEventListener('mouseenter', expandSidebar);
+  sb.addEventListener('mouseleave', scheduleSidebarCollapse);
+
+  // ── Mobile open/close ──
   function sidebarOpen() {
-    document.getElementById('sidebar').classList.add('open');
+    sb.classList.add('open');
     var ov = document.getElementById('sidebarOverlay');
     if (ov) { ov.style.display = 'block'; requestAnimationFrame(function(){ ov.classList.add('visible'); }); }
     document.body.style.overflow = 'hidden';
   }
+
   function sidebarClose() {
-    document.getElementById('sidebar').classList.remove('open');
+    sb.classList.remove('open');
     var ov = document.getElementById('sidebarOverlay');
     if (ov) {
       ov.classList.remove('visible');
@@ -122,19 +137,9 @@
     }
     document.body.style.overflow = '';
   }
-  function sidebarToggleCollapse() {
-    if (window.innerWidth <= 768) return;
-    var sb = document.getElementById('sidebar');
-    sb.classList.toggle('collapsed');
-    localStorage.setItem('zn_sidebar_collapsed', sb.classList.contains('collapsed') ? '1' : '0');
-  }
-  // Restore collapse state on load
-  if (window.innerWidth > 768 && localStorage.getItem('zn_sidebar_collapsed') === '1') {
-    document.getElementById('sidebar').classList.add('collapsed');
-  }
+
   window.sidebarToggleGroup = sidebarToggleGroup;
   window.sidebarOpen = sidebarOpen;
   window.sidebarClose = sidebarClose;
-  window.sidebarToggleCollapse = sidebarToggleCollapse;
 })();
 </script>
