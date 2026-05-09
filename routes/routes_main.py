@@ -70,21 +70,26 @@ def ihsg():
         return jsonify({"error": "unauthorized"}), 401
     try:
         resp = requests.get(
-            "https://query1.finance.yahoo.com/v10/finance/quoteSummary/^JKSE",
+            "https://query1.finance.yahoo.com/v8/finance/chart/%5EJKSE",
             headers=YF_HEADERS,
-            params={"modules": "price"},
-            timeout=8,
+            params={"interval": "1d", "range": "5d"},
+            timeout=5,
         )
-        data = resp.json().get("quoteSummary", {}).get("result", [{}])[0].get("price", {})
-        if not data:
+        result = resp.json().get("chart", {}).get("result", [None])[0]
+        if not result:
             return jsonify({"price": None, "gain_pct": None})
 
-        price = data.get("regularMarketPrice")
-        change_pct = data.get("regularMarketChangePercent")
+        meta = result.get("meta", {})
+        price = meta.get("regularMarketPrice")
+        prev = meta.get("chartPreviousClose") or meta.get("previousClose")
+
+        gain_pct = None
+        if price and prev and prev > 0:
+            gain_pct = round((price - prev) / prev * 100, 2)
 
         return jsonify({
-            "price": int(round(float(price))) if price else None,
-            "gain_pct": round(float(change_pct), 2) if change_pct else None,
+            "price": round(float(price), 2) if price else None,
+            "gain_pct": gain_pct,
         })
     except Exception as e:
         return jsonify({"price": None, "gain_pct": None, "error": str(e)})
