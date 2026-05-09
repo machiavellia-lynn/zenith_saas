@@ -25,22 +25,33 @@ def scraper_status():
 
     status = get_backfill_status()
 
+    def _sort_to_dmy(s):
+        """Convert YYYYMMDD sort key back to DD-MM-YYYY for display."""
+        if not s or len(str(s)) != 8:
+            return "—"
+        s = str(s)
+        return f"{s[6:8]}-{s[4:6]}-{s[0:4]}"
+
     try:
         conn = get_scraper_db()
-        ch_map = {"smart": "SM", "bm": "BM", "MF+": "MF+", "MF-": "MF-"}
+        # Actual channel values stored by the scraper
+        ch_map = {"smart": "SM", "bad": "BM", "mf_plus": "MF+", "mf_minus": "MF-"}
         first_data  = {}
         latest_data = {}
         row_counts  = {}
 
         for ch, label in ch_map.items():
             rows = fetchall(conn, """
-                SELECT MIN(date) AS first_date, MAX(date) AS last_date, COUNT(*) AS cnt
+                SELECT
+                    MIN(SUBSTR(date,7,4)||SUBSTR(date,4,2)||SUBSTR(date,1,2)) AS first_sort,
+                    MAX(SUBSTR(date,7,4)||SUBSTR(date,4,2)||SUBSTR(date,1,2)) AS last_sort,
+                    COUNT(*) AS cnt
                 FROM raw_messages WHERE channel = %s
             """, [ch])
             if rows and rows[0]["cnt"]:
                 r = rows[0]
-                first_data[label]  = r["first_date"] or "—"
-                latest_data[label] = r["last_date"]  or "—"
+                first_data[label]  = _sort_to_dmy(r["first_sort"])
+                latest_data[label] = _sort_to_dmy(r["last_sort"])
                 row_counts[label]  = int(r["cnt"])
             else:
                 first_data[label]  = "—"
@@ -48,16 +59,19 @@ def scraper_status():
                 row_counts[label]  = 0
 
         eod = fetchall(conn, """
-            SELECT MIN(date) AS first_date, MAX(date) AS last_date, COUNT(*) AS cnt
+            SELECT
+                MIN(SUBSTR(date,7,4)||SUBSTR(date,4,2)||SUBSTR(date,1,2)) AS first_sort,
+                MAX(SUBSTR(date,7,4)||SUBSTR(date,4,2)||SUBSTR(date,1,2)) AS last_sort,
+                COUNT(*) AS cnt
             FROM eod_summary
         """)
         if eod and eod[0]["cnt"]:
-            first_data["EOD"]  = eod[0]["first_date"] or "—"
-            latest_data["EOD"] = eod[0]["last_date"]  or "—"
+            first_data["EOD"]     = _sort_to_dmy(eod[0]["first_sort"])
+            latest_data["EOD"]    = _sort_to_dmy(eod[0]["last_sort"])
             row_counts["summary"] = int(eod[0]["cnt"])
         else:
-            first_data["EOD"]  = "—"
-            latest_data["EOD"] = "—"
+            first_data["EOD"]     = "—"
+            latest_data["EOD"]    = "—"
             row_counts["summary"] = 0
 
         status["first_data"]  = first_data
