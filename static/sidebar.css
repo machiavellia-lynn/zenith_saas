@@ -17,6 +17,7 @@ body[data-page="flow"]  header a.info-btn { display: none !important; }
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  transform: translateZ(0);
 }
 
 /* ── SIDEBAR ─────────────────────────────────────────────── */
@@ -37,6 +38,8 @@ body[data-page="flow"]  header a.info-btn { display: none !important; }
   transition: width .25s cubic-bezier(.4,0,.2,1),
               min-width .25s cubic-bezier(.4,0,.2,1),
               transform .28s cubic-bezier(.4,0,.2,1);
+  will-change: width;
+  transform: translateZ(0);
 }
 .sidebar::-webkit-scrollbar { width: 4px; }
 .sidebar::-webkit-scrollbar-track { background: transparent; }
@@ -85,8 +88,8 @@ body[data-page="flow"]  header a.info-btn { display: none !important; }
 }
 .sidebar-logo-mini {
   display: none;
-  width: 36px;
-  height: 28px;
+  width: 44px;
+  height: 18px;
 }
 .sidebar.collapsed .sidebar-logo-svg { display: none; }
 .sidebar.collapsed .sidebar-logo-mini { display: block; }

@@ -4,9 +4,10 @@
   <div class="sidebar-brand">
     <a href="/hub" class="sidebar-brand-link">
       <!-- Full logo (expanded state) -->
+      <!-- Lines stop at circle edge (not center) to avoid overlap -->
       <svg class="sidebar-logo-svg" viewBox="0 0 210 82" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M38 56 L88 26 L125 40 L166 15"
-              stroke="white" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M43 53 L83 29 M94 28 L119 38 M130 37 L161 18"
+              stroke="white" stroke-width="2.8" stroke-linecap="round"/>
         <circle cx="38"  cy="56" r="6" fill="none" stroke="white" stroke-width="2.8"/>
         <circle cx="88"  cy="26" r="6" fill="none" stroke="white" stroke-width="2.8"/>
         <circle cx="125" cy="40" r="6" fill="none" stroke="white" stroke-width="2.8"/>
@@ -16,10 +17,10 @@
               font-family="'Space Mono','IBM Plex Mono',monospace"
               font-weight="700" font-size="20" letter-spacing="8">ZENITH</text>
       </svg>
-      <!-- Mini icon (collapsed state only) -->
-      <svg class="sidebar-logo-mini" viewBox="12 8 92 52" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M38 56 L88 26 L125 40 L166 15"
-              stroke="white" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- Mini icon: tight crop to just the constellation (collapsed state) -->
+      <svg class="sidebar-logo-mini" viewBox="28 6 148 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M43 53 L83 29 M94 28 L119 38 M130 37 L161 18"
+              stroke="white" stroke-width="2.8" stroke-linecap="round"/>
         <circle cx="38"  cy="56" r="6" fill="none" stroke="white" stroke-width="2.8"/>
         <circle cx="88"  cy="26" r="6" fill="none" stroke="white" stroke-width="2.8"/>
         <circle cx="125" cy="40" r="6" fill="none" stroke="white" stroke-width="2.8"/>
@@ -37,7 +38,7 @@
     </a>
 
     <a href="/chart" class="s-item{% if request.path == '/chart' %} active{% endif %}">
-      <svg class="s-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 12L5.5 7.5L9 10.5L13.5 4"/><circle cx="2" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="5.5" cy="7.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="9" cy="10.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="13.5" cy="4" r="1.3" fill="currentColor" stroke="none"/></svg>
+      <svg class="s-svg" viewBox="0 0 16 16" fill="currentColor" stroke="none"><rect x="1.5" y="8" width="3.5" height="6.5" rx="0.8"/><rect x="6.5" y="4.5" width="3.5" height="10" rx="0.8"/><rect x="11.5" y="1.5" width="3.5" height="13" rx="0.8"/></svg>
       <span class="s-text">Charts</span>
     </a>
 
