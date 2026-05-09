@@ -22,15 +22,23 @@ def run_backtest(conn, days: int = 30, date_from: str = None, date_to: str = Non
     """
     Pair-based backtest over eod_summary date range.
     Returns summary dict with win_rate, avg_gain, trade_count.
+    Dates are stored as DD-MM-YYYY; convert to YYYY-MM-DD for correct string comparison.
     """
     global _backtest_result, _backtest_running
 
+    def _to_comparable_date(date_str: str) -> str:
+        if not date_str or len(date_str) != 10:
+            return date_str
+        return f"{date_str[6:10]}{date_str[3:5]}{date_str[:2]}"
+
     if date_from and date_to:
-        rows = fetchall(conn, """
-            SELECT * FROM eod_summary
-            WHERE date >= %s AND date <= %s AND action IS NOT NULL
-            ORDER BY ticker, date
-        """, [date_from, date_to])
+        date_from_cmp = _to_comparable_date(date_from)
+        date_to_cmp = _to_comparable_date(date_to)
+        all_rows = fetchall(conn, """
+            SELECT * FROM eod_summary WHERE action IS NOT NULL ORDER BY ticker, date
+        """)
+        rows = [r for r in all_rows
+                if date_from_cmp <= _to_comparable_date(r["date"]) <= date_to_cmp]
     else:
         cutoff = fetchall(conn, """
             SELECT date FROM eod_summary ORDER BY date DESC
