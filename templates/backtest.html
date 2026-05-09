@@ -207,6 +207,27 @@ td:first-child,td:nth-child(2),td:nth-child(3){text-align:left}
   </div>
 </div>
 
+<!-- Ticker Search Detail View -->
+<div id="tickerDetailWrap" style="display:none;max-width:1200px;margin:0 auto;padding:0 24px 24px">
+  <div id="tickerDetailHeader" style="display:flex;align-items:center;gap:16px;margin-bottom:12px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap"></div>
+  <div class="table-wrap" style="margin-top:0">
+    <table>
+      <thead><tr>
+        <th style="text-align:left">TICKER</th>
+        <th style="text-align:left">ENTRY PHASE</th>
+        <th>ENTRY DATE</th>
+        <th>EXIT DATE</th>
+        <th>EXIT SIGNAL</th>
+        <th>ENTRY PRICE</th>
+        <th>EXIT PRICE</th>
+        <th>DAYS</th>
+        <th>PROFIT</th>
+      </tr></thead>
+      <tbody id="tickerDetailBody"></tbody>
+    </table>
+  </div>
+</div>
+
 <!-- Trade Detail Modal -->
 <div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()">
   <div class="modal">
@@ -235,7 +256,7 @@ td:first-child,td:nth-child(2),td:nth-child(3){text-align:left}
 
 <script>
 let lbData = [];
-let sortCol = 'profit_factor';
+let sortCol = 'avg_profit';
 let sortAsc = false;
 
 // Pikaday date pickers for custom range
@@ -368,12 +389,8 @@ function sortLB(col) {
   renderLeaderboard();
 }
 
-function renderLeaderboard() {
-  const search = (document.getElementById('tickerSearch')?.value || '').trim().toUpperCase();
-  let rows = [...lbData];
-  if (search) {
-    rows = rows.filter(r => r.details && r.details.some(d => d.ticker.includes(search)));
-  }
+function _sortedRows() {
+  const rows = [...lbData];
   rows.sort((a, b) => {
     let av = a[sortCol], bv = b[sortCol];
     if (av == null) av = sortAsc ? Infinity : -Infinity;
@@ -381,13 +398,101 @@ function renderLeaderboard() {
     if (typeof av === 'string') return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
     return sortAsc ? av - bv : bv - av;
   });
+  return rows;
+}
+
+function renderLeaderboard() {
+  const search = (document.getElementById('tickerSearch')?.value || '').trim().toUpperCase();
+  const mainWrap  = document.querySelector('.content > .table-wrap');
+  const tickerDiv = document.getElementById('tickerDetailWrap');
+
+  if (search) {
+    // ── Ticker search mode: flatten all trades for this ticker ──────────────
+    const tickerTrades = [];
+    for (const row of lbData) {
+      for (const d of (row.details || [])) {
+        if (d.ticker === search) tickerTrades.push({ ...d, entry_phase: row.entry });
+      }
+    }
+    tickerTrades.sort((a, b) => b.profit - a.profit);
+
+    mainWrap.style.display  = 'none';
+    tickerDiv.style.display = 'block';
+
+    // Header summary
+    const hdr = document.getElementById('tickerDetailHeader');
+    if (!tickerTrades.length) {
+      hdr.innerHTML = `<span style="color:var(--muted);font-family:'Space Mono',monospace;font-size:11px">Tidak ada trade untuk ticker <b style="color:var(--text)">${search}</b></span>`;
+      document.getElementById('tickerDetailBody').innerHTML =
+        '<tr><td colspan="9" class="empty">—</td></tr>';
+      return;
+    }
+    const tw   = tickerTrades.filter(t => t.profit > 0).length;
+    const tl   = tickerTrades.length - tw;
+    const avgP = (tickerTrades.reduce((s, t) => s + t.profit, 0) / tickerTrades.length).toFixed(2);
+    const gp   = tickerTrades.filter(t => t.profit > 0).reduce((s, t) => s + t.profit, 0);
+    const gl   = Math.abs(tickerTrades.filter(t => t.profit <= 0).reduce((s, t) => s + t.profit, 0));
+    const pf   = gl > 0 ? (gp / gl).toFixed(2) : '—';
+    const wrPct = (tw / tickerTrades.length * 100).toFixed(1);
+    const wrColor = wrPct >= 60 ? 'var(--up)' : wrPct >= 45 ? '#ff8c42' : 'var(--down)';
+    const avgColor = avgP >= 0 ? 'var(--up)' : 'var(--down)';
+    hdr.innerHTML = `
+      <span style="font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--accent)">${search}</span>
+      <span style="color:var(--muted);font-size:11px">${tickerTrades.length} trades</span>
+      <span style="color:var(--border2)">|</span>
+      <span style="font-family:'Space Mono',monospace;font-size:11px">
+        <span style="color:var(--up)">${tw}W</span> / <span style="color:var(--down)">${tl}L</span>
+      </span>
+      <span style="color:var(--border2)">|</span>
+      <span style="font-family:'Space Mono',monospace;font-size:11px">
+        Win Rate <span style="color:${wrColor};font-weight:700">${wrPct}%</span>
+      </span>
+      <span style="color:var(--border2)">|</span>
+      <span style="font-family:'Space Mono',monospace;font-size:11px">
+        Avg Profit <span style="color:${avgColor};font-weight:700">${avgP > 0 ? '+' : ''}${avgP}%</span>
+      </span>
+      <span style="color:var(--border2)">|</span>
+      <span style="font-family:'Space Mono',monospace;font-size:11px">
+        PF <span style="color:var(--text);font-weight:700">${pf}${pf !== '—' ? '×' : ''}</span>
+      </span>`;
+
+    const tbody = document.getElementById('tickerDetailBody');
+    tbody.innerHTML = tickerTrades.map(t => {
+      const cls   = t.profit > 0 ? 'pos' : t.profit < 0 ? 'neg' : 'zero';
+      const sign  = t.profit > 0 ? '+' : '';
+      const eCls  = (t.entry_phase || '').toLowerCase();
+      const xCls  = (t.exit_phase  || '').toLowerCase();
+      const xBadge = t.exit_phase
+        ? `<span class="phase-badge ${xCls}" style="font-size:9px;padding:2px 7px">${t.exit_phase}</span>`
+        : '—';
+      return `<tr>
+        <td style="font-family:'Space Mono',monospace;font-weight:700">${t.ticker}</td>
+        <td><span class="phase-badge ${eCls}">${t.entry_phase || '—'}</span></td>
+        <td style="color:var(--muted)">${t.entry_date}</td>
+        <td style="color:var(--muted)">${t.exit_date}</td>
+        <td>${xBadge}</td>
+        <td>${t.entry_price.toLocaleString('id-ID')}</td>
+        <td>${t.exit_price.toLocaleString('id-ID')}</td>
+        <td style="color:var(--muted)">${t.duration}d</td>
+        <td><span class="val ${cls}">${sign}${t.profit}%</span></td>
+      </tr>`;
+    }).join('');
+    if (window.ZenithAnim) ZenithAnim.staggerRows(tbody);
+    return;
+  }
+
+  // ── Normal phase leaderboard mode ─────────────────────────────────────────
+  mainWrap.style.display  = 'block';
+  tickerDiv.style.display = 'none';
+
+  const rows   = _sortedRows();
   const medals = ['🥇','🥈','🥉'];
-  const tbody = document.getElementById('lbBody');
-  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="10" class="empty">Tidak ada data.</td></tr>'; return; }
+  const tbody  = document.getElementById('lbBody');
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="11" class="empty">Tidak ada data.</td></tr>'; return; }
 
   tbody.innerHTML = rows.map((r, i) => {
     const medal = i < 3 ? `<span class="medal">${medals[i]}</span>` : `${i+1}`;
-    const eCls = r.entry ? r.entry.toLowerCase() : '';
+    const eCls  = r.entry ? r.entry.toLowerCase() : '';
     function vc(v) {
       if (v == null) return '<td>—</td>';
       const cls = v > 0 ? 'pos' : v < 0 ? 'neg' : 'zero';
@@ -403,14 +508,12 @@ function renderLeaderboard() {
       const cls = v >= 2.0 ? 'pos' : v >= 1.0 ? 'ok' : 'neg';
       return `<td><span class="val ${cls}">${v.toFixed(2)}×</span></td>`;
     }
-    const wins   = r.wins   ?? '—';
-    const losses = r.losses ?? '—';
     return `<tr onclick="showDetail(${i})">
       <td style="text-align:center;font-family:'Space Mono',monospace;font-size:12px;font-weight:700">${medal}</td>
       <td><span class="phase-badge ${eCls}">${r.entry}</span></td>
       <td style="font-family:'Space Mono',monospace;font-size:12px">${r.trades}</td>
-      <td style="font-family:'Space Mono',monospace;font-size:11px;color:var(--up)">${wins}</td>
-      <td style="font-family:'Space Mono',monospace;font-size:11px;color:var(--down)">${losses}</td>
+      <td style="font-family:'Space Mono',monospace;font-size:11px;color:var(--up)">${r.wins ?? '—'}</td>
+      <td style="font-family:'Space Mono',monospace;font-size:11px;color:var(--down)">${r.losses ?? '—'}</td>
       ${wc(r.win_rate)}${vc(r.avg_profit)}${vc(r.avg_win)}${vc(r.avg_loss)}
       <td style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted)">${r.avg_duration}d</td>
       ${pfCell(r.profit_factor)}
@@ -420,30 +523,24 @@ function renderLeaderboard() {
 
   document.querySelectorAll('thead th').forEach(th => {
     const col = th.onclick?.toString().match(/'(\w+)'/)?.[1];
-    const si = th.querySelector('.si');
+    const si  = th.querySelector('.si');
     if (si) si.textContent = col === sortCol ? (sortAsc ? ' ▲' : ' ▼') : '';
     th.classList.toggle('sorted', col === sortCol);
   });
 }
 
 function showDetail(idx) {
-  const rows = [...lbData];
-  rows.sort((a, b) => {
-    let av = a[sortCol], bv = b[sortCol];
-    if (av == null) av = sortAsc ? Infinity : -Infinity;
-    if (bv == null) bv = sortAsc ? Infinity : -Infinity;
-    if (typeof av === 'string') return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
-    return sortAsc ? av - bv : bv - av;
-  });
-  const r = rows[idx];
+  const r = _sortedRows()[idx];
   if (!r || !r.details) return;
+
+  const detailsSorted = [...r.details].sort((a, b) => b.profit - a.profit);
 
   document.getElementById('modalTitle').innerHTML =
     `<span class="phase-badge ${r.entry.toLowerCase()}">${r.entry}</span>` +
-    `<span style="color:var(--muted);font-size:11px;margin-left:8px">${r.details.length} trades</span>`;
+    `<span style="color:var(--muted);font-size:11px;margin-left:8px">${detailsSorted.length} trades</span>`;
 
   const tbody = document.getElementById('detailBody');
-  tbody.innerHTML = r.details.map(d => {
+  tbody.innerHTML = detailsSorted.map(d => {
     const cls  = d.profit > 0 ? 'pos' : d.profit < 0 ? 'neg' : 'zero';
     const sign = d.profit > 0 ? '+' : '';
     const xCls = d.exit_phase ? d.exit_phase.toLowerCase() : '';
@@ -462,10 +559,10 @@ function showDetail(idx) {
     </tr>`;
   }).join('');
 
-  const wins = r.details.filter(d => d.profit > 0).length;
-  const losses = r.details.length - wins;
+  const wins = detailsSorted.filter(d => d.profit > 0).length;
+  const losses = detailsSorted.length - wins;
   document.getElementById('detailSummary').innerHTML =
-    `Total: <span>${r.details.length}</span> &nbsp;|&nbsp; ` +
+    `Total: <span>${detailsSorted.length}</span> &nbsp;|&nbsp; ` +
     `Win: <span style="color:var(--up)">${wins}</span> &nbsp;|&nbsp; ` +
     `Loss: <span style="color:var(--down)">${losses}</span> &nbsp;|&nbsp; ` +
     `Avg Profit: <span style="color:${r.avg_profit>=0?'var(--up)':'var(--down)'}">${r.avg_profit>0?'+':''}${r.avg_profit}%</span>`;
