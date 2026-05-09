@@ -735,10 +735,13 @@ header::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;back
 }
 </style>
   <link rel="stylesheet" href="/static/tokens.css">
+  <link rel="stylesheet" href="/static/sidebar.css">
 </head>
-<body>
+<body class="sidebar-layout">
+{% include 'sidebar.html' %}<div class="main-content">
 <a href="#main" class="skip-link">Skip to main content</a>
 <header>
+  <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg></button>
   <a href="/hub" class="logo"><span class="logo-dot"></span>ZENITH</a>
   <div class="nav-group">
     <a href="/chart" class="nav-btn">⬡ Chart</a>
@@ -1824,5 +1827,6 @@ function handleInfoBackdrop(e){if(e.target===document.getElementById('infoBackdr
 
 <script src="/static/animations.js" defer></script>
 <script src="/static/shortcuts.js" defer></script>
+</div>
 </body>
 </html>

@@ -1,0 +1,287 @@
+/* ── SIDEBAR LAYOUT ─────────────────────────────────────── */
+body.sidebar-layout {
+  display: flex;
+  flex-direction: row;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Hide header logo & nav-group — sidebar handles these */
+body.sidebar-layout header .logo,
+body.sidebar-layout header .nav-group { display: none !important; }
+
+/* Main content becomes scrollable column */
+.main-content {
+  flex: 1;
+  min-width: 0;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── SIDEBAR ─────────────────────────────────────────────── */
+.sidebar {
+  width: 220px;
+  min-width: 220px;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 300;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+  transition: transform .28s cubic-bezier(.4,0,.2,1);
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* ── BRAND / LOGO ─────────────────────────────────────────── */
+.sidebar-brand {
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sidebar-brand a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+.sidebar-logo-icon {
+  width: 40px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.sidebar-logo-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.sidebar-logo-name {
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .22em;
+  color: var(--accent);
+  text-transform: uppercase;
+  line-height: 1;
+}
+.sidebar-logo-tag {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .14em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+/* ── NAV ─────────────────────────────────────────────────── */
+.sidebar-nav {
+  flex: 1;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Nav section label */
+.s-section-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .16em;
+  color: var(--muted);
+  text-transform: uppercase;
+  padding: 10px 8px 4px;
+  opacity: .6;
+}
+.s-section-label:first-child { padding-top: 4px; }
+
+/* Nav item (link) */
+.s-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--muted);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  transition: background .15s, color .15s;
+  white-space: nowrap;
+  position: relative;
+  cursor: pointer;
+}
+.s-item:hover {
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+}
+.s-item.active {
+  background: rgba(0,232,162,.08);
+  color: var(--accent);
+  font-weight: 500;
+}
+.s-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+  box-shadow: 0 0 6px var(--accent);
+}
+.s-icon {
+  font-size: 15px;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+  line-height: 1;
+}
+
+/* Sub-items (indented) */
+.s-item.s-sub {
+  padding-left: 38px;
+  font-size: 12px;
+}
+.s-item.s-sub .s-icon { display: none; }
+
+/* ── COLLAPSIBLE GROUP ───────────────────────────────────── */
+.s-group { display: flex; flex-direction: column; }
+
+.s-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: background .15s, color .15s;
+}
+.s-group-toggle:hover {
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+}
+.s-group.open > .s-group-toggle {
+  color: var(--text);
+}
+.s-chevron {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--border2);
+  transition: transform .2s cubic-bezier(.4,0,.2,1), color .15s;
+  flex-shrink: 0;
+}
+.s-group.open > .s-group-toggle .s-chevron {
+  transform: rotate(180deg);
+  color: var(--muted);
+}
+
+/* Group children (collapsible body) */
+.s-group-items {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows .22s cubic-bezier(.4,0,.2,1);
+}
+.s-group.open > .s-group-items {
+  grid-template-rows: 1fr;
+}
+.s-group-items-inner {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 2px;
+}
+
+/* Coming soon badge */
+.s-coming-soon {
+  margin: 4px 10px 6px 38px;
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--border2);
+  padding: 5px 8px;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  text-align: center;
+}
+
+/* ── MOBILE HAMBURGER ────────────────────────────────────── */
+.sidebar-toggle {
+  display: none;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color .15s, color .15s;
+}
+.sidebar-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.sidebar-toggle svg { width: 16px; height: 16px; }
+
+/* ── OVERLAY (mobile) ───────────────────────────────────── */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  z-index: 299;
+  opacity: 0;
+  transition: opacity .28s;
+}
+.sidebar-overlay.visible {
+  opacity: 1;
+}
+
+/* ── RESPONSIVE ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    transform: translateX(-220px);
+    box-shadow: 4px 0 24px rgba(0,0,0,.5);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .sidebar-overlay {
+    display: block;
+  }
+  .sidebar-toggle {
+    display: flex;
+  }
+  /* On mobile, show header logo again */
+  body.sidebar-layout header .logo {
+    display: flex !important;
+  }
+  body.sidebar-layout header .nav-group {
+    display: none !important;
+  }
+}
