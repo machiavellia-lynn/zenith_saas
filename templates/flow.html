@@ -549,9 +549,9 @@ thead th {
   position: sticky; top: 0; z-index: 10;
   background: var(--bg);
   border-bottom: 2px solid var(--border2);
-  padding: 10px 10px;
+  padding: 13px 10px;
   font-family: 'Space Mono', monospace;
-  font-size:10px; font-weight: 700;
+  font-size: 11px; font-weight: 700;
   letter-spacing: .12em; color: var(--muted);
   text-align: right; text-transform: uppercase;
   white-space: nowrap; cursor: pointer;
@@ -580,7 +580,7 @@ tbody tr:hover { background: rgba(0,232,162,.025); }
 }
 
 td {
-  padding: 8px 8px;
+  padding: 11px 8px;
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -631,13 +631,13 @@ td:first-child { text-align: left; }
 /* RSM cell */
 .rsm-val {
   font-family: 'Space Mono', monospace;
-  font-size: 11px; font-weight: 700;
+  font-size: 12px; font-weight: 700;
 }
 
 /* Gain cell */
 .gain-val {
   font-family: 'Space Mono', monospace;
-  font-size: 11px; font-weight: 700;
+  font-size: 12px; font-weight: 700;
 }
 .gain-val.pos { color: var(--up); }
 .gain-val.neg { color: var(--down); }
@@ -1149,7 +1149,7 @@ td:first-child { text-align: left; }
 .filter-count{background:var(--accent);color:var(--bg);border-radius:8px;padding:0 5px;font-size:10px;font-weight:700;margin-left:2px}
 
 /* Phase & Action badges */
-.phase-badge{font-family:'Space Mono',monospace;font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid transparent;font-weight:700;letter-spacing:.04em;white-space:nowrap}
+.phase-badge{font-family:'Space Mono',monospace;font-size:11px;padding:4px 11px;border-radius:20px;border:1px solid transparent;font-weight:700;letter-spacing:.04em;white-space:nowrap}
 .phase-badge.spring  {background:rgba(0,232,162,.12); color:#00e8a2;border-color:rgba(0,232,162,.3)}
 .phase-badge.absorb  {background:rgba(77,159,255,.1);  color:#4d9fff;border-color:rgba(77,159,255,.25)}
 .phase-badge.sos     {background:rgba(0,232,162,.1);  color:#00e8a2;border-color:rgba(0,232,162,.25)}
@@ -1157,17 +1157,20 @@ td:first-child { text-align: left; }
 .phase-badge.distri  {background:rgba(255,77,106,.1); color:#ff4d6a;border-color:rgba(255,77,106,.25)}
 .phase-badge.accum   {background:rgba(0,232,162,.07); color:#00e8a2;border-color:rgba(0,232,162,.18)}
 .phase-badge.neutral {background:rgba(100,120,140,.12);color:#8aa0b0;border-color:rgba(100,120,140,.25)}
-.action-badge{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;cursor:help;white-space:nowrap}
+.action-badge{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;cursor:help;white-space:nowrap}
 .action-badge.buy {color:#00e8a2}
 .action-badge.sell{color:#ff4d6a}
 .action-badge.hold{color:#ff8c42}
 </style>
+<link rel="stylesheet" href="/static/sidebar.css">
 </head>
-<body>
+<body class="sidebar-layout" data-page="flow">
+{% include 'sidebar.html' %}<div class="main-content">
 <a href="#main" class="skip-link">Skip to main content</a>
 
 <!-- HEADER -->
 <header>
+  <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg></button>
   <a href="/hub" class="logo"><span class="logo-dot"></span>ZENITH</a>
   <div class="nav-group">
     <a href="/chart" class="nav-btn">⬡ Chart</a>
@@ -3242,5 +3245,6 @@ function generateShareCard(ticker) {
 
 <script src="/static/animations.js" defer></script>
 <script src="/static/shortcuts.js" defer></script>
+</div>
 </body>
 </html>
