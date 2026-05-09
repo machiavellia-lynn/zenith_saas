@@ -164,15 +164,14 @@ body[data-page="flow"]  header a.info-btn { display: none !important; }
   padding-left: 28px;
 }
 
-/* ── TEXT: fade, never shown when collapsed ──────────────── */
+/* ── TEXT: hidden when collapsed (no space taken) ─────────── */
 .s-text {
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: opacity .2s ease, transform .2s ease;
+  display: none;
   white-space: nowrap;
   overflow: hidden;
 }
 .sidebar.expanded .s-text {
+  display: inline;
   opacity: 1;
   transform: translateX(0);
 }
@@ -214,10 +213,10 @@ body[data-page="flow"]  header a.info-btn { display: none !important; }
   width: 10px; height: 10px;
   margin-left: auto; flex-shrink: 0;
   color: var(--border2);
-  opacity: 0;
-  transition: transform .2s cubic-bezier(.4,0,.2,1), color .15s, opacity .2s ease;
+  display: none;
+  transition: transform .2s cubic-bezier(.4,0,.2,1), color .15s;
 }
-.sidebar.expanded .s-chevron-svg { opacity: 1; }
+.sidebar.expanded .s-chevron-svg { display: block; }
 .s-group.open > .s-group-toggle .s-chevron-svg {
   transform: rotate(180deg);
   color: var(--muted);
