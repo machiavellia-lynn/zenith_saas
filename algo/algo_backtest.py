@@ -1,7 +1,7 @@
 """
 algo_backtest.py — Zenith 2.0 Backtest Engine
-Pair-based backtest: BUY open -> SELL close signals.
-RULE: Fetch prices from price_history table (not Yahoo directly).
+Pair-based backtest: multi-entry BUY → SELL/SL close, mirroring Zenith 1.0 logic.
+RULE: Fetch prices from eod_summary (not Yahoo directly).
 """
 import logging
 import threading
@@ -37,20 +37,25 @@ def _days_between(d1: str, d2: str) -> int:
 
 def run_backtest(conn, days: int = 30, date_from: str = None, date_to: str = None) -> dict:
     """
-    Pair-based backtest over eod_summary date range.
+    Multi-entry pair-based backtest over eod_summary date range.
+    - Each BUY opens a new position (multi-entry, like Zenith 1.0).
+    - SELL closes ALL open positions for that ticker.
+    - ATR-based stop loss checked daily.
     Returns leaderboard dict matching backtest.html expectations.
-    Dates stored as DD-MM-YYYY; convert to YYYYMMDD for correct string comparison.
     """
     global _backtest_result
 
+    # ── Fetch ALL rows in range (need every day's price for daily SL check) ────
     if date_from and date_to:
         date_from_cmp = _to_cmp(date_from)
         date_to_cmp   = _to_cmp(date_to)
         all_rows = fetchall(conn, """
-            SELECT * FROM eod_summary WHERE action IS NOT NULL ORDER BY ticker, date
+            SELECT ticker, date, price_close, action, phase, atr_pct
+            FROM eod_summary ORDER BY ticker, date
         """)
         rows = [r for r in all_rows
-                if date_from_cmp <= _to_cmp(r["date"]) <= date_to_cmp]
+                if date_from_cmp <= _to_cmp(r["date"]) <= date_to_cmp
+                and r.get("price_close")]
     else:
         cutoff = fetchall(conn, """
             SELECT date FROM eod_summary
@@ -60,51 +65,98 @@ def run_backtest(conn, days: int = 30, date_from: str = None, date_to: str = Non
         cutoff_date = cutoff[0]["date"] if cutoff else "01-01-2000"
         cutoff_cmp  = _to_cmp(cutoff_date)
         all_rows = fetchall(conn, """
-            SELECT * FROM eod_summary WHERE action IS NOT NULL ORDER BY ticker, date
+            SELECT ticker, date, price_close, action, phase, atr_pct
+            FROM eod_summary ORDER BY ticker, date
         """)
-        rows = [r for r in all_rows if _to_cmp(r["date"]) >= cutoff_cmp]
+        rows = [r for r in all_rows
+                if _to_cmp(r["date"]) >= cutoff_cmp and r.get("price_close")]
 
-    # ── Pair trades ────────────────────────────────────────────────────────────
+    # ── Index: {date: {ticker: row}} ────────────────────────────────────────────
+    days_index = defaultdict(dict)
+    for row in rows:
+        days_index[row["date"]][row["ticker"]] = row
+
+    sorted_dates = sorted(days_index.keys(), key=_to_cmp)
+
+    # ── Multi-entry position tracking ───────────────────────────────────────────
     trades = []
-    open_positions = {}
+    open_positions = defaultdict(list)  # {ticker: [{entry_date, entry_price, entry_phase, sl_threshold}, ...]}
 
-    for row in sorted(rows, key=lambda r: (_to_cmp(r["date"]), r["ticker"])):
-        ticker = row["ticker"]
-        action = row.get("action")
-        price  = row.get("price_close")
-        if not price:
-            continue
+    for date_str in sorted_dates:
+        day_tickers = days_index[date_str]
 
-        if action == "BUY" and ticker not in open_positions:
-            open_positions[ticker] = {
-                "entry_date":  row["date"],
-                "entry_price": price,
-                "entry_phase": row.get("phase"),
-            }
-        elif action == "SELL" and ticker in open_positions:
-            entry = open_positions.pop(ticker)
-            profit = round((price - entry["entry_price"]) / entry["entry_price"] * 100, 2)
-            trades.append({
-                "ticker":       ticker,
-                "entry_date":   entry["entry_date"],
-                "exit_date":    row["date"],
-                "entry_price":  entry["entry_price"],
-                "exit_price":   price,
-                "profit":       profit,
-                "duration":     _days_between(entry["entry_date"], row["date"]),
-                "phase":        entry["entry_phase"],
-                "exit_phase":   row.get("phase"),
-            })
+        # 1. Check ATR stop loss daily for every open position
+        for ticker, positions in list(open_positions.items()):
+            if not positions:
+                continue
+            day_row = day_tickers.get(ticker)
+            price   = day_row["price_close"] if day_row else None
+            if not price:
+                continue
 
-    # ── Build leaderboard grouped by entry phase ────────────────────────────
+            surviving = []
+            for pos in positions:
+                loss_pct = (price - pos["entry_price"]) / pos["entry_price"] * 100
+                if loss_pct <= pos["sl_threshold"]:
+                    trades.append({
+                        "ticker":      ticker,
+                        "entry_date":  pos["entry_date"],
+                        "exit_date":   date_str,
+                        "entry_price": pos["entry_price"],
+                        "exit_price":  price,
+                        "profit":      round(loss_pct, 2),
+                        "duration":    _days_between(pos["entry_date"], date_str),
+                        "phase":       pos["entry_phase"],
+                        "exit_phase":  "SL",
+                    })
+                else:
+                    surviving.append(pos)
+            open_positions[ticker] = surviving
+
+        # 2. Process BUY / SELL signals for this day
+        for ticker, row in day_tickers.items():
+            action = row.get("action")
+            price  = row.get("price_close")
+            if not action or not price:
+                continue
+
+            if action == "BUY":
+                atr_pct      = row.get("atr_pct") or 2.5
+                sl_threshold = -min(max(atr_pct * 2.0, 5.0), 12.0)
+                open_positions[ticker].append({
+                    "entry_date":  date_str,
+                    "entry_price": price,
+                    "entry_phase": row.get("phase"),
+                    "sl_threshold": sl_threshold,
+                })
+
+            elif action == "SELL" and open_positions[ticker]:
+                for pos in open_positions[ticker]:
+                    profit = round((price - pos["entry_price"]) / pos["entry_price"] * 100, 2)
+                    trades.append({
+                        "ticker":      ticker,
+                        "entry_date":  pos["entry_date"],
+                        "exit_date":   date_str,
+                        "entry_price": pos["entry_price"],
+                        "exit_price":  price,
+                        "profit":      profit,
+                        "duration":    _days_between(pos["entry_date"], date_str),
+                        "phase":       pos["entry_phase"],
+                        "exit_phase":  row.get("phase"),
+                    })
+                open_positions[ticker] = []
+
+    # ── Build leaderboard grouped by entry phase ────────────────────────────────
     phase_map = defaultdict(list)
     for t in trades:
+        if t.get("profit", 0) < -50:  # exclude extreme losses (rights issue, delisting)
+            continue
         phase_map[t["phase"] or "UNKNOWN"].append(t)
 
     leaderboard = []
     for phase, pt in phase_map.items():
-        wins   = [t for t in pt if t["profit"] > 0]
-        losses = [t for t in pt if t["profit"] <= 0]
+        wins        = [t for t in pt if t["profit"] > 0]
+        losses      = [t for t in pt if t["profit"] <= 0]
         gross_profit = sum(t["profit"] for t in wins)
         gross_loss   = abs(sum(t["profit"] for t in losses))
         pf = round(gross_profit / gross_loss, 2) if gross_loss > 0 else None
@@ -120,36 +172,38 @@ def run_backtest(conn, days: int = 30, date_from: str = None, date_to: str = Non
             "avg_duration": round(sum(t["duration"] for t in pt) / len(pt), 1),
             "profit_factor": pf,
             "details": [{
-                "ticker":       t["ticker"],
-                "entry_date":   t["entry_date"],
-                "exit_date":    t["exit_date"],
-                "entry_price":  t["entry_price"],
-                "exit_price":   t["exit_price"],
-                "profit":       t["profit"],
-                "duration":     t["duration"],
-                "exit_phase":   t["exit_phase"],
+                "ticker":      t["ticker"],
+                "entry_date":  t["entry_date"],
+                "exit_date":   t["exit_date"],
+                "entry_price": t["entry_price"],
+                "exit_price":  t["exit_price"],
+                "profit":      t["profit"],
+                "duration":    t["duration"],
+                "exit_phase":  t["exit_phase"],
             } for t in pt],
         })
 
-    total_wins   = sum(1 for t in trades if t["profit"] > 0)
-    total_losses = len(trades) - total_wins
-    gross_p = sum(t["profit"] for t in trades if t["profit"] > 0)
-    gross_l = abs(sum(t["profit"] for t in trades if t["profit"] <= 0))
+    valid_trades = [t for t in trades if t.get("profit", 0) >= -50]
+    total_wins   = sum(1 for t in valid_trades if t["profit"] > 0)
+    total_losses = len(valid_trades) - total_wins
+    gross_p      = sum(t["profit"] for t in valid_trades if t["profit"] > 0)
+    gross_l      = abs(sum(t["profit"] for t in valid_trades if t["profit"] <= 0))
     overall_pf   = round(gross_p / gross_l, 2) if gross_l > 0 else None
-    overall_wr   = round(total_wins / len(trades) * 100, 1) if trades else None
+    overall_wr   = round(total_wins / len(valid_trades) * 100, 1) if valid_trades else None
 
-    sorted_dates = sorted([t["entry_date"] for t in trades] + [t["exit_date"] for t in trades],
-                          key=_to_cmp)
-    date_range = f"{sorted_dates[0]} - {sorted_dates[-1]}" if sorted_dates else "-"
+    all_entry_dates = [t["entry_date"] for t in valid_trades]
+    all_exit_dates  = [t["exit_date"]  for t in valid_trades]
+    all_d = sorted(all_entry_dates + all_exit_dates, key=_to_cmp)
+    date_range = f"{all_d[0]} - {all_d[-1]}" if all_d else "-"
 
     result = {
         "leaderboard":           leaderboard,
-        "total_trades":          len(trades),
+        "total_trades":          len(valid_trades),
         "total_wins":            total_wins,
         "total_losses":          total_losses,
         "overall_win_rate":      overall_wr,
         "overall_profit_factor": overall_pf,
-        "tickers_tested":        len({t["ticker"] for t in trades}),
+        "tickers_tested":        len({t["ticker"] for t in valid_trades}),
         "date_range":            date_range,
         "computed_at":           datetime.now(WIB).strftime("%d-%m-%Y %H:%M"),
     }
@@ -188,7 +242,6 @@ def request_backtest(days: int = 30, date_from: str = None, date_to: str = None)
 
 
 def get_backtest_status() -> dict:
-    """For polling: returns running/done/error status."""
     with _backtest_lock:
         if _backtest_running:
             return {"status": "running"}
@@ -203,34 +256,80 @@ def get_backtest_result() -> dict | None:
 
 
 def get_ticker_fitness(conn, ticker: str, days: int = 90) -> dict:
-    """Compute per-ticker backtest metrics."""
-    rows = fetchall(conn, """
-        SELECT date, action, phase, price_close
-        FROM eod_summary
-        WHERE ticker = %s AND action IS NOT NULL
-        ORDER BY date DESC LIMIT %s
-    """, [ticker, days])
+    """
+    Per-ticker backtest stats extracted from cached _backtest_result.
+    Returns the full format expected by flow.html loadTickerFitness().
+    """
+    with _backtest_lock:
+        cached = _backtest_result
 
-    trades = []
-    open_pos = None
-    for row in reversed(rows):
-        action = row.get("action")
-        price  = row.get("price_close")
-        if not price:
-            continue
-        if action == "BUY" and not open_pos:
-            open_pos = {"entry_price": price, "entry_date": row["date"]}
-        elif action == "SELL" and open_pos:
-            gain = round((price - open_pos["entry_price"]) / open_pos["entry_price"] * 100, 2)
-            trades.append(gain)
-            open_pos = None
+    if not cached:
+        return {"ticker": ticker, "total_trades": 0, "error": "No backtest data"}
 
-    win_rate = round(sum(1 for g in trades if g > 0) / len(trades) * 100, 1) if trades else 0
-    avg_gain = round(sum(trades) / len(trades), 2) if trades else 0
+    period   = cached.get("date_range", "")
+    computed = cached.get("computed_at", "")
+
+    # Extract all trades for this ticker from the leaderboard details
+    ticker_trades = []
+    entry_phase_map = defaultdict(list)
+
+    for entry_row in cached.get("leaderboard", []):
+        entry_phase = entry_row.get("entry", "")
+        for d in entry_row.get("details", []):
+            if d["ticker"] == ticker and d.get("profit", 0) >= -50:
+                trade = {**d, "entry_phase": entry_phase}
+                ticker_trades.append(trade)
+                entry_phase_map[entry_phase].append(trade)
+
+    if not ticker_trades:
+        return {"ticker": ticker, "total_trades": 0, "period": period}
+
+    wins   = [t for t in ticker_trades if t["profit"] > 0]
+    losses = [t for t in ticker_trades if t["profit"] <= 0]
+    gp     = sum(t["profit"] for t in wins)
+    gl     = abs(sum(t["profit"] for t in losses))
+    pf     = round(gp / gl, 2) if gl > 0 else (99.0 if gp > 0 else 0)
+
+    # Per-phase breakdown
+    phase_stats = []
+    best_phase  = None
+    best_gp     = -999
+
+    for ph, ph_trades in entry_phase_map.items():
+        ph_wins = [t for t in ph_trades if t["profit"] > 0]
+        ph_gl   = abs(sum(t["profit"] for t in ph_trades if t["profit"] <= 0))
+        ph_gp   = sum(t["profit"] for t in ph_trades if t["profit"] > 0)
+        ph_pf   = round(ph_gp / ph_gl, 2) if ph_gl > 0 else (99.0 if ph_gp > 0 else 0)
+        ph_wr   = round(len(ph_wins) / len(ph_trades) * 100, 1) if ph_trades else 0
+        ph_avg  = round(sum(t["profit"] for t in ph_trades) / len(ph_trades), 2)
+        phase_stats.append({
+            "phase": ph, "trades": len(ph_trades),
+            "win_rate": ph_wr, "profit_factor": ph_pf, "avg_profit": ph_avg,
+        })
+        if ph_gp > best_gp:
+            best_gp    = ph_gp
+            best_phase = {
+                "phase": ph, "win_rate": ph_wr, "profit_factor": ph_pf,
+                "avg_profit": ph_avg, "trades": len(ph_trades),
+            }
+
+    trades_sorted = sorted(
+        ticker_trades,
+        key=lambda t: _to_cmp(t.get("entry_date", "")),
+        reverse=True,
+    )
 
     return {
-        "ticker":      ticker,
-        "trade_count": len(trades),
-        "win_rate":    win_rate,
-        "avg_gain":    avg_gain,
+        "ticker":        ticker,
+        "total_trades":  len(ticker_trades),
+        "win_rate":      round(len(wins) / len(ticker_trades) * 100, 1),
+        "profit_factor": pf,
+        "avg_profit":    round(sum(t["profit"] for t in ticker_trades) / len(ticker_trades), 2),
+        "best_phase":    best_phase,
+        "phase_stats":   sorted(phase_stats, key=lambda x: x["avg_profit"], reverse=True),
+        "wins":          len(wins),
+        "losses":        len(losses),
+        "period":        period,
+        "computed_at":   computed,
+        "trades":        trades_sorted,
     }
