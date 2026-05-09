@@ -19,10 +19,24 @@ def backtest_page():
 def api_backtest():
     if not is_authed():
         return redirect("/")
-    from algo.algo_backtest import get_backtest_result
+    from algo.algo_backtest import get_backtest_result, get_backtest_status, request_backtest
+
+    # Trigger new backtest run
+    if request.args.get("run") == "1":
+        days      = int(request.args.get("days", 30))
+        date_from = request.args.get("date_from") or None
+        date_to   = request.args.get("date_to") or None
+        triggered = request_backtest(days=days, date_from=date_from, date_to=date_to)
+        return jsonify({"triggered": triggered})
+
+    # Status polling while running
+    if request.args.get("status") == "1":
+        return jsonify(get_backtest_status())
+
+    # Return cached result
     result = get_backtest_result()
     if not result:
-        return jsonify({"status": "not_ready"})
+        return jsonify({"error": "Belum ada data. Klik RUN BACKTEST."})
     return jsonify(result)
 
 
