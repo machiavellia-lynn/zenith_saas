@@ -499,7 +499,7 @@ header::before {
   width: 100%; border-collapse: collapse;
 }
 .fitness-trades-table th {
-  position: sticky; top: 0; z-index: 2;
+  position: sticky; top: 0; z-index: 100;
   background: var(--surface2); padding: 5px 10px;
   font-family: 'Space Mono', monospace; font-size:10px;
   font-weight: 700; letter-spacing: .08em;
@@ -546,7 +546,7 @@ table {
   margin-top: 12px;
 }
 thead th {
-  position: sticky; top: 0; z-index: 10;
+  position: sticky; top: 0; z-index: 100;
   background: var(--bg);
   border-bottom: 2px solid var(--border2);
   padding: 13px 10px;
@@ -924,7 +924,7 @@ td:first-child { text-align: left; }
 .trx-table-wrap::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 .trx-table { width: 100%; border-collapse: collapse; }
 .trx-table thead th {
-  position: sticky; top: 0; z-index: 1;
+  position: sticky; top: 0; z-index: 100;
   background: var(--bg);
 }
 .trx-table th {
