@@ -163,9 +163,14 @@ td:first-child,td:nth-child(2),td:nth-child(3){text-align:left}
     <button class="btn" id="runBtn" onclick="runBacktest()">Run Backtest</button>
     <button class="btn outline" onclick="loadResults()">Load Cached</button>
     <div style="flex:1"></div>
-    <div style="display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 10px;transition:border-color .2s" onfocusin="this.style.borderColor='var(--accent)'" onfocusout="this.style.borderColor='var(--border)'">
-      <span style="color:var(--muted);font-size:11px">⌕</span>
-      <input type="text" id="tickerSearch" placeholder="Cari ticker..." oninput="renderLeaderboard()" style="background:none;border:none;outline:none;color:var(--text);font-family:'Space Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;width:90px"/>
+    <div style="position:relative">
+      <div style="display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 10px;transition:border-color .2s" onfocusin="this.style.borderColor='var(--accent)'" onfocusout="this.style.borderColor='var(--border)'">
+        <span style="color:var(--muted);font-size:11px">⌕</span>
+        <input type="text" id="tickerSearch" placeholder="Cari ticker..." autocomplete="off"
+          oninput="onTickerInput()" onkeydown="onTickerKey(event)"
+          style="background:none;border:none;outline:none;color:var(--text);font-family:'Space Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;width:90px"/>
+      </div>
+      <div id="tickerDropdown" style="display:none;position:absolute;top:calc(100% + 4px);right:0;min-width:120px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;box-shadow:0 4px 16px #0008;z-index:999;overflow:hidden"></div>
     </div>
   </div>
   <div class="status-bar">
@@ -400,6 +405,74 @@ function _sortedRows() {
   });
   return rows;
 }
+
+let _dropdownIdx = -1;
+
+function _allTickers() {
+  const set = new Set();
+  for (const row of lbData) for (const d of (row.details || [])) set.add(d.ticker);
+  return [...set].sort();
+}
+
+function onTickerInput() {
+  const q = (document.getElementById('tickerSearch').value || '').trim().toUpperCase();
+  const dd = document.getElementById('tickerDropdown');
+  _dropdownIdx = -1;
+  if (!q || q.length < 1) { dd.style.display = 'none'; renderLeaderboard(); return; }
+  const matches = _allTickers().filter(t => t.startsWith(q));
+  if (!matches.length || (matches.length === 1 && matches[0] === q)) {
+    dd.style.display = 'none';
+  } else {
+    dd.innerHTML = matches.slice(0, 10).map((t, i) =>
+      `<div class="dd-item" data-ticker="${t}" onmousedown="selectTicker('${t}')"
+        style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;
+               letter-spacing:.06em;cursor:pointer;color:var(--text);transition:background .1s"
+        onmouseenter="highlightDd(${i})" onmouseleave="highlightDd(-1)">
+        ${t}
+      </div>`
+    ).join('');
+    dd.style.display = 'block';
+  }
+  renderLeaderboard();
+}
+
+function highlightDd(i) {
+  document.querySelectorAll('#tickerDropdown .dd-item').forEach((el, j) => {
+    el.style.background = j === i ? 'var(--border)' : '';
+  });
+  _dropdownIdx = i;
+}
+
+function onTickerKey(e) {
+  const items = [...document.querySelectorAll('#tickerDropdown .dd-item')];
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _dropdownIdx = Math.min(_dropdownIdx + 1, items.length - 1);
+    items.forEach((el, i) => el.style.background = i === _dropdownIdx ? 'var(--border)' : '');
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _dropdownIdx = Math.max(_dropdownIdx - 1, 0);
+    items.forEach((el, i) => el.style.background = i === _dropdownIdx ? 'var(--border)' : '');
+  } else if (e.key === 'Enter' && _dropdownIdx >= 0) {
+    e.preventDefault();
+    selectTicker(items[_dropdownIdx].dataset.ticker);
+  } else if (e.key === 'Escape') {
+    document.getElementById('tickerDropdown').style.display = 'none';
+  }
+}
+
+function selectTicker(t) {
+  document.getElementById('tickerSearch').value = t;
+  document.getElementById('tickerDropdown').style.display = 'none';
+  _dropdownIdx = -1;
+  renderLeaderboard();
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#tickerDropdown') && e.target.id !== 'tickerSearch')
+    document.getElementById('tickerDropdown').style.display = 'none';
+});
 
 function renderLeaderboard() {
   const search = (document.getElementById('tickerSearch')?.value || '').trim().toUpperCase();

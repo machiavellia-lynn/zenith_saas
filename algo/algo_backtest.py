@@ -61,8 +61,8 @@ def run_backtest(conn, days: int = 30, date_from: str = None, date_to: str = Non
         # Must use DISTINCT — eod_summary has many tickers per date, so OFFSET
         # on raw rows always lands on the same most-recent date.
         distinct = fetchall(conn, """
-            SELECT DISTINCT date FROM eod_summary
-            ORDER BY SUBSTR(date,7,4)||SUBSTR(date,4,2)||SUBSTR(date,1,2) ASC
+            SELECT date FROM (SELECT DISTINCT date FROM eod_summary) t
+            ORDER BY TO_DATE(date, 'DD-MM-YYYY') ASC
         """)
         all_distinct = [r["date"] for r in distinct]
         cutoff_date = all_distinct[-days] if len(all_distinct) >= days else (all_distinct[0] if all_distinct else "01-01-2000")

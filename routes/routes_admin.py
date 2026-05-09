@@ -35,18 +35,38 @@ def scraper_status():
     try:
         conn = get_scraper_db()
         # Actual channel values stored by the scraper
-        ch_map = {"smart": "SM", "bad": "BM", "mf_plus": "MF+", "mf_minus": "MF-"}
+        # SM/BM stored in raw_messages; MF+/MF- stored in raw_mf_messages
+        sm_bm_map = {"smart": "SM", "bad": "BM"}
+        mf_map    = {"mf_plus": "MF+", "mf_minus": "MF-"}
         first_data  = {}
         latest_data = {}
         row_counts  = {}
 
-        for ch, label in ch_map.items():
+        for ch, label in sm_bm_map.items():
             rows = fetchall(conn, """
                 SELECT
                     MIN(SUBSTR(date,7,4)||SUBSTR(date,4,2)||SUBSTR(date,1,2)) AS first_sort,
                     MAX(SUBSTR(date,7,4)||SUBSTR(date,4,2)||SUBSTR(date,1,2)) AS last_sort,
                     COUNT(*) AS cnt
                 FROM raw_messages WHERE channel = %s
+            """, [ch])
+            if rows and rows[0]["cnt"]:
+                r = rows[0]
+                first_data[label]  = _sort_to_dmy(r["first_sort"])
+                latest_data[label] = _sort_to_dmy(r["last_sort"])
+                row_counts[label]  = int(r["cnt"])
+            else:
+                first_data[label]  = "—"
+                latest_data[label] = "—"
+                row_counts[label]  = 0
+
+        for ch, label in mf_map.items():
+            rows = fetchall(conn, """
+                SELECT
+                    MIN(SUBSTR(date,7,4)||SUBSTR(date,4,2)||SUBSTR(date,1,2)) AS first_sort,
+                    MAX(SUBSTR(date,7,4)||SUBSTR(date,4,2)||SUBSTR(date,1,2)) AS last_sort,
+                    COUNT(*) AS cnt
+                FROM raw_mf_messages WHERE channel = %s
             """, [ch])
             if rows and rows[0]["cnt"]:
                 r = rows[0]
