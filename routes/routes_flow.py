@@ -53,11 +53,13 @@ def flow():
         """, [dates])
 
         analytics_map = {}
-        latest_rows = fetchall(conn, """
-            SELECT date FROM eod_summary WHERE date = ANY(%s)
-            ORDER BY TO_DATE(date, 'DD-MM-YYYY') DESC LIMIT 1
-        """, [dates])
-        latest_date = latest_rows[0]["date"] if latest_rows else None
+
+        # Load existing dates in range once (DISTINCT, index-friendly), sort in Python
+        existing_in_range = [r["date"] for r in fetchall(conn,
+            "SELECT DISTINCT date FROM eod_summary WHERE date = ANY(%s)", [dates])]
+        existing_sorted = sorted(existing_in_range, key=parse_date)
+        latest_date   = existing_sorted[-1] if existing_sorted else None
+        earliest_date = existing_sorted[0]  if existing_sorted else None
 
         if latest_date:
             a_rows = fetchall(conn, """
@@ -76,21 +78,17 @@ def flow():
                 "SELECT ticker, price_close FROM eod_summary WHERE date = %s AND price_close IS NOT NULL",
                 [latest_date]
             )}
-            earliest_rows = fetchall(conn, """
-                SELECT date FROM eod_summary WHERE date = ANY(%s)
-                ORDER BY TO_DATE(date, 'DD-MM-YYYY') ASC LIMIT 1
-            """, [dates])
-            e_date = earliest_rows[0]["date"] if earliest_rows else date_from
-            prev_rows = fetchall(conn, """
-                SELECT DISTINCT date FROM eod_summary
-                WHERE TO_DATE(date, 'DD-MM-YYYY') < TO_DATE(%s, 'DD-MM-YYYY')
-                ORDER BY TO_DATE(date, 'DD-MM-YYYY') DESC LIMIT 1
-            """, [e_date])
+            # Find last date BEFORE earliest_date — load all distinct dates, filter in Python
+            e_date = earliest_date or date_from
+            e_dt = parse_date(e_date)
+            all_dates = [r["date"] for r in fetchall(conn, "SELECT DISTINCT date FROM eod_summary")]
+            candidates = [d for d in all_dates if parse_date(d) < e_dt]
+            prev_date = max(candidates, key=parse_date) if candidates else None
             price_ref = {}
-            if prev_rows:
+            if prev_date:
                 price_ref = {r["ticker"]: r["price_close"] for r in fetchall(conn,
                     "SELECT ticker, price_close FROM eod_summary WHERE date = %s AND price_close IS NOT NULL",
-                    [prev_rows[0]["date"]]
+                    [prev_date]
                 )}
             for t in set(list(price_latest.keys()) + list(price_ref.keys())):
                 p_now = price_latest.get(t)
