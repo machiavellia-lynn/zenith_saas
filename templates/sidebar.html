@@ -112,9 +112,7 @@
   function scheduleSidebarCollapse() {
     if (window.innerWidth <= 768) return;
     clearTimeout(collapseTimer);
-    collapseTimer = setTimeout(function() {
-      sb.classList.remove('expanded');
-    }, 400);
+    sb.classList.remove('expanded');
   }
 
   sb.addEventListener('mouseenter', expandSidebar);

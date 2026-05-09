@@ -73,7 +73,7 @@ body[data-page="flow"]  header a.info-btn { display: none !important; }
 }
 /* Full logo: absolute centered, fades in on expand */
 .sidebar-logo-svg {
-  width: 148px; height: 58px;
+  width: 120px; height: 47px;
   position: absolute;
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
@@ -144,6 +144,9 @@ body[data-page="flow"]  header a.info-btn { display: none !important; }
 }
 .s-item:hover .s-svg,
 .s-item.active .s-svg { opacity: 1; }
+
+/* Remove gap when text is hidden (collapsed) */
+.sidebar:not(.expanded) .s-item { gap: 0; }
 
 /* Sub-items */
 .s-item.s-sub { padding-left: 26px; font-size: 13px; }
