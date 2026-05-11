@@ -46,7 +46,11 @@ def flow():
                    SUM(tx_sm)    AS tx_sm,
                    SUM(tx_bm)    AS tx_bm,
                    SUM(mf_plus)  AS mf_plus,
-                   SUM(mf_minus) AS mf_minus
+                   SUM(mf_minus) AS mf_minus,
+                   SUM(CASE WHEN vwap_sm IS NOT NULL AND sm_val > 0 THEN vwap_sm * sm_val ELSE 0 END)
+                       / NULLIF(SUM(CASE WHEN vwap_sm IS NOT NULL AND sm_val > 0 THEN sm_val ELSE 0 END), 0) AS vwap_sm,
+                   SUM(CASE WHEN vwap_bm IS NOT NULL AND bm_val > 0 THEN vwap_bm * bm_val ELSE 0 END)
+                       / NULLIF(SUM(CASE WHEN vwap_bm IS NOT NULL AND bm_val > 0 THEN bm_val ELSE 0 END), 0) AS vwap_bm
             FROM eod_summary
             WHERE date = ANY(%s)
             GROUP BY ticker
@@ -65,6 +69,7 @@ def flow():
             a_rows = fetchall(conn, """
                 SELECT ticker, price_close, sri, volx_gap, vwap_sm, vwap_bm,
                        atr_pct, sm_sma10, bm_sma10, watch, price_change_pct,
+                       sm_val, bm_val,
                        ma5, ma13, ma34, ma200, rsi14, cm_streak
                 FROM eod_summary WHERE date = %s
             """, [latest_date])
@@ -126,6 +131,8 @@ def flow():
                 round((row["mf_plus"] or 0) - (row["mf_minus"] or 0), 2)
                 if row["mf_plus"] is not None or row["mf_minus"] is not None else None
             ),
+            "vwap_sm":  row["vwap_sm"],
+            "vwap_bm":  row["vwap_bm"],
         }
 
     kompas100_mode = request.args.get("kompas100", "").strip().lower() in ("1", "true", "yes", "on")
@@ -177,15 +184,19 @@ def flow():
         action = "HOLD"
         ma_structure = trade_gate = narrative = None
 
+        # For phase/gate classification always use single-day bm_val from latest_date
+        # so it stays on the same scale as bm_sma10 (per-day average).
+        bm_classify = a.get("bm_val") or (d.get("bm_val") or 0)
+
         if rsm is not None:
             bm_raw       = d.get("bm_val") or 0
-            phase        = classify_zenith_v3_1(sri, rsm, rpr_val, gain, bm_raw, bm_sma10, atr_pct)
+            phase        = classify_zenith_v3_1(sri, rsm, rpr_val, gain, bm_classify, bm_sma10, atr_pct)
             watch        = get_watch_flag(phase, gain, atr_pct)
-            action       = get_action(phase, gain, atr_pct, bm_val=bm_raw, bm_sma10=bm_sma10, watch_flag=watch, sri=sri, rsm=rsm)
+            action       = get_action(phase, gain, atr_pct, bm_val=bm_classify, bm_sma10=bm_sma10, watch_flag=watch, sri=sri, rsm=rsm)
             if watch is None and a.get("watch"):
                 watch = a.get("watch")
             ma_structure = get_ma_structure(price_now, a.get("ma5"), a.get("ma13"), a.get("ma34"), a.get("ma200"))
-            trade_gate   = detect_trade_detail_gate(phase, gain, bm_raw, bm_sma10, atr_pct, action)
+            trade_gate   = detect_trade_detail_gate(phase, gain, bm_classify, bm_sma10, atr_pct, action)
             narrative    = get_phase_narrative(phase, ma_structure, trade_gate)
         else:
             bm_raw       = d.get("bm_val") or 0
@@ -213,8 +224,8 @@ def flow():
             "price_change": gain,
             "atr_pct":      atr_pct,
             "sm_sma10":     round(a["sm_sma10"], 2) if a.get("sm_sma10") else None,
-            "vwap_sm":      round(a["vwap_sm"],  2) if a.get("vwap_sm")  else None,
-            "vwap_bm":      round(a["vwap_bm"],  2) if a.get("vwap_bm")  else None,
+            "vwap_sm":      round(d["vwap_sm"],  2) if d.get("vwap_sm")  else None,
+            "vwap_bm":      round(d["vwap_bm"],  2) if d.get("vwap_bm")  else None,
             "ma5":          round(a["ma5"],   2) if a.get("ma5")   is not None else None,
             "ma13":         round(a["ma13"],  2) if a.get("ma13")  is not None else None,
             "ma34":         round(a["ma34"],  2) if a.get("ma34")  is not None else None,
