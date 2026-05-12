@@ -46,8 +46,8 @@ def rebuild_summary_for_date(conn, date_str: str, full_reset: bool = False):
     # ── MF aggregation ───────────────────────────────────────────────────
     mf_rows = fetchall(conn, """
         SELECT ticker,
-               SUM(CASE WHEN channel = 'mf_plus'  THEN mf_numeric ELSE 0 END) AS mf_plus,
-               SUM(CASE WHEN channel = 'mf_minus' THEN mf_numeric ELSE 0 END) AS mf_minus
+               SUM(CASE WHEN channel = 'mf_plus'  THEN mf_numeric       ELSE 0 END) AS mf_plus,
+               SUM(CASE WHEN channel = 'mf_minus' THEN ABS(mf_numeric) ELSE 0 END) AS mf_minus
         FROM raw_mf_messages
         WHERE date = %s
         GROUP BY ticker

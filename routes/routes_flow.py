@@ -128,7 +128,7 @@ def flow():
             "mf_plus":  row["mf_plus"],
             "mf_minus": row["mf_minus"],
             "net_mf": (
-                round((row["mf_plus"] or 0) - (row["mf_minus"] or 0), 2)
+                round((row["mf_plus"] or 0) - abs(row["mf_minus"] or 0), 2)
                 if row["mf_plus"] is not None or row["mf_minus"] is not None else None
             ),
             "vwap_sm":  row["vwap_sm"],
