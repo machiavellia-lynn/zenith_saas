@@ -14,6 +14,27 @@ import requests
 bp_main = Blueprint("main", __name__)
 
 
+@bp_main.route("/health")
+def health():
+    """Lightweight health check for Railway and uptime monitors. No auth required."""
+    db_ok = False
+    try:
+        fetchone(get_db(), "SELECT 1")
+        db_ok = True
+    except Exception:
+        pass
+
+    scraper_alive = False
+    try:
+        from scraper.scraper_daily import get_backfill_status
+        scraper_alive = get_backfill_status().get("thread_alive", False)
+    except Exception:
+        pass
+
+    status = "ok" if db_ok else "degraded"
+    return jsonify({"status": status, "db": db_ok, "scraper": scraper_alive}), (200 if db_ok else 503)
+
+
 @bp_main.route("/", methods=["GET", "POST"])
 def login_page():
     if is_authed():

@@ -75,9 +75,6 @@ def _start_scraper():
 
 def _start_backtest():
     def _run():
-        time.sleep(5)
-        from datetime import datetime
-        import config
         from algo.algo_backtest import run_backtest
         from core.db import get_db
         try:
