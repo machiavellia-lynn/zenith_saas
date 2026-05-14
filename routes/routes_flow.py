@@ -103,15 +103,27 @@ def flow():
                     "price": int(round(p_now)) if p_now else None,
                 }
         elif is_single and latest_date:
-            for r in fetchall(conn,
-                "SELECT ticker, price_close, price_change_pct FROM eod_summary WHERE date = %s AND price_close IS NOT NULL",
+            date_yyyy = f"{latest_date[6:10]}-{latest_date[3:5]}-{latest_date[:2]}"
+            eod_rows = fetchall(conn,
+                "SELECT ticker, price_close FROM eod_summary WHERE date = %s AND price_close IS NOT NULL",
                 [latest_date]
-            ):
-                pct = r["price_change_pct"]
-                gains_map[r["ticker"]] = {
-                    "gain":  round(pct, 2) if pct is not None else None,
-                    "price": int(round(r["price_close"])),
-                }
+            )
+            price_today_map = {r["ticker"]: r["price_close"] for r in eod_rows}
+            tickers_day = list(price_today_map.keys())
+            prev_close_map = {}
+            if tickers_day:
+                ph_prev = fetchall(conn, """
+                    SELECT DISTINCT ON (ticker) ticker, close
+                    FROM price_history
+                    WHERE ticker = ANY(%s) AND date < %s
+                    ORDER BY ticker, date DESC
+                """, [tickers_day, date_yyyy])
+                prev_close_map = {r["ticker"]: r["close"] for r in ph_prev}
+            for ticker in tickers_day:
+                p_now  = price_today_map[ticker]
+                p_prev = prev_close_map.get(ticker)
+                gain   = round((p_now - p_prev) / p_prev * 100, 2) if p_now and p_prev and p_prev > 0 else None
+                gains_map[ticker] = {"gain": gain, "price": int(round(p_now))}
 
     except Exception as e:
         return jsonify({"error": f"DB error: {e}"}), 500

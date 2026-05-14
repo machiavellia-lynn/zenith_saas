@@ -157,14 +157,15 @@ def _compute_one(conn, ticker: str, date_str: str, row: dict) -> dict:
 
 
 def _get_prev_close(conn, ticker: str, date_str: str):
+    # Use price_history (consecutive trading days) instead of eod_summary
+    # which only has entries on days with SM/BM activity — causing stale prev prices.
+    date_yyyy = f"{date_str[6:10]}-{date_str[3:5]}-{date_str[:2]}"
     rows = fetchall(conn, """
-        SELECT price_close FROM eod_summary
-        WHERE ticker = %s
-          AND TO_DATE(date, 'DD-MM-YYYY') < TO_DATE(%s, 'DD-MM-YYYY')
-          AND price_close IS NOT NULL
-        ORDER BY TO_DATE(date, 'DD-MM-YYYY') DESC LIMIT 1
-    """, [ticker, date_str])
-    return rows[0]["price_close"] if rows else None
+        SELECT close FROM price_history
+        WHERE ticker = %s AND date < %s
+        ORDER BY date DESC LIMIT 1
+    """, [ticker, date_yyyy])
+    return rows[0]["close"] if rows else None
 
 
 def _compute_atr_pct(closes: list) -> float:
