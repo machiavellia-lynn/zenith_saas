@@ -98,7 +98,7 @@ def get_action(
     """
     Derive trading action from phase with 3 safety gates + SM quality filters (v3.2).
 
-    Gate A — Supply Gate   : bm_val > bm_sma10 × 1.0  → HOLD
+    Gate A — Supply Gate   : bm_val > bm_sma10 × 1.1  → HOLD
     Gate B — ARB Safety    : watch_flag == "ARB_SPRING" → HOLD
     Gate C — Anti-Pucuk    : pchg >= threshold per phase → HOLD
                              SOS: max(atr × 2.5, 6.0)
@@ -125,8 +125,8 @@ def get_action(
     if rsm > 0 and rsm < 70.0:
         return "HOLD"
 
-    # Gate A: Supply Gate — BM hari ini ≥ rata-rata normal = ada tekanan jual signifikan
-    if bm_sma10 > 0 and bm_val > bm_sma10 * 1.0:
+    # Gate A: Supply Gate — BM hari ini ≥ 110% rata-rata normal = ada tekanan jual signifikan
+    if bm_sma10 > 0 and bm_val > bm_sma10 * 1.1:
         return "HOLD"
 
     # Gate B: ARB Safety — SPRING dengan penurunan ekstrim
@@ -167,7 +167,7 @@ def detect_trade_detail_gate(
     """
     Detect which (if any) Gate condition is active for Trade Detail display.
 
-    Gate A: Supply Gate — BM today > BM SMA10 × 1.0 (supply pressure active)
+    Gate A: Supply Gate — BM today > BM SMA10 × 1.1 (supply pressure active)
     Gate B: Extreme Panic — SPRING phase with pchg < -(ATR × 1.5) (ARB risk)
     Gate C: Profit Taking — BUY action (SOS/SPRING/ABSORB/ACCUM) with pchg > ATR × 3.0
 
@@ -175,8 +175,8 @@ def detect_trade_detail_gate(
     """
     atr = atr_pct if atr_pct and atr_pct > 0 else 2.5
 
-    # Gate A: Supply pressure active (BM ≥ normal avg)
-    if bm_sma10 > 0 and bm_val > bm_sma10 * 1.0:
+    # Gate A: Supply pressure active (BM ≥ 110% normal avg)
+    if bm_sma10 > 0 and bm_val > bm_sma10 * 1.1:
         return "Gate A"
 
     # Gate B: Extreme panic (SPRING with massive drop)
