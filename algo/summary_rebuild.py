@@ -22,21 +22,24 @@ def rebuild_summary_for_date(conn, date_str: str, full_reset: bool = False):
         execute(conn, "DELETE FROM eod_summary WHERE date = %s", [date_str])
 
     # ── SM/BM aggregation + volx_gap ────────────────────────────────────
+    # mf_delta_numeric is the net money flow per alert (signed: + for SM, - for BM).
+    # This matches what the transaction detail view displays, keeping sm_val/bm_val consistent.
+    # value_numeric (gross batch value) is intentionally NOT used here to avoid overcounting.
     sm_rows = fetchall(conn, """
         SELECT ticker,
-               SUM(CASE WHEN channel = 'smart' THEN value_numeric ELSE 0 END) AS sm_val,
-               SUM(CASE WHEN channel = 'bad'   THEN value_numeric ELSE 0 END) AS bm_val,
+               SUM(CASE WHEN channel = 'smart' THEN ABS(mf_delta_numeric) ELSE 0 END) AS sm_val,
+               SUM(CASE WHEN channel = 'bad'   THEN ABS(mf_delta_numeric) ELSE 0 END) AS bm_val,
                COUNT(*) AS tx_count,
                COUNT(CASE WHEN channel = 'smart' THEN 1 END) AS tx_sm,
                COUNT(CASE WHEN channel = 'bad'   THEN 1 END) AS tx_bm,
-               SUM(CASE WHEN channel = 'smart' AND value_numeric != 0
-                        THEN price * ABS(value_numeric) ELSE 0 END) /
-               NULLIF(SUM(CASE WHEN channel = 'smart' AND value_numeric != 0
-                               THEN ABS(value_numeric) ELSE 0 END), 0) AS vwap_sm,
-               SUM(CASE WHEN channel = 'bad' AND value_numeric != 0
-                        THEN price * ABS(value_numeric) ELSE 0 END) /
-               NULLIF(SUM(CASE WHEN channel = 'bad' AND value_numeric != 0
-                               THEN ABS(value_numeric) ELSE 0 END), 0) AS vwap_bm,
+               SUM(CASE WHEN channel = 'smart' AND mf_delta_numeric IS NOT NULL AND mf_delta_numeric != 0
+                        THEN price * ABS(mf_delta_numeric) ELSE 0 END) /
+               NULLIF(SUM(CASE WHEN channel = 'smart' AND mf_delta_numeric IS NOT NULL AND mf_delta_numeric != 0
+                               THEN ABS(mf_delta_numeric) ELSE 0 END), 0) AS vwap_sm,
+               SUM(CASE WHEN channel = 'bad' AND mf_delta_numeric IS NOT NULL AND mf_delta_numeric != 0
+                        THEN price * ABS(mf_delta_numeric) ELSE 0 END) /
+               NULLIF(SUM(CASE WHEN channel = 'bad' AND mf_delta_numeric IS NOT NULL AND mf_delta_numeric != 0
+                               THEN ABS(mf_delta_numeric) ELSE 0 END), 0) AS vwap_bm,
                AVG(CASE WHEN channel = 'smart' AND vol_x > 0 THEN vol_x ELSE NULL END) AS volx_gap
         FROM raw_messages
         WHERE date = %s AND channel IN ('smart', 'bad')
