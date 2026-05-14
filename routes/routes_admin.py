@@ -104,6 +104,17 @@ def scraper_status():
     return jsonify(status)
 
 
+@bp_admin.route("/admin/fix-all")
+def fix_all():
+    if not is_authed():
+        return redirect("/")
+    date_from = request.args.get("date_from", "").strip() or None
+    date_to   = request.args.get("date_to",   "").strip() or None
+    from scraper.scraper_daily import request_fix_all
+    result = request_fix_all(date_from, date_to)
+    return jsonify(result)
+
+
 @bp_admin.route("/admin/scraper-weekly")
 def trigger_weekly():
     if not is_authed():

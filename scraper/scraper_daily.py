@@ -25,7 +25,7 @@ from scraper.scraper_parser import parse_joker_message, parse_mf_message
 from scraper.scraper_saver import save_sm_bm_rows, save_mf_rows
 from algo.summary_rebuild import rebuild_summary_for_date, rebuild_all_summaries
 from algo.analytics_daily import compute_analytics_for_date
-from data.price_fetch import enrich_daily_prices, sync_price_history_from_eod
+from data.price_fetch import enrich_daily_ohlcv, backfill_price_history_ohlcv, sync_eod_prices_from_history
 from algo.algo_backtest import run_backtest
 
 log = logging.getLogger("zenith.scraper")
@@ -130,6 +130,7 @@ _backfill_request  = {"days": None, "status": "idle", "result": None}
 _rebuild_request   = {"status": "idle", "result": None}
 _recompute_request = {"status": "idle", "result": None}
 _backtest_request  = {"days": None, "status": "idle", "result": None}
+_fix_all_request   = {"status": "idle", "step": None, "date_from": None, "date_to": None, "result": None}
 _backfill_lock    = threading.Lock()
 _scraper_thread   = None
 
@@ -164,9 +165,7 @@ async def run_backfill(client, conn):
         with transaction(conn):
             rebuild_summary_for_date(conn, today_wib)
         with transaction(conn):
-            enrich_daily_prices(conn, today_wib)
-        with transaction(conn):
-            sync_price_history_from_eod(conn, today_wib)
+            enrich_daily_ohlcv(conn, today_wib)
         with transaction(conn):
             compute_analytics_for_date(conn, today_wib)
     except Exception as e:
@@ -199,6 +198,15 @@ def request_recompute_analytics() -> dict:
         return {"ok": True, "message": "Analytics recompute queued"}
 
 
+def request_fix_all(date_from: str = None, date_to: str = None) -> dict:
+    with _backfill_lock:
+        if _fix_all_request["status"] == "running":
+            return {"ok": False, "error": "Fix All already running"}
+        _fix_all_request.update({"status": "pending", "step": None,
+                                  "date_from": date_from, "date_to": date_to, "result": None})
+        return {"ok": True, "message": "Fix All queued"}
+
+
 def get_backfill_status() -> dict:
     with _backfill_lock:
         return {
@@ -206,6 +214,7 @@ def get_backfill_status() -> dict:
             "rebuild":      dict(_rebuild_request),
             "recompute":    dict(_recompute_request),
             "backtest":     dict(_backtest_request),
+            "fix_all":      dict(_fix_all_request),
             "thread_alive": _scraper_thread is not None and _scraper_thread.is_alive(),
         }
 
@@ -368,6 +377,86 @@ async def scraper_main():
                     log.error(f"❌ Backtest: {e}")
                     with _backfill_lock:
                         _backtest_request.update({"status": "error", "result": str(e)})
+
+            with _backfill_lock:
+                do_fix_all = _fix_all_request["status"] == "pending"
+                if do_fix_all:
+                    _fix_all_request["status"] = "running"
+                    fa_date_from = _fix_all_request["date_from"]
+                    fa_date_to   = _fix_all_request["date_to"]
+
+            if do_fix_all:
+                try:
+                    def _set_step(s):
+                        with _backfill_lock:
+                            _fix_all_request["step"] = s
+
+                    # Step 1: rebuild summaries
+                    _set_step("rebuild")
+                    log.info("Fix All — Step 1: rebuild summaries")
+                    if fa_date_from and fa_date_to:
+                        dates = [r["date"] for r in fetchall(conn, """
+                            SELECT date FROM (SELECT DISTINCT date FROM eod_summary) t
+                            WHERE TO_DATE(date,'DD-MM-YYYY') BETWEEN TO_DATE(%s,'DD-MM-YYYY') AND TO_DATE(%s,'DD-MM-YYYY')
+                            ORDER BY TO_DATE(date,'DD-MM-YYYY')
+                        """, [fa_date_from, fa_date_to])]
+                        for d in dates:
+                            try:
+                                with transaction(conn):
+                                    rebuild_summary_for_date(conn, d)
+                            except Exception as e:
+                                log.error("Fix All rebuild failed date=%s: %s", d, e)
+                                conn.rollback()
+                    else:
+                        rebuild_all_summaries(conn)
+                        conn.commit()
+
+                    # Step 2: backfill OHLCV into price_history
+                    _set_step("prices")
+                    log.info("Fix All — Step 2: backfill OHLCV price history")
+                    backfill_price_history_ohlcv(conn, fa_date_from, fa_date_to)
+                    conn.commit()
+
+                    # Step 3: sync eod_summary.price_close from price_history
+                    _set_step("sync")
+                    log.info("Fix All — Step 3: sync eod prices from history")
+                    sync_eod_prices_from_history(conn, fa_date_from, fa_date_to)
+                    conn.commit()
+
+                    # Step 4: recompute analytics
+                    _set_step("analytics")
+                    log.info("Fix All — Step 4: recompute analytics")
+                    if fa_date_from and fa_date_to:
+                        ana_dates = [r["date"] for r in fetchall(conn, """
+                            SELECT date FROM (SELECT DISTINCT date FROM eod_summary) t
+                            WHERE TO_DATE(date,'DD-MM-YYYY') BETWEEN TO_DATE(%s,'DD-MM-YYYY') AND TO_DATE(%s,'DD-MM-YYYY')
+                            ORDER BY TO_DATE(date,'DD-MM-YYYY')
+                        """, [fa_date_from, fa_date_to])]
+                    else:
+                        ana_dates = [r["date"] for r in fetchall(conn, """
+                            SELECT date FROM (SELECT DISTINCT date FROM eod_summary) t
+                            ORDER BY TO_DATE(date,'DD-MM-YYYY')
+                        """)]
+                    total_a = 0
+                    for d in ana_dates:
+                        try:
+                            n = compute_analytics_for_date(conn, d)
+                            total_a += n
+                            conn.commit()
+                        except Exception as e:
+                            conn.rollback()
+                            log.error("Fix All analytics failed date=%s: %s", d, e)
+
+                    with _backfill_lock:
+                        _fix_all_request.update({
+                            "status": "done", "step": None,
+                            "result": {"dates": len(ana_dates), "analytics_rows": total_a},
+                        })
+                    log.info("Fix All done: %d dates, %d analytics rows", len(ana_dates), total_a)
+                except Exception as e:
+                    log.error(f"❌ Fix All: {e}")
+                    with _backfill_lock:
+                        _fix_all_request.update({"status": "error", "step": None, "result": str(e)})
 
             await asyncio.sleep(5)
 

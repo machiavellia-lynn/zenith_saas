@@ -166,6 +166,7 @@ select.sel{background:var(--bg);border:1px solid var(--border2);color:var(--text
           <div class="chip" id="chipBackfill"><span class="dot" style="background:var(--muted)"></span><span id="chipBackfillLabel">IDLE</span></div>
           <div class="chip" id="chipRebuild"><span class="dot" style="background:var(--muted)"></span><span id="chipRebuildLabel">IDLE</span></div>
           <div class="chip" id="chipRecompute"><span class="dot" style="background:var(--muted)"></span><span id="chipRecomputeLabel">IDLE</span></div>
+          <div class="chip" id="chipFixAll"><span class="dot" style="background:var(--muted)"></span><span id="chipFixAllLabel">FIX ALL: IDLE</span></div>
         </div>
       </div>
 
@@ -209,6 +210,22 @@ select.sel{background:var(--bg);border:1px solid var(--border2);color:var(--text
         </div>
         <div class="progress-wrap" id="rbProgress"><div class="progress-bar indeterminate"></div></div>
         <div class="status" id="rbStatus"></div>
+      </div>
+
+      <!-- Fix All -->
+      <div>
+        <div class="section-label">Fix All Data</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
+          Jalankan semua step berurutan: rebuild summary → backfill OHLCV → sync prices → recompute analytics.<br>
+          Kosongkan tanggal untuk fix semua data.
+        </div>
+        <div class="btn-row" style="flex-wrap:wrap;gap:6px">
+          <input type="text" class="num-input" id="faDateFrom" placeholder="DD-MM-YYYY" style="width:110px"/>
+          <input type="text" class="num-input" id="faDateTo"   placeholder="DD-MM-YYYY" style="width:110px"/>
+          <button class="btn danger" id="faBtn" onclick="triggerFixAll()">Fix All</button>
+        </div>
+        <div class="progress-wrap" id="faProgress"><div class="progress-bar indeterminate"></div></div>
+        <div class="status" id="faStatus"></div>
       </div>
 
     </div>
@@ -341,6 +358,13 @@ function refreshStatus() {
       setChip('chipRecompute', 'chipRecomputeLabel',
         'RECOMPUTE: ' + (rc.status || 'idle').toUpperCase(),
         rcRunning ? 'running' : '');
+
+      const fa = d.fix_all || {};
+      const faRunning = fa.status === 'running' || fa.status === 'pending';
+      const faLabel = faRunning && fa.step
+        ? `FIX ALL: ${fa.step.toUpperCase()}`
+        : `FIX ALL: ${(fa.status || 'idle').toUpperCase()}`;
+      setChip('chipFixAll', 'chipFixAllLabel', faLabel, faRunning ? 'running' : '');
 
       if (d.first_data || d.latest_data || d.row_counts) {
         renderDataTable(d.first_data || {}, d.latest_data || {}, d.row_counts || {});
@@ -512,6 +536,59 @@ function triggerRecomputeAll() {
       st.className = 'status err'; st.textContent = 'Error: ' + e.message;
       pw.classList.remove('active'); btn.disabled = false;
     });
+}
+
+// ── Fix All ───────────────────────────────────────────────────────────────────
+const STEP_LABELS = { rebuild: 'Rebuilding summaries...', prices: 'Backfilling OHLCV prices...', sync: 'Syncing EOD prices...', analytics: 'Recomputing analytics...' };
+let faPolling = null;
+function triggerFixAll() {
+  const dateFrom = document.getElementById('faDateFrom').value.trim();
+  const dateTo   = document.getElementById('faDateTo').value.trim();
+  const st  = document.getElementById('faStatus');
+  const pw  = document.getElementById('faProgress');
+  const btn = document.getElementById('faBtn');
+
+  let url = '/admin/fix-all';
+  if (dateFrom && dateTo) url += `?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
+
+  btn.disabled = true;
+  pw.classList.add('active');
+  st.className = 'status'; st.textContent = 'Fix All di-queue...';
+
+  fetch(url).then(r => r.json()).then(d => {
+    if (!d.ok) {
+      st.className = 'status err'; st.textContent = d.error || 'Gagal queue Fix All';
+      pw.classList.remove('active'); btn.disabled = false; return;
+    }
+    st.textContent = 'Fix All berjalan...';
+    if (faPolling) clearInterval(faPolling);
+    faPolling = setInterval(() => {
+      fetch('/admin/scraper-status').then(r => r.json()).then(s => {
+        const fa = s.fix_all || {};
+        setChip('chipFixAll', 'chipFixAllLabel',
+          fa.step ? `FIX ALL: ${fa.step.toUpperCase()}` : `FIX ALL: ${(fa.status||'idle').toUpperCase()}`,
+          fa.status === 'running' || fa.status === 'pending' ? 'running' : '');
+        if (fa.step) st.textContent = STEP_LABELS[fa.step] || fa.step;
+        if (fa.status !== 'running' && fa.status !== 'pending') {
+          clearInterval(faPolling); faPolling = null;
+          pw.classList.remove('active'); btn.disabled = false;
+          if (fa.status === 'done') {
+            const res = fa.result || {};
+            st.className = 'status ok';
+            st.textContent = `Selesai — ${res.dates || 0} tanggal, ${res.analytics_rows || 0} baris analytics.`;
+            showToast(`Fix All selesai! (${res.dates || 0} tanggal)`, 'ok');
+          } else {
+            st.className = 'status err'; st.textContent = 'Error: ' + (fa.result || 'Gagal.');
+            showToast('Fix All gagal', 'err');
+          }
+          refreshStatus();
+        }
+      });
+    }, 4000);
+  }).catch(e => {
+    st.className = 'status err'; st.textContent = 'Error: ' + e.message;
+    pw.classList.remove('active'); btn.disabled = false;
+  });
 }
 
 // ── Session upload ────────────────────────────────────────────────────────────

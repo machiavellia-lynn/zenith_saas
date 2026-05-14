@@ -142,11 +142,18 @@ def _create_price_history(conn):
         CREATE TABLE IF NOT EXISTS price_history (
             date   TEXT NOT NULL,
             ticker TEXT NOT NULL,
+            open   REAL,
+            high   REAL,
+            low    REAL,
             close  REAL NOT NULL,
+            volume BIGINT,
             PRIMARY KEY (date, ticker)
         )
     """)
     conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_ph_ticker ON price_history(ticker, date)")
+    # Migration: add OHLCV columns to existing table
+    for col, typedef in [("open", "REAL"), ("high", "REAL"), ("low", "REAL"), ("volume", "BIGINT")]:
+        conn.cursor().execute(f"ALTER TABLE price_history ADD COLUMN IF NOT EXISTS {col} {typedef}")
 
 
 def _create_trade_journal(conn):

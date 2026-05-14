@@ -181,11 +181,11 @@ def _fetch_close(ticker: str, target_date: str = None):
         return ticker, None
 
 
-def _fetch_close_history(ticker: str, date_from: datetime = None, date_to: datetime = None):
-    """Fetch daily close history for a ticker."""
+def _fetch_ohlcv_history(ticker: str, date_from: datetime = None, date_to: datetime = None):
+    """Fetch daily OHLCV history for a ticker from Yahoo Finance."""
     symbol = f"{ticker}.JK"
     try:
-        params = {"interval": "1d"}
+        params = {"interval": "1d", "includeAdjustedClose": "false"}
         if date_from and date_to:
             params["period1"] = int(date_from.timestamp())
             params["period2"] = int(date_to.timestamp())
@@ -201,17 +201,32 @@ def _fetch_close_history(ticker: str, date_from: datetime = None, date_to: datet
         if not r:
             return ticker, []
         timestamps = r.get("timestamp", [])
-        q          = r.get("indicators", {}).get("quote", [{}])[0]
-        closes     = q.get("close", [])
+        q       = r.get("indicators", {}).get("quote", [{}])[0]
+        opens   = q.get("open",   [])
+        highs   = q.get("high",   [])
+        lows    = q.get("low",    [])
+        closes  = q.get("close",  [])
+        volumes = q.get("volume", [])
         rows = []
         for i, ts in enumerate(timestamps):
             c = closes[i] if i < len(closes) else None
-            if c:
-                dt = datetime.fromtimestamp(ts, tz=WIB).strftime("%Y-%m-%d")
-                rows.append({"date": dt, "close": round(float(c), 0)})
+            if not c:
+                continue
+            rows.append({
+                "date":   datetime.fromtimestamp(ts, tz=WIB).strftime("%Y-%m-%d"),
+                "open":   round(float(opens[i]),   0) if i < len(opens)   and opens[i]   else None,
+                "high":   round(float(highs[i]),   0) if i < len(highs)   and highs[i]   else None,
+                "low":    round(float(lows[i]),    0) if i < len(lows)    and lows[i]    else None,
+                "close":  round(float(c),          0),
+                "volume": int(volumes[i])              if i < len(volumes) and volumes[i] else None,
+            })
         return ticker, rows
     except Exception:
         return ticker, []
+
+
+# Keep old name as alias so existing callers don't break
+_fetch_close_history = _fetch_ohlcv_history
 
 
 def fetch_ohlcv(ticker: str, tf: str, interval_map: dict) -> dict:
@@ -422,30 +437,122 @@ def backfill_prices(conn, days: int = 30, date_from: str = None, date_to: str = 
         return 0
 
 
-def backfill_price_history_200d(conn):
-    """Backfill price_history table with 200 days of closes per ticker.
+def backfill_price_history_ohlcv(conn, date_from: str = None, date_to: str = None):
+    """Backfill price_history with full OHLCV for all tickers in eod_summary.
+    date_from / date_to in DD-MM-YYYY or None for last 210 days.
     Caller is responsible for commit."""
     tickers = [r["ticker"] for r in fetchall(conn, "SELECT DISTINCT ticker FROM eod_summary")]
-    cutoff  = datetime.now(WIB) - timedelta(days=210)
     now     = datetime.now(WIB)
-    log.info("Backfilling price_history for %d tickers since %s", len(tickers), cutoff.date())
+
+    if date_from and date_to:
+        fmt    = "%d-%m-%Y"
+        dt_f   = datetime.strptime(date_from, fmt).replace(tzinfo=WIB) - timedelta(days=3)
+        dt_t   = datetime.strptime(date_to,   fmt).replace(tzinfo=WIB) + timedelta(days=1)
+        log.info("Backfilling price_history OHLCV %s → %s for %d tickers", date_from, date_to, len(tickers))
+    else:
+        dt_f   = now - timedelta(days=210)
+        dt_t   = now
+        log.info("Backfilling price_history OHLCV 210d for %d tickers", len(tickers))
 
     with ThreadPoolExecutor(max_workers=8) as ex:
-        results = list(ex.map(lambda t: _fetch_close_history(t, cutoff, now), tickers))
+        results = list(ex.map(lambda t: _fetch_ohlcv_history(t, dt_f, dt_t), tickers))
 
     inserted = 0
     for ticker, rows in results:
         for r in rows:
             try:
                 execute(conn, """
-                    INSERT INTO price_history (date, ticker, close)
-                    VALUES (%s, %s, %s)
-                    ON CONFLICT (date, ticker) DO NOTHING
-                """, [r["date"], ticker, r["close"]])
+                    INSERT INTO price_history (date, ticker, open, high, low, close, volume)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (date, ticker) DO UPDATE SET
+                        open = EXCLUDED.open, high = EXCLUDED.high,
+                        low  = EXCLUDED.low,  close = EXCLUDED.close,
+                        volume = EXCLUDED.volume
+                """, [r["date"], ticker, r["open"], r["high"], r["low"], r["close"], r["volume"]])
                 inserted += 1
             except Exception as e:
                 log.warning("price_history insert fail ticker=%s date=%s: %s", ticker, r["date"], e)
-    log.info("price_history backfill done: %d rows for %d tickers", inserted, len(tickers))
+    log.info("price_history OHLCV backfill done: %d rows for %d tickers", inserted, len(tickers))
+    return inserted
+
+
+def backfill_price_history_200d(conn):
+    """Alias kept for backward compatibility."""
+    return backfill_price_history_ohlcv(conn)
+
+
+def enrich_daily_ohlcv(conn, date_str: str) -> int:
+    """Fetch today's OHLCV from Yahoo for all active tickers.
+    Stores full OHLCV in price_history AND updates eod_summary.price_close.
+    Single Yahoo call per ticker — replaces enrich_daily_prices + sync_price_history_from_eod.
+    Caller is responsible for commit."""
+    tickers = [r["ticker"] for r in fetchall(conn,
+        "SELECT DISTINCT ticker FROM eod_summary WHERE date = %s", [date_str])]
+    if not tickers:
+        return 0
+
+    date_yyyy = f"{date_str[6:10]}-{date_str[3:5]}-{date_str[:2]}"
+    target_dt = datetime.strptime(date_yyyy, "%Y-%m-%d").replace(tzinfo=WIB)
+    dt_f = target_dt - timedelta(days=5)
+    dt_t = target_dt + timedelta(days=2)
+
+    with ThreadPoolExecutor(max_workers=15) as ex:
+        results = list(ex.map(lambda t: _fetch_ohlcv_history(t, dt_f, dt_t), tickers))
+
+    updated = 0
+    for ticker, rows in results:
+        best = None
+        for r in rows:
+            if r["date"] <= date_yyyy:
+                best = r
+        if not best:
+            continue
+        try:
+            execute(conn, """
+                INSERT INTO price_history (date, ticker, open, high, low, close, volume)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (date, ticker) DO UPDATE SET
+                    open = EXCLUDED.open, high = EXCLUDED.high,
+                    low  = EXCLUDED.low,  close = EXCLUDED.close,
+                    volume = EXCLUDED.volume
+            """, [best["date"], ticker, best["open"], best["high"], best["low"], best["close"], best["volume"]])
+            execute(conn,
+                "UPDATE eod_summary SET price_close = %s WHERE date = %s AND ticker = %s",
+                [best["close"], date_str, ticker])
+            updated += 1
+        except Exception as e:
+            log.warning("enrich_daily_ohlcv failed ticker=%s: %s", ticker, e)
+
+    log.info("enrich_daily_ohlcv %s: %d tickers updated", date_str, updated)
+    return updated
+
+
+def sync_eod_prices_from_history(conn, date_from: str = None, date_to: str = None) -> int:
+    """Copy price_history.close → eod_summary.price_close for a date range (no Yahoo call).
+    date_from / date_to in DD-MM-YYYY. None = all dates.
+    Caller is responsible for commit."""
+    if date_from and date_to:
+        rows = execute(conn, """
+            UPDATE eod_summary e
+            SET price_close = ph.close
+            FROM price_history ph
+            WHERE ph.ticker = e.ticker
+              AND ph.date = TO_CHAR(TO_DATE(e.date, 'DD-MM-YYYY'), 'YYYY-MM-DD')
+              AND ph.close IS NOT NULL
+              AND TO_DATE(e.date, 'DD-MM-YYYY') BETWEEN TO_DATE(%s, 'DD-MM-YYYY') AND TO_DATE(%s, 'DD-MM-YYYY')
+        """, [date_from, date_to])
+    else:
+        rows = execute(conn, """
+            UPDATE eod_summary e
+            SET price_close = ph.close
+            FROM price_history ph
+            WHERE ph.ticker = e.ticker
+              AND ph.date = TO_CHAR(TO_DATE(e.date, 'DD-MM-YYYY'), 'YYYY-MM-DD')
+              AND ph.close IS NOT NULL
+        """)
+    updated = rows if isinstance(rows, int) else 0
+    log.info("sync_eod_prices_from_history: %s rows updated", updated)
+    return updated
 
 
 def fetch_all_gains_to_db(conn, date_str: str, delay_ms: int = 333):
