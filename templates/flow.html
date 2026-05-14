@@ -1193,7 +1193,7 @@ td:first-child { text-align: left; }
   </div>
   <a href="/backtest" class="info-btn" title="Backtest Leaderboard" aria-label="Backtest Leaderboard"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 10V7M6 10V3M10 10V5"/></svg></a>
   <a href="/hub" class="info-btn" title="Kembali ke Hub" aria-label="Kembali ke Hub"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 5.5L6 1.5L10.5 5.5V10.5H7.5V7.5H4.5V10.5H1.5V5.5Z"/></svg></a>
-  <button class="info-btn pulse" onclick="openInfoModal()" title="Panduan membaca data (tekan ?)" aria-label="Panduan membaca data">?</button>
+  <button class="info-btn pulse" id="infoTrigger" onclick="openInfoModal()" title="Panduan membaca data (tekan ?)" aria-label="Panduan membaca data" aria-expanded="false" aria-controls="infoModal">?</button>
 </header>
 
 <main id="main">
@@ -2049,7 +2049,7 @@ function renderTable() {
 
     // Watch dot: yellow ● for ARB_SPRING
     const watchDot = r.watch === 'ARB_SPRING'
-      ? `<span class="watch-dot" title="Peringatan: Penurunan > 1.5× ATR — Risiko ARB, butuh konfirmasi hari berikutnya">●</span>`
+      ? `<span class="watch-dot" role="img" aria-label="Peringatan ARB_SPRING" title="Peringatan: Penurunan > 1.5× ATR — Risiko ARB, butuh konfirmasi hari berikutnya">●</span>`
       : '';
 
     const actCls = r.action === 'BUY' ? 'action-buy' : r.action === 'SELL' ? 'action-sell' : r.action === 'HOLD' ? 'action-hold' : '';
@@ -2143,7 +2143,10 @@ function openModal(ticker) {
   trxIsSingleMode = isSingleMode;
   applyTrxDateMode();
 
+  document.getElementById('modalBackdrop')._trigger = document.activeElement;
   document.getElementById('modalBackdrop').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => { const cb = document.querySelector('#modalBackdrop .close-btn'); if (cb) cb.focus(); }, 80);
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       // Animate metric panel after modal is visible (not before)
@@ -2235,7 +2238,7 @@ function populateMetricsPanel(r) {
   const acBadge = document.getElementById('mActionBadge');
   if (r && r.phase) {
     const watchDotModal = r.watch === 'ARB_SPRING'
-      ? `<span class="watch-dot" title="Peringatan: Penurunan > 1.5× ATR — Risiko ARB, butuh konfirmasi hari berikutnya">●</span>`
+      ? `<span class="watch-dot" role="img" aria-label="Peringatan ARB_SPRING" title="Peringatan: Penurunan > 1.5× ATR — Risiko ARB, butuh konfirmasi hari berikutnya">●</span>`
       : '';
     phBadge.innerHTML = watchDotModal + r.phase;
     phBadge.className = 'phase-badge ' + r.phase.toLowerCase();
@@ -2506,11 +2509,15 @@ async function reloadModalData() {
 }
 
 function closeModal() {
-  document.getElementById('modalBackdrop').classList.remove('open');
+  const bd = document.getElementById('modalBackdrop');
+  bd.classList.remove('open');
+  document.body.style.overflow = '';
+  const t = bd._trigger; bd._trigger = null;
   if (window._modalChartRO) { window._modalChartRO.disconnect(); window._modalChartRO = null; }
   if (modalChart) { modalChart.remove(); modalChart = null; modalCandle = null; modalVolume = null; }
   ovlSeriesCM = null; ovlSeriesSM = null; ovlSeriesBM = null;
   overlayDataCache = [];
+  if (t) setTimeout(() => t.focus(), 50);
 }
 function handleBackdropClick(e) {
   if (e.target === document.getElementById('modalBackdrop')) closeModal();
@@ -2942,8 +2949,8 @@ const INFO_CONTENT=`
   <div class="info-highlight">SM besar + CM positif + TX tinggi = Potensi kenaikan harga<br>BM besar + CM negatif = Potensi penurunan harga<br>RSM > 70% = Smart Money mendominasi hari itu</div>
 </div>
 `;
-function openInfoModal(){document.getElementById('infoBody').innerHTML=INFO_CONTENT;document.getElementById('infoBackdrop').classList.add('open');document.body.style.overflow='hidden'}
-function closeInfoModal(){document.getElementById('infoBackdrop').classList.remove('open');document.body.style.overflow=''}
+function openInfoModal(){document.getElementById('infoBody').innerHTML=INFO_CONTENT;ZenithModal.open('infoBackdrop',document.getElementById('infoTrigger'))}
+function closeInfoModal(){ZenithModal.close('infoBackdrop')}
 function handleInfoBackdrop(e){if(e.target===document.getElementById('infoBackdrop'))closeInfoModal()}
 
 // ── SHARE CARD ────────────────────────────────────────────────────────────
@@ -3253,6 +3260,7 @@ function generateShareCard(ticker) {
   </div>
 </div>
 
+<script src="/static/focus-trap.js" defer></script>
 <script src="/static/animations.js" defer></script>
 <script src="/static/shortcuts.js" defer></script>
 </div>

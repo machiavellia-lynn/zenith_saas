@@ -22,6 +22,11 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .form-input::placeholder{color:var(--muted)}
 .form-btn{width:100%;background:var(--accent);color:var(--bg);border:none;border-radius:6px;padding:12px;font-family:'Space Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:opacity .15s}
 .form-btn:hover{opacity:.85}
+.pw-wrap{position:relative;width:100%}
+.pw-wrap .form-input{padding-right:40px}
+.pw-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:color .15s;padding:0}
+.pw-toggle:hover{color:var(--text)}
+.pw-toggle svg{width:14px;height:14px;pointer-events:none}
 .msg{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.06em;text-align:center;min-height:18px;transition:opacity .2s}
 .msg.error{color:var(--danger);animation:shake .4s ease}
 .msg.success{color:var(--accent)}
@@ -34,7 +39,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
   .card{width:calc(100vw - 32px)}
   .logo{font-size:24px;letter-spacing:.22em}
   .tagline{font-size:10px}
-  .form-input{font-size:13px;padding:11px 12px}
+  .form-input{font-size:16px;padding:11px 12px}
 }
 </style>
   <link rel="stylesheet" href="/static/tokens.css">
@@ -46,16 +51,29 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
   <div class="logo">ZENITH</div>
   <div class="tagline">Smart Money Analysis Platform</div>
   <div class="form">
-    <span class="form-label">Username</span>
+    <label for="usernameInput" class="form-label">Username</label>
     <input type="text" class="form-input" id="usernameInput" placeholder="Username..." autofocus autocomplete="username"/>
-    <span class="form-label">Password</span>
-    <input type="password" class="form-input" id="passwordInput" placeholder="Password..." autocomplete="current-password"/>
+    <label for="passwordInput" class="form-label">Password</label>
+    <div class="pw-wrap">
+      <input type="password" class="form-input" id="passwordInput" placeholder="Password..." autocomplete="current-password"/>
+      <button type="button" class="pw-toggle" id="pwToggle" onclick="togglePw()" aria-label="Tampilkan password">
+        <svg id="pwEyeIcon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 8C1 8 3.5 3 8 3S15 8 15 8S12.5 13 8 13S1 8 1 8Z"/><circle cx="8" cy="8" r="2.5"/></svg>
+      </button>
+    </div>
     <button class="form-btn" id="authBtn" onclick="doAuth()">Authenticate →</button>
-    <div class="msg" id="msg"></div>
+    <div class="msg" id="msg" role="alert" aria-live="polite" aria-atomic="true"></div>
   </div>
 </div>
 <div class="footer">zenith project v1.0 | by machiavellia &nbsp;·&nbsp; <a href="/admin" style="color:var(--muted);text-decoration:none;opacity:.35;font-size:9px;letter-spacing:.08em">admin</a></div>
 <script>
+function togglePw(){
+  const inp=document.getElementById('passwordInput');
+  const btn=document.getElementById('pwToggle');
+  const show=inp.type==='password';
+  inp.type=show?'text':'password';
+  btn.setAttribute('aria-label',show?'Sembunyikan password':'Tampilkan password');
+  document.getElementById('pwEyeIcon').style.opacity=show?'.5':'1';
+}
 async function doAuth(){
   const username=document.getElementById('usernameInput').value.trim();
   const password=document.getElementById('passwordInput').value.trim();

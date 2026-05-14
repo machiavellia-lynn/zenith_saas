@@ -643,11 +643,19 @@ function showDetail(idx) {
     `Loss: <span style="color:var(--down)">${losses}</span> &nbsp;|&nbsp; ` +
     `Avg Profit: <span style="color:${r.avg_profit>=0?'var(--up)':'var(--down)'}">${r.avg_profit>0?'+':''}${r.avg_profit}%</span>`;
 
-  document.getElementById('modalBg').classList.add('show');
+  const bg = document.getElementById('modalBg');
+  bg._trigger = document.activeElement;
+  bg.classList.add('show');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => { const cb = bg.querySelector('.modal-close'); if (cb) cb.focus(); }, 80);
 }
 
 function closeModal() {
-  document.getElementById('modalBg').classList.remove('show');
+  const bg = document.getElementById('modalBg');
+  bg.classList.remove('show');
+  document.body.style.overflow = '';
+  const t = bg._trigger; bg._trigger = null;
+  if (t) setTimeout(() => t.focus(), 50);
 }
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });

@@ -175,7 +175,7 @@ header::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;back
 <div class="hub-mobile-bar">
   <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg></button>
 </div>
-<button class="info-btn pulse floating-help" onclick="openInfoModal()" title="Panduan membaca data (tekan ?)" aria-label="Panduan membaca data">?</button>
+<button class="info-btn pulse floating-help" id="infoTrigger" onclick="openInfoModal()" title="Panduan membaca data (tekan ?)" aria-label="Panduan membaca data" aria-expanded="false" aria-controls="infoModal">?</button>
 
 <main id="main">
 <div class="hero">
@@ -227,6 +227,7 @@ header::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;back
 
 </main>
 <div class="footer">zenith project v1.0 | by machiavellia · <span class="kbd">?</span> help · <span class="kbd">H</span> hub</div>
+<script src="/static/focus-trap.js" defer></script>
 <script src="/static/animations.js" defer></script>
 <script src="/static/shortcuts.js" defer></script>
 
@@ -358,8 +359,8 @@ const INFO_CONTENT=`
   <div class="info-highlight">SM besar + CM positif + TX tinggi = Potensi kenaikan harga<br>BM besar + CM negatif = Potensi penurunan harga<br>RSM > 70% = Smart Money mendominasi hari itu</div>
 </div>
 `;
-function openInfoModal(){document.getElementById('infoBody').innerHTML=INFO_CONTENT;document.getElementById('infoBackdrop').classList.add('open');document.body.style.overflow='hidden'}
-function closeInfoModal(){document.getElementById('infoBackdrop').classList.remove('open');document.body.style.overflow=''}
+function openInfoModal(){document.getElementById('infoBody').innerHTML=INFO_CONTENT;ZenithModal.open('infoBackdrop',document.getElementById('infoTrigger'))}
+function closeInfoModal(){ZenithModal.close('infoBackdrop')}
 function handleInfoBackdrop(e){if(e.target===document.getElementById('infoBackdrop'))closeInfoModal()}
 
 </script>
