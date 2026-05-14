@@ -112,23 +112,22 @@ def _compute_one(conn, ticker: str, date_str: str, row: dict) -> dict:
     vwap_sm_val = row.get("vwap_sm")
     volx_gap = round((price_close - vwap_sm_val) / vwap_sm_val * 100, 2) if price_close and vwap_sm_val and vwap_sm_val > 0 else None
 
-    # ── ATR% ──────────────────────────────────────────────────────────────
-    closes_10 = [h["price_close"] for h in history_reversed if h.get("price_close")]
-    atr_pct   = _compute_atr_pct(closes_10) if len(closes_10) >= 3 else 2.5
-
     # ── SMA10 for SM and BM ───────────────────────────────────────────────
     sm_sma10 = round(sum(h["sm_val"] for h in history_reversed[-10:]) / min(len(history_reversed), 10), 2) if history_reversed else 0
     bm_sma10 = round(sum(abs(h["bm_val"]) for h in history_reversed[-10:]) / min(len(history_reversed), 10), 2) if history_reversed else 0
 
-    # ── MA & RSI from price_history ───────────────────────────────────────
-    # date_str is DD-MM-YYYY; price_history.date is YYYY-MM-DD — convert for string comparison
+    # ── MA, RSI, ATR from price_history ──────────────────────────────────
     date_yyyy_mm_dd = f"{date_str[6:10]}-{date_str[3:5]}-{date_str[:2]}"
     ph = fetchall(conn, """
-        SELECT close FROM price_history
+        SELECT high, low, close FROM price_history
         WHERE ticker = %s AND date <= %s
         ORDER BY date DESC LIMIT 210
     """, [ticker, date_yyyy_mm_dd])
-    closes_hist = list(reversed([r["close"] for r in ph if r["close"]]))
+    ph_asc      = list(reversed(ph))
+    closes_hist = [r["close"] for r in ph_asc if r["close"]]
+
+    # ATR% using True Range — requires H/L/C from price_history
+    atr_pct = _compute_atr_pct_hlc(ph_asc) if len(ph_asc) >= 3 else 2.5
 
     ma5   = compute_ma(closes_hist, 5)
     ma13  = compute_ma(closes_hist, 13)
@@ -168,11 +167,23 @@ def _get_prev_close(conn, ticker: str, date_str: str):
     return rows[0]["close"] if rows else None
 
 
-def _compute_atr_pct(closes: list) -> float:
-    if len(closes) < 2:
+def _compute_atr_pct_hlc(ph_asc: list, period: int = 14) -> float:
+    """True Range ATR% using H/L/C from price_history rows (oldest-first).
+    TR = max(H-L, |H-prev_C|, |L-prev_C|); ATR% = TR/prev_C*100."""
+    trs = []
+    rows = [r for r in ph_asc if r.get("close")]
+    for i in range(1, len(rows)):
+        h      = rows[i].get("high")  or rows[i]["close"]
+        l      = rows[i].get("low")   or rows[i]["close"]
+        prev_c = rows[i-1]["close"]
+        if not prev_c or prev_c <= 0:
+            continue
+        tr     = max(h - l, abs(h - prev_c), abs(l - prev_c))
+        trs.append(tr / prev_c * 100)
+    if not trs:
         return 2.5
-    ranges = [abs(closes[i] - closes[i-1]) / closes[i-1] * 100 for i in range(1, len(closes)) if closes[i-1] > 0]
-    return round(sum(ranges) / len(ranges), 2) if ranges else 2.5
+    recent = trs[-period:] if len(trs) >= period else trs
+    return round(sum(recent) / len(recent), 2)
 
 
 def compute_analytics_range(conn, date_from: str, date_to: str):
