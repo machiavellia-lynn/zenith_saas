@@ -4,9 +4,12 @@ RULE: All auth checks go through functions here.
       Users stored in database with bcrypt password hashing.
 """
 import functools
+import logging
 import bcrypt
 from flask import session, redirect, url_for, request
 from core.db import get_db, fetchone, execute, transaction
+
+log = logging.getLogger("zenith.auth")
 
 
 def hash_password(password: str) -> str:
@@ -16,9 +19,13 @@ def hash_password(password: str) -> str:
 
 def verify_password(password: str, hashed: str) -> bool:
     """Verify password against hash."""
+    if not hashed:
+        log.error("verify_password: empty hash — possible DB corruption")
+        return False
     try:
         return bcrypt.checkpw(password.encode(), hashed.encode())
-    except Exception:
+    except Exception as e:
+        log.error("verify_password bcrypt error: %s", e)
         return False
 
 

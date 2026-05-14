@@ -6,7 +6,6 @@ Strategy:
 - _compute_one: patches fetchall + _get_prev_close to avoid DB
 """
 import pytest
-from unittest.mock import patch
 from algo.analytics_daily import _compute_atr_pct_hlc, _compute_one
 
 
@@ -97,15 +96,7 @@ def _run_compute_one(row=None, history=None, ph=None, prev_close=950):
     row     = row     or _make_row()
     history = history or _make_history()
     ph      = ph      or _make_ph()
-
-    def mock_fetchall(conn, sql, params=None):
-        if "price_history" in sql:
-            return list(reversed(ph))  # DESC order from DB
-        return history                  # eod_summary history
-
-    with patch("algo.analytics_daily.fetchall", side_effect=mock_fetchall), \
-         patch("algo.analytics_daily._get_prev_close", return_value=prev_close):
-        return _compute_one(None, "BBRI", "14-05-2026", row)
+    return _compute_one("BBRI", "14-05-2026", row, history, ph, prev_close)
 
 
 class TestComputeOne:
