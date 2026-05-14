@@ -20,7 +20,7 @@ from config import (
     TG_TOPIC_MF_MINUS as TOPIC_MF_MINUS,
     BACKFILL_HOUR, BACKFILL_MINUTE, RECOMPUTE_HOUR, RECOMPUTE_MINUTE,
 )
-from core.db import get_scraper_db, transaction
+from core.db import get_scraper_db, transaction, fetchall
 from scraper.scraper_parser import parse_joker_message, parse_mf_message
 from scraper.scraper_saver import save_sm_bm_rows, save_mf_rows
 from algo.summary_rebuild import rebuild_summary_for_date, rebuild_all_summaries
@@ -330,8 +330,12 @@ async def scraper_main():
 
             if do_recompute:
                 try:
-                    dates = [r["date"] for r in fetchall(conn,
-                        "SELECT DISTINCT date FROM eod_summary ORDER BY TO_DATE(date,'DD-MM-YYYY')")]
+                    dates = [r["date"] for r in fetchall(conn, """
+                        SELECT date FROM (
+                            SELECT DISTINCT date FROM eod_summary
+                        ) t
+                        ORDER BY TO_DATE(date,'DD-MM-YYYY')
+                    """)]
                     log.info(f"🔄 Recompute analytics: {len(dates)} dates")
                     total = 0
                     for d in dates:

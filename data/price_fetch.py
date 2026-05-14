@@ -370,9 +370,12 @@ def backfill_prices(conn, days: int = 30, date_from: str = None, date_to: str = 
                     pass
         else:
             log.info(f"💰 PRICE BACKFILL: last {days} dates")
-            all_dates = fetchall(conn,
-                "SELECT DISTINCT date FROM eod_summary ORDER BY TO_DATE(date, 'DD-MM-YYYY') DESC LIMIT %s",
-                [days])
+            all_dates = fetchall(conn, """
+                SELECT date FROM (
+                    SELECT DISTINCT date FROM eod_summary
+                ) t
+                ORDER BY TO_DATE(date, 'DD-MM-YYYY') DESC LIMIT %s
+            """, [days])
             valid_dates = set(r["date"] for r in all_dates)
             if valid_dates:
                 dates_sorted = sorted(valid_dates, key=lambda x: datetime.strptime(x, fmt))
