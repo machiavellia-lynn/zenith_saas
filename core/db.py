@@ -15,19 +15,19 @@ _local = threading.local()
 
 
 def get_db():
-    """Thread-local PostgreSQL connection reuse."""
-    conn = getattr(_local, "conn", None)
-    if conn is not None:
-        try:
-            conn.cursor().execute("SELECT 1")
-            return conn
-        except (psycopg2.OperationalError, psycopg2.InterfaceError):
-            try:
-                conn.close()
-            except (psycopg2.OperationalError, psycopg2.InterfaceError):
-                pass
-            conn = None
+    """Thread-local PostgreSQL connection reuse with lazy reconnect.
 
+    Does NOT run a health-check query on every call — that costs 1 extra
+    roundtrip per request. Instead, callers (execute/fetchall/fetchone) catch
+    connection errors and call _reconnect() to get a fresh connection.
+    """
+    conn = getattr(_local, "conn", None)
+    if conn is None or conn.closed:
+        conn = _new_conn()
+    return conn
+
+
+def _new_conn():
     conn = psycopg2.connect(
         DATABASE_URL,
         cursor_factory=psycopg2.extras.RealDictCursor,
@@ -36,6 +36,17 @@ def get_db():
     _local.conn = conn
     log.debug("New DB connection opened")
     return conn
+
+
+def _reconnect():
+    """Close stale thread-local connection and open a fresh one."""
+    conn = getattr(_local, "conn", None)
+    if conn is not None:
+        try:
+            conn.close()
+        except Exception:
+            pass
+    return _new_conn()
 
 
 def get_scraper_db():
@@ -73,24 +84,46 @@ def close_db():
 
 def execute(conn, sql: str, params=None):
     """Execute a non-SELECT query. Returns cursor."""
-    cur = conn.cursor()
-    cur.execute(sql, params or [])
-    return cur
+    try:
+        cur = conn.cursor()
+        cur.execute(sql, params or [])
+        return cur
+    except (psycopg2.OperationalError, psycopg2.InterfaceError):
+        conn = _reconnect()
+        _local.conn = conn
+        cur = conn.cursor()
+        cur.execute(sql, params or [])
+        return cur
 
 
 def fetchone(conn, sql: str, params=None) -> dict | None:
     """Fetch single row as dict."""
-    cur = conn.cursor()
-    cur.execute(sql, params or [])
-    row = cur.fetchone()
-    return dict(row) if row else None
+    try:
+        cur = conn.cursor()
+        cur.execute(sql, params or [])
+        row = cur.fetchone()
+        return dict(row) if row else None
+    except (psycopg2.OperationalError, psycopg2.InterfaceError):
+        conn = _reconnect()
+        _local.conn = conn
+        cur = conn.cursor()
+        cur.execute(sql, params or [])
+        row = cur.fetchone()
+        return dict(row) if row else None
 
 
 def fetchall(conn, sql: str, params=None) -> list[dict]:
     """Fetch all rows as list of dicts."""
-    cur = conn.cursor()
-    cur.execute(sql, params or [])
-    return [dict(r) for r in cur.fetchall()]
+    try:
+        cur = conn.cursor()
+        cur.execute(sql, params or [])
+        return [dict(r) for r in cur.fetchall()]
+    except (psycopg2.OperationalError, psycopg2.InterfaceError):
+        conn = _reconnect()
+        _local.conn = conn
+        cur = conn.cursor()
+        cur.execute(sql, params or [])
+        return [dict(r) for r in cur.fetchall()]
 
 
 def load_idx_universe(conn) -> list[str]:

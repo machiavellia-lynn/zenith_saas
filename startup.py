@@ -81,8 +81,7 @@ def _start_backtest():
         from algo.algo_backtest import run_backtest
         from core.db import get_db
         try:
-            today = datetime.now(config.WIB).strftime("%d-%m-%Y")
-            run_backtest(get_db(), days=0, date_from="29-09-2025", date_to=today)
+            run_backtest(get_db(), days=0)
             log.info("Startup backtest OK")
         except Exception as e:
             log.warning("Startup backtest failed: %s", e)

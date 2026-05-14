@@ -19,10 +19,11 @@ from core.db import fetchall, execute, get_db
 log = logging.getLogger("zenith.price")
 log.setLevel(logging.INFO)
 
-GAIN_EXECUTOR = ThreadPoolExecutor(max_workers=10)
-
 _gain_cache      = {}
 _gain_cache_lock = threading.Lock()
+# Max concurrent Yahoo calls per batch — shared semaphore prevents runaway threads
+# across concurrent requests without a persistent module-level thread pool.
+_yahoo_sem = threading.Semaphore(10)
 
 
 def fetch_gain_range(ticker: str, date_from: str, date_to: str):
@@ -121,20 +122,22 @@ def get_gains_batch(tickers: list, date_from: str, date_to: str) -> dict:
         return result
 
     def _fetch_one(t):
-        gain, price = fetch_gain_range(t, date_from, date_to)
+        with _yahoo_sem:
+            gain, price = fetch_gain_range(t, date_from, date_to)
         return t, gain, price
 
-    futures = {GAIN_EXECUTOR.submit(_fetch_one, t): t for t in to_fetch}
-    for future in as_completed(futures, timeout=30):
-        try:
-            t, gain, price = future.result()
-            key = f"{t}|{date_from}|{date_to}"
-            with _gain_cache_lock:
-                _gain_cache[key] = {"gain": gain, "price": price, "ts": time.time()}
-            result[t] = {"gain": gain, "price": price}
-        except Exception:
-            t = futures[future]
-            result[t] = {"gain": None, "price": None}
+    with ThreadPoolExecutor(max_workers=10) as ex:
+        futures = {ex.submit(_fetch_one, t): t for t in to_fetch}
+        for future in as_completed(futures, timeout=30):
+            try:
+                t, gain, price = future.result()
+                key = f"{t}|{date_from}|{date_to}"
+                with _gain_cache_lock:
+                    _gain_cache[key] = {"gain": gain, "price": price, "ts": time.time()}
+                result[t] = {"gain": gain, "price": price}
+            except Exception:
+                t = futures[future]
+                result[t] = {"gain": None, "price": None}
 
     return result
 

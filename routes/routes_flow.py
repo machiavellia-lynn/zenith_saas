@@ -9,6 +9,7 @@ from core.auth import is_authed
 from config import WIB, YF_HEADERS, INTERVAL_MAP, SECTORS
 from core.utils import parse_date, date_range
 from core.db import get_db, fetchall
+from core.cache import TTLCache
 from data.price_fetch import fetch_ohlcv
 from algo.algo_wyckoff import (
     classify_zenith_v3_1, get_action, get_watch_flag,
@@ -16,6 +17,11 @@ from algo.algo_wyckoff import (
 )
 
 bp_flow = Blueprint("flow", __name__)
+
+# analytics_map cache: TTL 5 min for today, 30 min for historical
+_analytics_cache = TTLCache()
+_ANALYTICS_TTL_TODAY = 300
+_ANALYTICS_TTL_HIST  = 1800
 
 
 # ── /api/flow ─────────────────────────────────────────────────────────────────
@@ -66,14 +72,19 @@ def flow():
         earliest_date = existing_sorted[0]  if existing_sorted else None
 
         if latest_date:
-            a_rows = fetchall(conn, """
-                SELECT ticker, price_close, sri, volx_gap, vwap_sm, vwap_bm,
-                       atr_pct, sm_sma10, bm_sma10, watch, price_change_pct,
-                       sm_val, bm_val,
-                       ma5, ma13, ma34, ma200, rsi14, cm_streak
-                FROM eod_summary WHERE date = %s
-            """, [latest_date])
-            analytics_map = {r["ticker"]: r for r in a_rows}
+            analytics_map = _analytics_cache.get(latest_date)
+            if analytics_map is None:
+                a_rows = fetchall(conn, """
+                    SELECT ticker, price_close, sri, volx_gap, vwap_sm, vwap_bm,
+                           atr_pct, sm_sma10, bm_sma10, watch, price_change_pct,
+                           sm_val, bm_val,
+                           ma5, ma13, ma34, ma200, rsi14, cm_streak
+                    FROM eod_summary WHERE date = %s
+                """, [latest_date])
+                analytics_map = {r["ticker"]: r for r in a_rows}
+                today_str = datetime.now(WIB).strftime("%d-%m-%Y")
+                ttl = _ANALYTICS_TTL_TODAY if latest_date == today_str else _ANALYTICS_TTL_HIST
+                _analytics_cache.set(latest_date, analytics_map, ttl)
 
         gains_map = {}
         is_single = (date_from == date_to)

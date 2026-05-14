@@ -7,10 +7,10 @@ import logging
 from datetime import datetime, timedelta
 
 from core.db import fetchall, execute
+from algo.indicators import compute_ma, compute_rsi14, compute_cm_streak
 from algo.algo_wyckoff import (
     classify_zenith_v3_1, get_action, get_watch_flag,
-    detect_trade_detail_gate, compute_ma, compute_rsi14,
-    compute_cm_streak, get_ma_structure, get_phase_narrative,
+    detect_trade_detail_gate, get_ma_structure, get_phase_narrative,
 )
 from config import WIB
 

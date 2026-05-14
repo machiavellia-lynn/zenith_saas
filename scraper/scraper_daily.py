@@ -21,6 +21,7 @@ from config import (
     BACKFILL_HOUR, BACKFILL_MINUTE, RECOMPUTE_HOUR, RECOMPUTE_MINUTE,
 )
 from core.db import get_scraper_db, transaction, fetchall
+import psycopg2
 from scraper.scraper_parser import parse_joker_message, parse_mf_message
 from scraper.scraper_saver import save_sm_bm_rows, save_mf_rows
 from algo.summary_rebuild import rebuild_summary_for_date, rebuild_all_summaries
@@ -37,6 +38,29 @@ if not _zenith_root.handlers:
     _zenith_root.addHandler(_h)
 
 log = logging.getLogger("zenith.scraper")
+
+# ── DB reconnect helper ───────────────────────────────────────────────────────
+
+def _ensure_conn(conn):
+    """Return healthy DB connection, silently reconnecting if the link dropped.
+
+    The scraper holds a single long-lived connection. Railway can restart
+    PostgreSQL or close idle connections — this guard prevents silent data loss
+    by reconnecting before each loop iteration.
+    """
+    try:
+        conn.cursor().execute("SELECT 1")
+        return conn
+    except (psycopg2.OperationalError, psycopg2.InterfaceError, Exception):
+        log.warning("🔌 DB connection lost — reconnecting")
+        try:
+            conn.close()
+        except Exception:
+            pass
+        new_conn = get_scraper_db()
+        log.info("✅ DB reconnected")
+        return new_conn
+
 
 # ── Topic routing ──────────────────────────────────────────────────────────────
 SM_BM_TOPICS = {TOPIC_SMART, TOPIC_BAD}
@@ -79,52 +103,50 @@ def get_message_topic_id(message) -> int | None:
     return None
 
 
+_TOPIC_HANDLERS = None  # initialized lazily to avoid circular import at module load
+
+
+def _get_topic_handlers():
+    global _TOPIC_HANDLERS
+    if _TOPIC_HANDLERS is None:
+        _TOPIC_HANDLERS = {
+            **{t: (parse_joker_message, save_sm_bm_rows) for t in SM_BM_TOPICS},
+            **{t: (parse_mf_message,    save_mf_rows)    for t in MF_TOPICS},
+        }
+    return _TOPIC_HANDLERS
+
+
 def process_message(conn, message) -> int:
     """Parse + save one Telegram message. Returns rows saved."""
     if not message.text:
         return 0
 
     topic_id = get_message_topic_id(message)
-    if topic_id not in ALL_TOPICS:
+    handler  = _get_topic_handlers().get(topic_id)
+    if not handler:
         return 0
 
-    msg_id  = message.id
+    parse_fn, save_fn = handler
     channel = TOPIC_CHANNELS[topic_id]
+    rows    = parse_fn(message.text, channel)
+    if not rows:
+        return 0
 
-    if topic_id in SM_BM_TOPICS:
-        rows = parse_joker_message(message.text, channel)
-        if rows:
-            with transaction(conn):
-                saved = save_sm_bm_rows(conn, msg_id, rows)
-            if saved > 0 and rows[0].get("date"):
-                date_str = rows[0]["date"]
-                try:
-                    with transaction(conn):
-                        rebuild_summary_for_date(conn, date_str)
-                    if _should_recompute_analytics(date_str):
-                        with transaction(conn):
-                            compute_analytics_for_date(conn, date_str)
-                except Exception as e:
-                    log.warning("Post-save analytics failed date=%s: %s", date_str, e)
-            return saved
-    else:
-        rows = parse_mf_message(message.text, channel)
-        if rows:
-            with transaction(conn):
-                saved = save_mf_rows(conn, msg_id, rows)
-            if saved > 0 and rows[0].get("date"):
-                date_str = rows[0]["date"]
-                try:
-                    with transaction(conn):
-                        rebuild_summary_for_date(conn, date_str)
-                    if _should_recompute_analytics(date_str):
-                        with transaction(conn):
-                            compute_analytics_for_date(conn, date_str)
-                except Exception as e:
-                    log.warning("Post-save analytics failed date=%s: %s", date_str, e)
-            return saved
+    with transaction(conn):
+        saved = save_fn(conn, message.id, rows)
 
-    return 0
+    if saved > 0 and rows[0].get("date"):
+        date_str = rows[0]["date"]
+        try:
+            with transaction(conn):
+                rebuild_summary_for_date(conn, date_str)
+            if _should_recompute_analytics(date_str):
+                with transaction(conn):
+                    compute_analytics_for_date(conn, date_str)
+        except Exception as e:
+            log.warning("Post-save analytics failed date=%s: %s", date_str, e)
+
+    return saved
 
 
 # ── Backfill + request queue ───────────────────────────────────────────────────
@@ -135,6 +157,9 @@ _backtest_request  = {"days": None, "status": "idle", "result": None}
 _fix_all_request   = {"status": "idle", "step": None, "date_from": None, "date_to": None, "result": None}
 _backfill_lock    = threading.Lock()
 _scraper_thread   = None
+# Signals the async loop to wake up immediately when a request is queued
+# instead of waiting up to 5 s for the next sleep cycle.
+_request_event: asyncio.Event | None = None
 
 
 async def run_backfill(client, conn):
@@ -176,12 +201,19 @@ async def run_backfill(client, conn):
     log.info(f"✅ BACKFILL done — {total_saved} new rows")
 
 
+def _wake_loop():
+    """Signal the scraper loop to process pending requests immediately."""
+    if _request_event is not None:
+        _request_event.set()
+
+
 def request_backfill(days: int) -> dict:
     with _backfill_lock:
         if _backfill_request["status"] == "running":
             return {"ok": False, "error": "Backfill already running"}
         _backfill_request.update({"days": days, "status": "pending", "result": None})
-        return {"ok": True, "message": f"Backfill {days} days queued"}
+    _wake_loop()
+    return {"ok": True, "message": f"Backfill {days} days queued"}
 
 
 def request_rebuild() -> dict:
@@ -190,6 +222,7 @@ def request_rebuild() -> dict:
             return {"ok": False, "error": "Rebuild already running"}
         _rebuild_request.update({"status": "pending", "result": None})
     log.info("📋 Rebuild Summary queued")
+    _wake_loop()
     return {"ok": True, "message": "Summary rebuild queued"}
 
 
@@ -199,6 +232,7 @@ def request_recompute_analytics() -> dict:
             return {"ok": False, "error": "Recompute already running"}
         _recompute_request.update({"status": "pending", "result": None})
     log.info("📋 Recompute Analytics queued")
+    _wake_loop()
     return {"ok": True, "message": "Analytics recompute queued"}
 
 
@@ -209,6 +243,7 @@ def request_fix_all(date_from: str = None, date_to: str = None) -> dict:
         _fix_all_request.update({"status": "pending", "step": None,
                                   "date_from": date_from, "date_to": date_to, "result": None})
     log.info("📋 Fix All queued (date_from=%s date_to=%s)", date_from or "all", date_to or "all")
+    _wake_loop()
     return {"ok": True, "message": "Fix All queued"}
 
 
@@ -237,6 +272,9 @@ async def scraper_main():
         log.error(f"❌ Session file not found: {session_file}")
         return
 
+    global _request_event
+    _request_event = asyncio.Event()
+
     conn = get_scraper_db()
     log.info("📦 DB: PostgreSQL connected")
 
@@ -252,7 +290,9 @@ async def scraper_main():
 
         @client.on(events.NewMessage(chats=GROUP_ID))
         async def on_new_message(event):
+            nonlocal conn
             try:
+                conn = _ensure_conn(conn)
                 n = process_message(conn, event.message)
                 if n > 0:
                     label = TOPIC_LABELS.get(get_message_topic_id(event.message), "?")
@@ -266,6 +306,7 @@ async def scraper_main():
         last_check_date = None
 
         while True:
+            conn = _ensure_conn(conn)
             now_wib    = datetime.now(WIB)
             today_str  = now_wib.strftime("%Y-%m-%d")
 
@@ -295,8 +336,7 @@ async def scraper_main():
 
             if second_pass_done and not backtest_done_today:
                 try:
-                    today_wib_str = datetime.now(WIB).strftime("%d-%m-%Y")
-                    run_backtest(conn, days=0, date_from="29-09-2025", date_to=today_wib_str)
+                    run_backtest(conn, days=0)
                 except Exception as e:
                     log.error(f"❌ Nightly backtest: {e}")
                 finally:
@@ -467,7 +507,12 @@ async def scraper_main():
                     with _backfill_lock:
                         _fix_all_request.update({"status": "error", "step": None, "result": str(e)})
 
-            await asyncio.sleep(5)
+            # Wait up to 5 s, but wake immediately if a request is queued
+            try:
+                await asyncio.wait_for(_request_event.wait(), timeout=5)
+                _request_event.clear()
+            except asyncio.TimeoutError:
+                pass
 
     except Exception as e:
         log.error(f"❌ Fatal: {e}")
