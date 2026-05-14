@@ -112,6 +112,13 @@ select.sel{background:var(--bg);border:1px solid var(--border2);color:var(--text
 .user-role{font-family:'Space Mono',monospace;font-size:10px;margin-left:8px}
 .role-admin{color:var(--accent)}.role-guest{color:var(--muted)}
 
+/* ── TOAST ── */
+.toast{position:fixed;bottom:28px;right:28px;z-index:9999;display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px 18px;font-family:'Space Mono',monospace;font-size:11px;box-shadow:0 4px 24px rgba(0,0,0,.6);transform:translateY(20px);opacity:0;transition:transform .25s,opacity .25s;pointer-events:none;letter-spacing:.04em}
+.toast.visible{transform:translateY(0);opacity:1}
+.toast.ok{border-color:rgba(0,232,162,.4);color:var(--accent)}
+.toast.err{border-color:rgba(255,77,106,.4);color:var(--danger)}
+.toast-icon{font-size:15px;flex-shrink:0}
+
 /* ── RESPONSIVE ── */
 @media(max-width:900px){.two-col{grid-template-columns:1fr}}
 @media(max-width:640px){
@@ -158,6 +165,7 @@ select.sel{background:var(--bg);border:1px solid var(--border2);color:var(--text
           <div class="chip" id="chipThread"><span class="dot"></span><span id="chipThreadLabel">—</span></div>
           <div class="chip" id="chipBackfill"><span class="dot" style="background:var(--muted)"></span><span id="chipBackfillLabel">IDLE</span></div>
           <div class="chip" id="chipRebuild"><span class="dot" style="background:var(--muted)"></span><span id="chipRebuildLabel">IDLE</span></div>
+          <div class="chip" id="chipRecompute"><span class="dot" style="background:var(--muted)"></span><span id="chipRecomputeLabel">IDLE</span></div>
         </div>
       </div>
 
@@ -328,6 +336,12 @@ function refreshStatus() {
         'REBUILD: ' + (rb.status || 'idle').toUpperCase(),
         rbRunning ? 'running' : '');
 
+      const rc = d.recompute || {};
+      const rcRunning = rc.status === 'running' || rc.status === 'pending';
+      setChip('chipRecompute', 'chipRecomputeLabel',
+        'RECOMPUTE: ' + (rc.status || 'idle').toUpperCase(),
+        rcRunning ? 'running' : '');
+
       if (d.first_data || d.latest_data || d.row_counts) {
         renderDataTable(d.first_data || {}, d.latest_data || {}, d.row_counts || {});
       }
@@ -386,6 +400,19 @@ function triggerBackfill(presetDays) {
     });
 }
 
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let _toastTimer = null;
+function showToast(msg, type = 'ok') {
+  const el   = document.getElementById('toast');
+  const icon = document.getElementById('toastIcon');
+  const txt  = document.getElementById('toastMsg');
+  icon.textContent = type === 'ok' ? '✓' : '✗';
+  txt.textContent  = msg;
+  el.className     = 'toast ' + type + ' visible';
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('visible'), 4500);
+}
+
 // ── Rebuild ───────────────────────────────────────────────────────────────────
 let rbPolling = null;
 function triggerRebuild() {
@@ -401,6 +428,7 @@ function triggerRebuild() {
     .then(r => r.json())
     .then(d => {
       st.textContent = d.message || d.error || JSON.stringify(d);
+      if (!d.ok) { pw.classList.remove('active'); btn.disabled = false; return; }
       if (rbPolling) clearInterval(rbPolling);
       rbPolling = setInterval(() => {
         fetch('/admin/scraper-status')
@@ -414,9 +442,16 @@ function triggerRebuild() {
             if (rb.status !== 'running' && rb.status !== 'pending') {
               clearInterval(rbPolling); rbPolling = null;
               pw.classList.remove('active');
-              st.className = 'status ok';
-              st.textContent = rb.result ? JSON.stringify(rb.result) : 'Selesai.';
               btn.disabled = false;
+              if (rb.status === 'done') {
+                st.className = 'status ok';
+                st.textContent = 'Rebuild summary selesai.';
+                showToast('Rebuild summary selesai!', 'ok');
+              } else {
+                st.className = 'status err';
+                st.textContent = 'Error: ' + (rb.result || 'Gagal.');
+                showToast('Rebuild summary gagal', 'err');
+              }
               refreshStatus();
             }
           });
@@ -428,7 +463,8 @@ function triggerRebuild() {
     });
 }
 
-// ── Recompute All Analytics (volx_gap backfill) ───────────────────────────────
+// ── Recompute All Analytics ───────────────────────────────────────────────────
+let raPolling = null;
 function triggerRecomputeAll() {
   const st  = document.getElementById('rbStatus');
   const pw  = document.getElementById('rbProgress');
@@ -436,20 +472,41 @@ function triggerRecomputeAll() {
 
   btn.disabled = true;
   pw.classList.add('active');
-  st.className = 'status'; st.textContent = 'Memulai recompute semua analytics (background)...';
+  st.className = 'status'; st.textContent = 'Queuing recompute analytics...';
 
-  fetch('/admin/recompute-analytics-all')
+  fetch('/admin/recompute-analytics')
     .then(r => r.json())
     .then(d => {
-      if (d.ok) {
-        st.className = 'status ok';
-        st.textContent = d.message + ' — cek server log untuk progress.';
-      } else {
-        st.className = 'status err';
-        st.textContent = d.error || 'Gagal.';
-      }
-      pw.classList.remove('active');
-      btn.disabled = false;
+      st.textContent = d.message || d.error || JSON.stringify(d);
+      if (!d.ok) { pw.classList.remove('active'); btn.disabled = false; return; }
+      if (raPolling) clearInterval(raPolling);
+      raPolling = setInterval(() => {
+        fetch('/admin/scraper-status')
+          .then(r => r.json())
+          .then(s => {
+            const rc = s.recompute || {};
+            setChip('chipRecompute', 'chipRecomputeLabel',
+              'RECOMPUTE: ' + (rc.status || 'idle').toUpperCase(),
+              rc.status === 'running' || rc.status === 'pending' ? 'running' : '');
+
+            if (rc.status !== 'running' && rc.status !== 'pending') {
+              clearInterval(raPolling); raPolling = null;
+              pw.classList.remove('active');
+              btn.disabled = false;
+              if (rc.status === 'done') {
+                const res = rc.result || {};
+                st.className = 'status ok';
+                st.textContent = `Selesai — ${res.dates || 0} tanggal, ${res.total || 0} baris diperbarui.`;
+                showToast(`Recompute analytics selesai! (${res.dates || 0} tanggal)`, 'ok');
+              } else {
+                st.className = 'status err';
+                st.textContent = 'Error: ' + (rc.result || 'Gagal.');
+                showToast('Recompute analytics gagal', 'err');
+              }
+              refreshStatus();
+            }
+          });
+      }, 3000);
     })
     .catch(e => {
       st.className = 'status err'; st.textContent = 'Error: ' + e.message;
@@ -543,5 +600,6 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 <script src="/static/shortcuts.js" defer></script>
 </main>
+<div class="toast" id="toast"><span class="toast-icon" id="toastIcon"></span><span id="toastMsg"></span></div>
 </body>
 </html>

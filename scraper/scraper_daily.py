@@ -126,9 +126,10 @@ def process_message(conn, message) -> int:
 
 
 # ── Backfill + request queue ───────────────────────────────────────────────────
-_backfill_request = {"days": None, "status": "idle", "result": None}
-_rebuild_request  = {"status": "idle", "result": None}
-_backtest_request = {"days": None, "status": "idle", "result": None}
+_backfill_request  = {"days": None, "status": "idle", "result": None}
+_rebuild_request   = {"status": "idle", "result": None}
+_recompute_request = {"status": "idle", "result": None}
+_backtest_request  = {"days": None, "status": "idle", "result": None}
 _backfill_lock    = threading.Lock()
 _scraper_thread   = None
 
@@ -188,11 +189,20 @@ def request_rebuild() -> dict:
         return {"ok": True, "message": "Summary rebuild queued"}
 
 
+def request_recompute_analytics() -> dict:
+    with _backfill_lock:
+        if _recompute_request["status"] == "running":
+            return {"ok": False, "error": "Recompute already running"}
+        _recompute_request.update({"status": "pending", "result": None})
+        return {"ok": True, "message": "Analytics recompute queued"}
+
+
 def get_backfill_status() -> dict:
     with _backfill_lock:
         return {
             "backfill":     dict(_backfill_request),
             "rebuild":      dict(_rebuild_request),
+            "recompute":    dict(_recompute_request),
             "backtest":     dict(_backtest_request),
             "thread_alive": _scraper_thread is not None and _scraper_thread.is_alive(),
         }
@@ -310,6 +320,33 @@ async def scraper_main():
                     log.error(f"❌ Rebuild: {e}")
                     with _backfill_lock:
                         _rebuild_request.update({"status": "error", "result": str(e)})
+
+            with _backfill_lock:
+                do_recompute = _recompute_request["status"] == "pending"
+                if do_recompute:
+                    _recompute_request["status"] = "running"
+
+            if do_recompute:
+                try:
+                    dates = [r["date"] for r in fetchall(conn,
+                        "SELECT DISTINCT date FROM eod_summary ORDER BY TO_DATE(date,'DD-MM-YYYY')")]
+                    log.info(f"🔄 Recompute analytics: {len(dates)} dates")
+                    total = 0
+                    for d in dates:
+                        try:
+                            n = compute_analytics_for_date(conn, d)
+                            total += n
+                            conn.commit()
+                        except Exception as e:
+                            conn.rollback()
+                            log.error("analytics failed for %s: %s", d, e)
+                    with _backfill_lock:
+                        _recompute_request.update({"status": "done", "result": {"total": total, "dates": len(dates)}})
+                    log.info(f"✅ Recompute analytics done: {total} rows, {len(dates)} dates")
+                except Exception as e:
+                    log.error(f"❌ Recompute analytics: {e}")
+                    with _backfill_lock:
+                        _recompute_request.update({"status": "error", "result": str(e)})
 
             with _backfill_lock:
                 bt_days = _backtest_request["days"] if _backtest_request["status"] == "pending" else None

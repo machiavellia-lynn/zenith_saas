@@ -9,7 +9,7 @@ from core.auth import is_authed
 from config import WIB, YF_HEADERS, INTERVAL_MAP, SECTORS
 from core.utils import parse_date, date_range
 from core.db import get_db, fetchall
-from data.price_fetch import fetch_ohlcv
+from data.price_fetch import fetch_ohlcv, get_gains_batch
 from algo.algo_wyckoff import (
     classify_zenith_v3_1, get_action, get_watch_flag,
     get_ma_structure, get_phase_narrative, detect_trade_detail_gate,
@@ -75,55 +75,15 @@ def flow():
             """, [latest_date])
             analytics_map = {r["ticker"]: r for r in a_rows}
 
+        # Fetch live gains from Yahoo Finance — same source as /chart and /sector.
+        # eod_summary stored prices can be stale; live fetch is always correct.
         gains_map = {}
-        is_single = (date_from == date_to)
-
-        if not is_single and latest_date:
-            price_latest = {r["ticker"]: r["price_close"] for r in fetchall(conn,
-                "SELECT ticker, price_close FROM eod_summary WHERE date = %s AND price_close IS NOT NULL",
-                [latest_date]
-            )}
-            # Find last date BEFORE earliest_date — load all distinct dates, filter in Python
-            e_date = earliest_date or date_from
-            e_dt = parse_date(e_date)
-            all_dates = [r["date"] for r in fetchall(conn, "SELECT DISTINCT date FROM eod_summary")]
-            candidates = [d for d in all_dates if parse_date(d) < e_dt]
-            prev_date = max(candidates, key=parse_date) if candidates else None
-            price_ref = {}
-            if prev_date:
-                price_ref = {r["ticker"]: r["price_close"] for r in fetchall(conn,
-                    "SELECT ticker, price_close FROM eod_summary WHERE date = %s AND price_close IS NOT NULL",
-                    [prev_date]
-                )}
-            for t in set(list(price_latest.keys()) + list(price_ref.keys())):
-                p_now = price_latest.get(t)
-                p_ref = price_ref.get(t)
-                gains_map[t] = {
-                    "gain":  round((p_now - p_ref) / p_ref * 100, 2) if p_now and p_ref and p_ref > 0 else None,
-                    "price": int(round(p_now)) if p_now else None,
-                }
-        elif is_single and latest_date:
-            date_yyyy = f"{latest_date[6:10]}-{latest_date[3:5]}-{latest_date[:2]}"
-            eod_rows = fetchall(conn,
-                "SELECT ticker, price_close FROM eod_summary WHERE date = %s AND price_close IS NOT NULL",
-                [latest_date]
-            )
-            price_today_map = {r["ticker"]: r["price_close"] for r in eod_rows}
-            tickers_day = list(price_today_map.keys())
-            prev_close_map = {}
-            if tickers_day:
-                ph_prev = fetchall(conn, """
-                    SELECT DISTINCT ON (ticker) ticker, close
-                    FROM price_history
-                    WHERE ticker = ANY(%s) AND date < %s
-                    ORDER BY ticker, date DESC
-                """, [tickers_day, date_yyyy])
-                prev_close_map = {r["ticker"]: r["close"] for r in ph_prev}
-            for ticker in tickers_day:
-                p_now  = price_today_map[ticker]
-                p_prev = prev_close_map.get(ticker)
-                gain   = round((p_now - p_prev) / p_prev * 100, 2) if p_now and p_prev and p_prev > 0 else None
-                gains_map[ticker] = {"gain": gain, "price": int(round(p_now))}
+        if rows:
+            tickers_for_gain = list({r["ticker"] for r in rows})
+            try:
+                gains_map = get_gains_batch(tickers_for_gain, date_from, date_to)
+            except Exception as _e:
+                gains_map = {}
 
     except Exception as e:
         return jsonify({"error": f"DB error: {e}"}), 500
