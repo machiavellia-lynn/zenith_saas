@@ -9,7 +9,7 @@ from core.auth import is_authed
 from config import WIB, YF_HEADERS, INTERVAL_MAP, SECTORS
 from core.utils import parse_date, date_range
 from core.db import get_db, fetchall
-from data.price_fetch import fetch_ohlcv, get_gains_batch
+from data.price_fetch import fetch_ohlcv
 from algo.algo_wyckoff import (
     classify_zenith_v3_1, get_action, get_watch_flag,
     get_ma_structure, get_phase_narrative, detect_trade_detail_gate,
@@ -75,15 +75,42 @@ def flow():
             """, [latest_date])
             analytics_map = {r["ticker"]: r for r in a_rows}
 
-        # Fetch live gains from Yahoo Finance — same source as /chart and /sector.
-        # eod_summary stored prices can be stale; live fetch is always correct.
         gains_map = {}
+        is_single = (date_from == date_to)
         if rows:
             tickers_for_gain = list({r["ticker"] for r in rows})
-            try:
-                gains_map = get_gains_batch(tickers_for_gain, date_from, date_to)
-            except Exception as _e:
-                gains_map = {}
+            if is_single and latest_date:
+                # Single day: read stored price_change_pct written by analytics_daily
+                for t in tickers_for_gain:
+                    a = analytics_map.get(t, {})
+                    gains_map[t] = {
+                        "gain":  a.get("price_change_pct"),
+                        "price": a.get("price_close"),
+                    }
+            else:
+                # Multi-day: compute from price_history (daily closes stored from Yahoo)
+                date_to_yyyy   = f"{date_to[6:10]}-{date_to[3:5]}-{date_to[:2]}"
+                date_from_yyyy = f"{date_from[6:10]}-{date_from[3:5]}-{date_from[:2]}"
+                close_end = {r["ticker"]: r["close"] for r in fetchall(conn, """
+                    SELECT DISTINCT ON (ticker) ticker, close
+                    FROM price_history
+                    WHERE ticker = ANY(%s) AND date <= %s
+                    ORDER BY ticker, date DESC
+                """, [tickers_for_gain, date_to_yyyy])}
+                close_ref = {r["ticker"]: r["close"] for r in fetchall(conn, """
+                    SELECT DISTINCT ON (ticker) ticker, close
+                    FROM price_history
+                    WHERE ticker = ANY(%s) AND date < %s
+                    ORDER BY ticker, date DESC
+                """, [tickers_for_gain, date_from_yyyy])}
+                for t in tickers_for_gain:
+                    p_end = close_end.get(t)
+                    p_ref = close_ref.get(t)
+                    gain  = round((p_end - p_ref) / p_ref * 100, 2) if p_end and p_ref and p_ref > 0 else None
+                    gains_map[t] = {
+                        "gain":  gain,
+                        "price": int(round(p_end)) if p_end else None,
+                    }
 
     except Exception as e:
         return jsonify({"error": f"DB error: {e}"}), 500
