@@ -28,13 +28,15 @@ from algo.analytics_daily import compute_analytics_for_date
 from data.price_fetch import enrich_daily_ohlcv, backfill_price_history_ohlcv, sync_eod_prices_from_history
 from algo.algo_backtest import run_backtest
 
+# ── Shared handler on parent "zenith" so all zenith.* loggers emit to console ──
+_zenith_root = logging.getLogger("zenith")
+_zenith_root.setLevel(logging.INFO)
+if not _zenith_root.handlers:
+    _h = logging.StreamHandler()
+    _h.setFormatter(logging.Formatter("[%(asctime)s] %(name)s %(levelname)s — %(message)s", "%H:%M:%S"))
+    _zenith_root.addHandler(_h)
+
 log = logging.getLogger("zenith.scraper")
-log.setLevel(logging.INFO)
-log.propagate = False
-if not log.handlers:
-    h = logging.StreamHandler()
-    h.setFormatter(logging.Formatter("[%(asctime)s] SCRAPER %(levelname)s — %(message)s", "%H:%M:%S"))
-    log.addHandler(h)
 
 # ── Topic routing ──────────────────────────────────────────────────────────────
 SM_BM_TOPICS = {TOPIC_SMART, TOPIC_BAD}
@@ -187,7 +189,8 @@ def request_rebuild() -> dict:
         if _rebuild_request["status"] == "running":
             return {"ok": False, "error": "Rebuild already running"}
         _rebuild_request.update({"status": "pending", "result": None})
-        return {"ok": True, "message": "Summary rebuild queued"}
+    log.info("📋 Rebuild Summary queued")
+    return {"ok": True, "message": "Summary rebuild queued"}
 
 
 def request_recompute_analytics() -> dict:
@@ -195,7 +198,8 @@ def request_recompute_analytics() -> dict:
         if _recompute_request["status"] == "running":
             return {"ok": False, "error": "Recompute already running"}
         _recompute_request.update({"status": "pending", "result": None})
-        return {"ok": True, "message": "Analytics recompute queued"}
+    log.info("📋 Recompute Analytics queued")
+    return {"ok": True, "message": "Analytics recompute queued"}
 
 
 def request_fix_all(date_from: str = None, date_to: str = None) -> dict:
@@ -204,7 +208,8 @@ def request_fix_all(date_from: str = None, date_to: str = None) -> dict:
             return {"ok": False, "error": "Fix All already running"}
         _fix_all_request.update({"status": "pending", "step": None,
                                   "date_from": date_from, "date_to": date_to, "result": None})
-        return {"ok": True, "message": "Fix All queued"}
+    log.info("📋 Fix All queued (date_from=%s date_to=%s)", date_from or "all", date_to or "all")
+    return {"ok": True, "message": "Fix All queued"}
 
 
 def get_backfill_status() -> dict:
@@ -345,9 +350,9 @@ async def scraper_main():
                         ) t
                         ORDER BY TO_DATE(date,'DD-MM-YYYY')
                     """)]
-                    log.info(f"🔄 Recompute analytics: {len(dates)} dates")
+                    log.info("🔄 Recompute analytics START — %d dates", len(dates))
                     total = 0
-                    for d in dates:
+                    for i, d in enumerate(dates, 1):
                         try:
                             n = compute_analytics_for_date(conn, d)
                             total += n
@@ -355,11 +360,13 @@ async def scraper_main():
                         except Exception as e:
                             conn.rollback()
                             log.error("analytics failed for %s: %s", d, e)
+                        if i % 10 == 0 or i == len(dates):
+                            log.info("  recompute progress %d/%d (rows=%d)", i, len(dates), total)
                     with _backfill_lock:
                         _recompute_request.update({"status": "done", "result": {"total": total, "dates": len(dates)}})
-                    log.info(f"✅ Recompute analytics done: {total} rows, {len(dates)} dates")
+                    log.info("✅ Recompute analytics DONE — %d rows, %d dates", total, len(dates))
                 except Exception as e:
-                    log.error(f"❌ Recompute analytics: {e}")
+                    log.error("❌ Recompute analytics: %s", e)
                     with _backfill_lock:
                         _recompute_request.update({"status": "error", "result": str(e)})
 
@@ -438,7 +445,7 @@ async def scraper_main():
                             ORDER BY TO_DATE(date,'DD-MM-YYYY')
                         """)]
                     total_a = 0
-                    for d in ana_dates:
+                    for i, d in enumerate(ana_dates, 1):
                         try:
                             n = compute_analytics_for_date(conn, d)
                             total_a += n
@@ -446,6 +453,8 @@ async def scraper_main():
                         except Exception as e:
                             conn.rollback()
                             log.error("Fix All analytics failed date=%s: %s", d, e)
+                        if i % 10 == 0 or i == len(ana_dates):
+                            log.info("  fix_all analytics %d/%d (rows=%d)", i, len(ana_dates), total_a)
 
                     with _backfill_lock:
                         _fix_all_request.update({
