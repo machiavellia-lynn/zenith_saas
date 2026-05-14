@@ -516,6 +516,7 @@ async def scraper_main():
 
     except Exception as e:
         log.error(f"❌ Fatal: {e}")
+        raise  # signal wrapper: transient failure, restart needed
     finally:
         try:
             await client.disconnect()
@@ -532,14 +533,20 @@ def start_scraper_thread():
     global _scraper_thread
 
     def _run():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(scraper_main())
-        except Exception as e:
-            log.error(f"❌ Thread crashed: {e}")
-        finally:
-            loop.close()
+        delay = 0
+        while True:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(scraper_main())
+                break  # clean exit (no session / not authorized) — permanent, don't restart
+            except Exception:
+                pass   # already logged by scraper_main
+            finally:
+                loop.close()
+            delay = min(delay * 2 + 10, 300)   # 10 → 30 → 70 → 150 → 300s cap
+            log.warning("🔄 Scraper restarting in %ds", delay)
+            time.sleep(delay)
 
     _scraper_thread = threading.Thread(target=_run, name="zenith-scraper", daemon=True)
     _scraper_thread.start()

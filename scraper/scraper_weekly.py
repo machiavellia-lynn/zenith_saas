@@ -22,19 +22,13 @@ from scraper.scraper_parser import parse_joker_message, parse_mf_message
 from scraper.scraper_saver import save_sm_bm_rows, save_mf_rows
 from scraper.scraper_daily import (
     get_message_topic_id, ALL_TOPICS, SM_BM_TOPICS,
-    TOPIC_LABELS, TOPIC_CHANNELS,
+    TOPIC_LABELS, TOPIC_CHANNELS, _ensure_conn,
 )
 from algo.summary_rebuild import rebuild_summary_for_date
 from algo.analytics_daily import compute_analytics_for_date
 from data.price_fetch import backfill_prices
 
-log = logging.getLogger("zenith.weekly")
-log.setLevel(logging.INFO)
-log.propagate = False
-if not log.handlers:
-    h = logging.StreamHandler()
-    h.setFormatter(logging.Formatter("[%(asctime)s] WEEKLY %(levelname)s — %(message)s", "%H:%M:%S"))
-    log.addHandler(h)
+log = logging.getLogger("zenith.weekly")  # inherits zenith parent handler
 
 DAYS_BACK = 7
 
@@ -67,6 +61,8 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK):
         label   = TOPIC_LABELS[topic_id]
         channel = TOPIC_CHANNELS[topic_id]
         scanned = saved = consecutive_old = 0
+
+        conn = _ensure_conn(conn)  # reconnect before each topic's DB work
 
         async for message in client.iter_messages(GROUP_ID, reply_to=topic_id, limit=None):
             if not message.text:

@@ -2,6 +2,7 @@
 routes_sector.py — Blueprint: /sector, /api/sector
 RULE: Routing only. All aggregation done via DB query here (sector is pure aggregation).
 """
+import logging
 from datetime import datetime, timedelta
 from flask import Blueprint, render_template, jsonify, request, redirect
 from core.auth import is_authed
@@ -11,6 +12,7 @@ from core.db import get_db, fetchall
 from data.price_fetch import get_gains_batch
 
 bp_sector = Blueprint("sector", __name__)
+log = logging.getLogger("zenith.routes.sector")
 
 
 @bp_sector.route("/sector")
@@ -55,7 +57,8 @@ def sector_api():
             GROUP BY ticker, channel
         """, [all_tickers, dates])
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        log.exception("sector /api/sector DB error")
+        return jsonify({"error": "Server error"}), 500
 
     tdata: dict = {}
     for row in rows_sm_bm:

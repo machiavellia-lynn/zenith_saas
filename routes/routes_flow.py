@@ -2,6 +2,7 @@
 routes_flow.py — Blueprint: /api/flow, /api/transactions, /api/overlay, /api/ohlcv
 RULE: Routing + input validation only. No business logic, no direct API calls.
 """
+import logging
 from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request
 
@@ -17,6 +18,7 @@ from algo.algo_wyckoff import (
 )
 
 bp_flow = Blueprint("flow", __name__)
+log = logging.getLogger("zenith.routes.flow")
 
 # analytics_map cache: TTL 5 min for today, 30 min for historical
 _analytics_cache = TTLCache()
@@ -124,7 +126,8 @@ def flow():
                     }
 
     except Exception as e:
-        return jsonify({"error": f"DB error: {e}"}), 500
+        log.exception("flow /api/flow DB error")
+        return jsonify({"error": "Server error"}), 500
 
     data = {}
     for row in rows:
@@ -296,7 +299,8 @@ def transactions():
             ORDER BY TO_DATE(date, 'DD-MM-YYYY'), time
         """, [ticker, dates])
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        log.exception("flow /api/transactions DB error")
+        return jsonify({"error": "Server error"}), 500
 
     sm_rows, bm_rows = [], []
     for r in rows:
@@ -334,7 +338,8 @@ def overlay():
             ORDER BY TO_DATE(date, 'DD-MM-YYYY'), time
         """, [ticker])
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        log.exception("flow /api/overlay DB error")
+        return jsonify({"error": "Server error"}), 500
 
     if not rows:
         return jsonify({"ticker": ticker, "tf": tf, "points": []})

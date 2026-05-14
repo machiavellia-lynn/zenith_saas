@@ -7,7 +7,8 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import logging
-from flask import Flask
+from flask import Flask, jsonify
+from werkzeug.exceptions import HTTPException
 
 import config
 from routes.routes_main import bp_main
@@ -35,6 +36,17 @@ app.register_blueprint(bp_sector)
 app.register_blueprint(bp_backtest)
 app.register_blueprint(bp_journal)
 app.register_blueprint(bp_admin)
+
+_log = logging.getLogger("zenith.app")
+
+
+@app.errorhandler(Exception)
+def handle_unhandled_exception(e):
+    if isinstance(e, HTTPException):
+        return e
+    _log.exception("Unhandled exception")
+    return jsonify({"error": "Internal server error"}), 500
+
 
 from startup import do_startup
 do_startup(app)
