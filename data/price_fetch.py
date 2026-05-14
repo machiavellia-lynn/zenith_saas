@@ -316,6 +316,29 @@ def enrich_daily_prices(conn, date_str: str) -> int:
     return updated
 
 
+def sync_price_history_from_eod(conn, date_str: str) -> int:
+    """Copy eod_summary.price_close → price_history for date_str.
+    Reuses prices already fetched by enrich_daily_prices — no extra Yahoo call.
+    Caller is responsible for commit."""
+    date_yyyy = f"{date_str[6:10]}-{date_str[3:5]}-{date_str[:2]}"
+    rows = fetchall(conn,
+        "SELECT ticker, price_close FROM eod_summary WHERE date = %s AND price_close IS NOT NULL",
+        [date_str])
+    inserted = 0
+    for r in rows:
+        try:
+            execute(conn, """
+                INSERT INTO price_history (date, ticker, close)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (date, ticker) DO UPDATE SET close = EXCLUDED.close
+            """, [date_yyyy, r["ticker"], r["price_close"]])
+            inserted += 1
+        except Exception as e:
+            log.warning("sync_price_history failed ticker=%s: %s", r["ticker"], e)
+    log.info("sync_price_history_from_eod %s: %d rows", date_str, inserted)
+    return inserted
+
+
 def backfill_prices(conn, days: int = 30, date_from: str = None, date_to: str = None, delay_ms: int = 0):
     """Backfill price_close in eod_summary for a date range.
     Strategy: 1 Yahoo request per ticker (covers entire date range), parallel via ThreadPoolExecutor.
