@@ -22,7 +22,6 @@ def ensure_schema():
     _create_ohlcv_cache(conn)
     _create_corporate_events(conn)
     _create_inst_flow_cache(conn)
-    _create_intraday_ohlcv(conn)
     conn.commit()
     log.info("Schema ensured OK")
 
@@ -249,24 +248,3 @@ def _create_inst_flow_cache(conn):
     """)
 
 
-def _create_intraday_ohlcv(conn):
-    conn.cursor().execute("""
-        CREATE TABLE IF NOT EXISTS intraday_ohlcv (
-            id        SERIAL PRIMARY KEY,
-            ticker    TEXT NOT NULL,
-            datetime  TEXT NOT NULL,
-            date      TEXT NOT NULL,
-            time      TEXT NOT NULL,
-            timeframe TEXT NOT NULL,
-            open      REAL,
-            high      REAL,
-            low       REAL,
-            close     REAL,
-            volume    BIGINT,
-            UNIQUE (ticker, datetime, timeframe)
-        )
-    """)
-    conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_intraday_ticker    ON intraday_ohlcv(ticker)")
-    conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_intraday_date      ON intraday_ohlcv(date)")
-    conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_intraday_tf        ON intraday_ohlcv(timeframe)")
-    conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_intraday_tick_date ON intraday_ohlcv(ticker, date)")

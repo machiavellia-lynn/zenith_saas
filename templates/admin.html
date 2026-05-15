@@ -228,24 +228,6 @@ select.sel{background:var(--bg);border:1px solid var(--border2);color:var(--text
         <div class="status" id="faStatus"></div>
       </div>
 
-      <!-- Intraday OHLCV Backfill -->
-      <div>
-        <div class="section-label">Intraday OHLCV Backfill</div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
-          Fetch data 5m &amp; 15m dari Yahoo Finance untuk semua ticker.<br>
-          Yahoo max 60 hari ke belakang. Gunakan range kecil untuk hindari bottleneck.
-        </div>
-        <div class="btn-row" style="flex-wrap:wrap;gap:6px">
-          <input type="text" class="num-input" id="idDateFrom" placeholder="YYYY-MM-DD" style="width:120px"/>
-          <span style="font-size:11px;color:var(--muted)">s/d</span>
-          <input type="text" class="num-input" id="idDateTo"   placeholder="YYYY-MM-DD" style="width:120px"/>
-          <button class="btn outline" id="idBtn" onclick="triggerIntradayBackfill()">Backfill Intraday</button>
-          <button class="btn outline" id="idFullBtn" onclick="triggerIntradayBackfill(true)" style="font-size:10px;padding:7px 12px">60d Full</button>
-        </div>
-        <div class="progress-wrap" id="idProgress"><div class="progress-bar indeterminate"></div></div>
-        <div class="status" id="idStatus"></div>
-      </div>
-
     </div>
   </div>
 
@@ -607,48 +589,6 @@ function triggerFixAll() {
     st.className = 'status err'; st.textContent = 'Error: ' + e.message;
     pw.classList.remove('active'); btn.disabled = false;
   });
-}
-
-// ── Intraday Backfill ─────────────────────────────────────────────────────────
-function triggerIntradayBackfill(full = false) {
-  const dateFrom = document.getElementById('idDateFrom').value.trim();
-  const dateTo   = document.getElementById('idDateTo').value.trim();
-  const st   = document.getElementById('idStatus');
-  const pw   = document.getElementById('idProgress');
-  const btn  = document.getElementById('idBtn');
-  const fBtn = document.getElementById('idFullBtn');
-
-  if (!full && (!dateFrom || !dateTo)) {
-    st.className = 'status err'; st.textContent = 'Isi date_from dan date_to (YYYY-MM-DD) dulu.'; return;
-  }
-
-  let url = '/admin/trigger-intraday-backfill';
-  if (!full && dateFrom && dateTo) url += `?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
-
-  btn.disabled = true; fBtn.disabled = true;
-  pw.classList.add('active');
-  st.className = 'status';
-  st.textContent = full ? 'Memulai full backfill 60d...' : `Memulai backfill ${dateFrom} ~ ${dateTo}...`;
-
-  fetch(url, { method: 'POST' })
-    .then(r => r.json())
-    .then(d => {
-      if (d.ok) {
-        st.className = 'status ok';
-        st.textContent = (d.message || 'Started') + ' — proses berjalan di background, cek log server.';
-        showToast('Intraday backfill started!', 'ok');
-      } else {
-        st.className = 'status err'; st.textContent = d.error || 'Gagal';
-        showToast('Intraday backfill gagal', 'err');
-      }
-      pw.classList.remove('active');
-      btn.disabled = false; fBtn.disabled = false;
-    })
-    .catch(e => {
-      st.className = 'status err'; st.textContent = 'Error: ' + e.message;
-      pw.classList.remove('active');
-      btn.disabled = false; fBtn.disabled = false;
-    });
 }
 
 // ── Session upload ────────────────────────────────────────────────────────────

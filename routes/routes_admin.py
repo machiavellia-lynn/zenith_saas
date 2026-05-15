@@ -258,52 +258,6 @@ def trigger_backtest():
     return jsonify({"ok": True})
 
 
-@bp_admin.route("/admin/trigger-intraday-backfill", methods=["POST"])
-def trigger_intraday_backfill():
-    if not is_authed():
-        return jsonify({"ok": False, "error": "unauthorized"}), 401
-
-    import threading
-    import logging as _logging
-    from core.db import get_scraper_db
-    _log = _logging.getLogger("zenith.admin")
-
-    date_from = request.args.get("date_from", "").strip() or None
-    date_to   = request.args.get("date_to",   "").strip() or None
-
-    if date_from and date_to:
-        from data.intraday_collector import collect_intraday_range
-        label = f"range {date_from} ~ {date_to}"
-        def _run():
-            conn = get_scraper_db()
-            try:
-                result = collect_intraday_range(conn, date_from, date_to)
-                conn.commit()
-                _log.info(f"Intraday range backfill done: {result}")
-            except Exception as e:
-                conn.rollback()
-                _log.error(f"Intraday range backfill failed: {e}")
-            finally:
-                conn.close()
-    else:
-        from data.intraday_collector import collect_intraday_full_backfill
-        label = "60d full"
-        def _run():
-            conn = get_scraper_db()
-            try:
-                result = collect_intraday_full_backfill(conn)
-                conn.commit()
-                _log.info(f"Intraday full backfill done: {result}")
-            except Exception as e:
-                conn.rollback()
-                _log.error(f"Intraday full backfill failed: {e}")
-            finally:
-                conn.close()
-
-    threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"ok": True, "message": f"Intraday OHLCV backfill started ({label}, 5m+15m)"})
-
-
 @bp_admin.route("/admin/upload-session", methods=["POST"])
 def upload_session():
     if not is_authed():
