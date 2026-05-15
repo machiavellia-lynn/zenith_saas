@@ -49,6 +49,8 @@ TG_TOPIC_MF_PLUS  = 1025256
 TG_TOPIC_MF_MINUS = 1025260
 
 # ── Scraper Schedule ───────────────────────────────────────────────────────────
+MIDDAY_HOUR      = 12
+MIDDAY_MINUTE    = 10
 BACKFILL_HOUR   = 15
 BACKFILL_MINUTE = 30
 RECOMPUTE_HOUR   = 16

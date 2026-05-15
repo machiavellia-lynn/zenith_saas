@@ -18,7 +18,7 @@ from config import (
     TG_TOPIC_BAD as TOPIC_BAD,
     TG_TOPIC_MF_PLUS as TOPIC_MF_PLUS,
     TG_TOPIC_MF_MINUS as TOPIC_MF_MINUS,
-    BACKFILL_HOUR, BACKFILL_MINUTE, RECOMPUTE_HOUR, RECOMPUTE_MINUTE,
+    MIDDAY_HOUR, MIDDAY_MINUTE, BACKFILL_HOUR, BACKFILL_MINUTE, RECOMPUTE_HOUR, RECOMPUTE_MINUTE,
 )
 from core.db import get_scraper_db, transaction, fetchall
 import psycopg2
@@ -300,9 +300,9 @@ async def scraper_main():
             except Exception as e:
                 log.error(f"❌ Listener error: {e}")
 
-        log.info(f"👂 Listening | backfill {BACKFILL_HOUR:02d}:{BACKFILL_MINUTE:02d} / recompute {RECOMPUTE_HOUR:02d}:{RECOMPUTE_MINUTE:02d} WIB")
+        log.info(f"👂 Listening | midday {MIDDAY_HOUR:02d}:{MIDDAY_MINUTE:02d} / backfill {BACKFILL_HOUR:02d}:{BACKFILL_MINUTE:02d} / recompute {RECOMPUTE_HOUR:02d}:{RECOMPUTE_MINUTE:02d} WIB")
 
-        first_pass_done = second_pass_done = backtest_done_today = False
+        midday_pass_done = first_pass_done = second_pass_done = backtest_done_today = False
         last_check_date = None
 
         while True:
@@ -313,8 +313,17 @@ async def scraper_main():
             log.debug(f"⏰ Loop iteration at {now_wib.strftime('%H:%M:%S')}")
 
             if today_str != last_check_date:
-                first_pass_done = second_pass_done = backtest_done_today = False
+                midday_pass_done = first_pass_done = second_pass_done = backtest_done_today = False
                 last_check_date = today_str
+
+            if not midday_pass_done and (now_wib.hour > MIDDAY_HOUR or (now_wib.hour == MIDDAY_HOUR and now_wib.minute >= MIDDAY_MINUTE)):
+                try:
+                    log.info("🌤️ Midday pass (12:10)")
+                    await run_backfill(client, conn)
+                except Exception as e:
+                    log.error(f"❌ Midday pass: {e}")
+                finally:
+                    midday_pass_done = True
 
             if not first_pass_done and now_wib.hour >= BACKFILL_HOUR and now_wib.minute >= BACKFILL_MINUTE:
                 try:
