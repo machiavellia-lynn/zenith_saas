@@ -145,7 +145,11 @@ def _create_eod_summary(conn):
         ("is_sideways",     "BOOLEAN"),
         ("close_pos",       "REAL"),
         ("prev_high_break", "BOOLEAN"),
-        ("mf_ratio",        "REAL"),
+        ("mf_ratio",            "REAL"),
+        ("ma5_price_streak",    "INTEGER"),
+        ("daily_value",         "REAL"),
+        ("prev_close_below_ma5",       "BOOLEAN"),
+        ("prev_close_below_bb_lower",  "BOOLEAN"),
     ]:
         conn.cursor().execute(
             f"ALTER TABLE eod_summary ADD COLUMN IF NOT EXISTS {col} {typedef}"

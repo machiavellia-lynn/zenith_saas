@@ -107,3 +107,38 @@ def compute_mf_ratio(mf_plus, mf_minus) -> float | None:
     if total == 0:
         return None
     return round(mf_plus / total * 100, 2)
+
+
+def compute_ma5_price_streak(closes: list, ma5_values: list) -> int:
+    """Consecutive days close di atas/bawah MA5. Both lists oldest-first.
+    +N = close > ma5 selama N hari berturut dari hari ini. -N = close ≤ ma5. 0 jika data kosong."""
+    n = min(len(closes), len(ma5_values))
+    if n == 0:
+        return 0
+    today_ma5 = ma5_values[-1]
+    if today_ma5 is None:
+        return 0
+    today_above = closes[-1] > today_ma5
+    streak = 0
+    for i in range(n):
+        idx = n - 1 - i
+        m = ma5_values[idx]
+        if m is None:
+            break
+        if (closes[idx] > m) == today_above:
+            streak += 1
+        else:
+            break
+    return streak if today_above else -streak
+
+
+def compute_days_since_near_level(closes: list, level: float, tolerance_pct: float = 2.0):
+    """Berapa hari sejak close terakhir mendekati `level`. closes = oldest-first.
+    None = first touch terkonfirmasi. N = N hari lalu terakhir menyentuh (1 = kemarin)."""
+    if not closes or level == 0:
+        return None
+    for i in range(1, len(closes)):
+        c = closes[-(i + 1)]
+        if abs(c - level) / level * 100 <= tolerance_pct:
+            return i
+    return None

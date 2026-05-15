@@ -2,7 +2,10 @@
 tests/test_indicators.py — Unit tests for algo/indicators.py
 """
 import pytest
-from algo.indicators import compute_ma, compute_rsi14, compute_cm_streak
+from algo.indicators import (
+    compute_ma, compute_rsi14, compute_cm_streak,
+    compute_ma5_price_streak, compute_days_since_near_level,
+)
 
 
 # ── compute_ma ────────────────────────────────────────────────────────────────
@@ -69,3 +72,46 @@ def test_cm_streak_none_ma():
 
 def test_cm_streak_empty():
     assert compute_cm_streak([], 10.0) is None
+
+
+# ── compute_ma5_price_streak ──────────────────────────────────────────────────
+
+def test_ma5_price_streak_all_above():
+    closes   = [96, 98, 101, 103, 105]   # oldest-first, all above ma5
+    ma5_vals = [100, 100, 100, 100, 100]
+    assert compute_ma5_price_streak(closes, ma5_vals) == 3  # only last 3 above
+
+def test_ma5_price_streak_all_below():
+    closes   = [105, 103, 99, 97, 95]
+    ma5_vals = [100, 100, 100, 100, 100]
+    assert compute_ma5_price_streak(closes, ma5_vals) == -3
+
+def test_ma5_price_streak_full_above():
+    closes   = [101, 102, 103, 104, 105]
+    ma5_vals = [100, 100, 100, 100, 100]
+    assert compute_ma5_price_streak(closes, ma5_vals) == 5
+
+def test_ma5_price_streak_empty():
+    assert compute_ma5_price_streak([], []) == 0
+
+def test_ma5_price_streak_none_ma5():
+    assert compute_ma5_price_streak([105], [None]) == 0
+
+
+# ── compute_days_since_near_level ─────────────────────────────────────────────
+
+def test_days_since_near_level_yesterday():
+    # oldest-first: today=101, yesterday=99, level=100, tol=2%
+    closes = [120, 115, 102, 100, 98, 99, 101]
+    assert compute_days_since_near_level(closes, 100, 2.0) == 1
+
+def test_days_since_near_level_two_days_ago():
+    closes = [120, 115, 99, 110, 112]   # closes[-3]=99 → 2 days ago
+    assert compute_days_since_near_level(closes, 100, 2.0) == 2
+
+def test_days_since_near_level_first_touch():
+    closes = [125, 120, 118, 115, 101]
+    assert compute_days_since_near_level(closes, 100, 2.0) is None
+
+def test_days_since_near_level_empty():
+    assert compute_days_since_near_level([], 100) is None

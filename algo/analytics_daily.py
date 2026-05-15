@@ -10,6 +10,7 @@ from algo.indicators import (
     compute_ma, compute_rsi14, compute_cm_streak,
     compute_ma50, compute_bollinger_bands, detect_sideways,
     compute_close_position, compute_mf_ratio,
+    compute_ma5_price_streak, compute_days_since_near_level,
 )
 from algo.algo_wyckoff import (
     classify_zenith_v3_1, get_action, get_watch_flag,
@@ -57,7 +58,7 @@ def compute_analytics_for_date(conn, date_str: str):
 
     # Batch: 210-day OHLC from price_history; group oldest-first per ticker
     all_ph = fetchall(conn, """
-        SELECT ticker, high, low, close
+        SELECT ticker, high, low, close, volume
         FROM price_history
         WHERE ticker = ANY(%s) AND date <= %s
         ORDER BY ticker, date DESC
@@ -99,7 +100,9 @@ def compute_analytics_for_date(conn, date_str: str):
                     phase = %s, action = %s, watch = %s,
                     trade_gate = %s, narrative = %s,
                     ma50 = %s, bb_upper = %s, bb_mid = %s, bb_lower = %s, bb_width = %s,
-                    is_sideways = %s, close_pos = %s, prev_high_break = %s, mf_ratio = %s
+                    is_sideways = %s, close_pos = %s, prev_high_break = %s, mf_ratio = %s,
+                    ma5_price_streak = %s, daily_value = %s,
+                    prev_close_below_ma5 = %s, prev_close_below_bb_lower = %s
                 WHERE date = %s AND ticker = %s
             """, [
                 analytics["sri"], analytics["mes"], analytics["volx_gap"],
@@ -113,6 +116,8 @@ def compute_analytics_for_date(conn, date_str: str):
                 analytics["ma50"], analytics["bb_upper"], analytics["bb_mid"],
                 analytics["bb_lower"], analytics["bb_width"], analytics["is_sideways"],
                 analytics["close_pos"], analytics["prev_high_break"], analytics["mf_ratio"],
+                analytics["ma5_price_streak"], analytics["daily_value"],
+                analytics["prev_close_below_ma5"], analytics["prev_close_below_bb_lower"],
                 date_str, ticker,
             ])
             updated += 1
@@ -203,6 +208,41 @@ def _compute_one(ticker: str, date_str: str, row: dict,
     mf_minus = row.get("mf_minus")
     mf_ratio = compute_mf_ratio(mf_plus, mf_minus)
 
+    # ── MA5 Price Streak ──────────────────────────────────────────────────
+    _STREAK_WIN = 30
+    _n = len(closes_hist)
+    if _n >= 5:
+        _limit  = min(_n, _STREAK_WIN)
+        _s_cls  = closes_hist[-_limit:]
+        _s_ma5  = [compute_ma(closes_hist[:_n - _limit + i + 1], 5) for i in range(_limit)]
+        ma5_price_streak = compute_ma5_price_streak(_s_cls, _s_ma5)
+    else:
+        ma5_price_streak = 0
+
+    # ── Daily Value ───────────────────────────────────────────────────────
+    daily_value = (
+        float(ph[-1]["close"]) * float(ph[-1]["volume"])
+        if ph and ph[-1].get("volume") is not None
+        else None
+    )
+
+    # ── Prev-day flags ────────────────────────────────────────────────────
+    if len(ph) >= 2 and closes_hist:
+        _prev_cls  = ph[-2]["close"]
+        _prev_ma5  = compute_ma(closes_hist[:-1], 5)
+        prev_close_below_ma5 = (
+            bool(_prev_cls < _prev_ma5)
+            if _prev_cls is not None and _prev_ma5 is not None else False
+        )
+        _prev_bb   = compute_bollinger_bands(closes_hist[:-1])
+        prev_close_below_bb_lower = (
+            bool(_prev_cls < _prev_bb["lower"])
+            if _prev_bb and _prev_cls is not None else False
+        )
+    else:
+        prev_close_below_ma5 = False
+        prev_close_below_bb_lower = False
+
     return {
         "sri": sri, "mes": mes, "volx_gap": volx_gap, "rpr": rpr, "atr_pct": atr_pct,
         "price_close": price_close, "price_change_pct": price_change,
@@ -214,6 +254,9 @@ def _compute_one(ticker: str, date_str: str, row: dict,
         "ma50": ma50, "bb_upper": bb_upper, "bb_mid": bb_mid,
         "bb_lower": bb_lower, "bb_width": bb_width, "is_sideways": is_sideways,
         "close_pos": close_pos, "prev_high_break": prev_high_break, "mf_ratio": mf_ratio,
+        "ma5_price_streak": ma5_price_streak, "daily_value": daily_value,
+        "prev_close_below_ma5": prev_close_below_ma5,
+        "prev_close_below_bb_lower": prev_close_below_bb_lower,
     }
 
 
