@@ -6,7 +6,11 @@ RULE: No HTTP calls. No raw DB queries for flow data — that's summary_rebuild'
 import logging
 
 from core.db import fetchall, execute
-from algo.indicators import compute_ma, compute_rsi14, compute_cm_streak
+from algo.indicators import (
+    compute_ma, compute_rsi14, compute_cm_streak,
+    compute_ma50, compute_bollinger_bands, detect_sideways,
+    compute_close_position, compute_mf_ratio,
+)
 from algo.algo_wyckoff import (
     classify_zenith_v3_1, get_action, get_watch_flag,
     detect_trade_detail_gate, get_ma_structure, get_phase_narrative,
@@ -93,7 +97,9 @@ def compute_analytics_for_date(conn, date_str: str):
                     ma5 = %s, ma13 = %s, ma34 = %s, ma200 = %s,
                     rsi14 = %s, cm_streak = %s, ma_structure = %s,
                     phase = %s, action = %s, watch = %s,
-                    trade_gate = %s, narrative = %s
+                    trade_gate = %s, narrative = %s,
+                    ma50 = %s, bb_upper = %s, bb_mid = %s, bb_lower = %s, bb_width = %s,
+                    is_sideways = %s, close_pos = %s, prev_high_break = %s, mf_ratio = %s
                 WHERE date = %s AND ticker = %s
             """, [
                 analytics["sri"], analytics["mes"], analytics["volx_gap"],
@@ -104,6 +110,9 @@ def compute_analytics_for_date(conn, date_str: str):
                 analytics["rsi14"], analytics["cm_streak"], analytics["ma_structure"],
                 analytics["phase"], analytics["action"], analytics["watch"],
                 analytics["trade_gate"], analytics["narrative"],
+                analytics["ma50"], analytics["bb_upper"], analytics["bb_mid"],
+                analytics["bb_lower"], analytics["bb_width"], analytics["is_sideways"],
+                analytics["close_pos"], analytics["prev_high_break"], analytics["mf_ratio"],
                 date_str, ticker,
             ])
             updated += 1
@@ -169,6 +178,31 @@ def _compute_one(ticker: str, date_str: str, row: dict,
     gate      = detect_trade_detail_gate(phase, price_change, bm_val, bm_sma10, atr_pct, action)
     narrative = get_phase_narrative(phase, ma_structure, gate)
 
+    # ── BSJP indicators ───────────────────────────────────────────────────
+    ma50  = compute_ma50(closes_hist)
+    bb    = compute_bollinger_bands(closes_hist)
+    bb_upper = bb["upper"] if bb else None
+    bb_mid   = bb["mid"]   if bb else None
+    bb_lower = bb["lower"] if bb else None
+    bb_width = bb["width"] if bb else None
+
+    is_sideways = detect_sideways(closes_hist, ma5, ma34, bb_width)
+
+    today_ph   = ph[-1] if ph else None
+    close_pos  = compute_close_position(
+        price_close,
+        today_ph["high"] if today_ph else None,
+        today_ph["low"]  if today_ph else None,
+    )
+    prev_high_break = (
+        bool(price_close > ph[-2]["high"])
+        if len(ph) >= 2 and ph[-2].get("high") and price_close else False
+    )
+
+    mf_plus  = row.get("mf_plus")
+    mf_minus = row.get("mf_minus")
+    mf_ratio = compute_mf_ratio(mf_plus, mf_minus)
+
     return {
         "sri": sri, "mes": mes, "volx_gap": volx_gap, "rpr": rpr, "atr_pct": atr_pct,
         "price_close": price_close, "price_change_pct": price_change,
@@ -177,6 +211,9 @@ def _compute_one(ticker: str, date_str: str, row: dict,
         "rsi14": rsi14, "cm_streak": cm, "ma_structure": ma_structure,
         "phase": phase, "action": action, "watch": watch,
         "trade_gate": gate, "narrative": narrative,
+        "ma50": ma50, "bb_upper": bb_upper, "bb_mid": bb_mid,
+        "bb_lower": bb_lower, "bb_width": bb_width, "is_sideways": is_sideways,
+        "close_pos": close_pos, "prev_high_break": prev_high_break, "mf_ratio": mf_ratio,
     }
 
 

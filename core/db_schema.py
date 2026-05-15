@@ -22,6 +22,7 @@ def ensure_schema():
     _create_ohlcv_cache(conn)
     _create_corporate_events(conn)
     _create_inst_flow_cache(conn)
+    _create_intraday_ohlcv(conn)
     conn.commit()
     log.info("Schema ensured OK")
 
@@ -135,6 +136,21 @@ def _create_eod_summary(conn):
     """)
     conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_eod_date ON eod_summary(date)")
     conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_eod_ticker ON eod_summary(ticker, date)")
+    # BSJP indicator columns — added incrementally via ALTER TABLE
+    for col, typedef in [
+        ("ma50",            "REAL"),
+        ("bb_upper",        "REAL"),
+        ("bb_mid",          "REAL"),
+        ("bb_lower",        "REAL"),
+        ("bb_width",        "REAL"),
+        ("is_sideways",     "BOOLEAN"),
+        ("close_pos",       "REAL"),
+        ("prev_high_break", "BOOLEAN"),
+        ("mf_ratio",        "REAL"),
+    ]:
+        conn.cursor().execute(
+            f"ALTER TABLE eod_summary ADD COLUMN IF NOT EXISTS {col} {typedef}"
+        )
 
 
 def _create_price_history(conn):
@@ -231,3 +247,26 @@ def _create_inst_flow_cache(conn):
             fetched_at BIGINT
         )
     """)
+
+
+def _create_intraday_ohlcv(conn):
+    conn.cursor().execute("""
+        CREATE TABLE IF NOT EXISTS intraday_ohlcv (
+            id        SERIAL PRIMARY KEY,
+            ticker    TEXT NOT NULL,
+            datetime  TEXT NOT NULL,
+            date      TEXT NOT NULL,
+            time      TEXT NOT NULL,
+            timeframe TEXT NOT NULL,
+            open      REAL,
+            high      REAL,
+            low       REAL,
+            close     REAL,
+            volume    BIGINT,
+            UNIQUE (ticker, datetime, timeframe)
+        )
+    """)
+    conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_intraday_ticker    ON intraday_ohlcv(ticker)")
+    conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_intraday_date      ON intraday_ohlcv(date)")
+    conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_intraday_tf        ON intraday_ohlcv(timeframe)")
+    conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_intraday_tick_date ON intraday_ohlcv(ticker, date)")

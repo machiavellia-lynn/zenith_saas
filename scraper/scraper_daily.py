@@ -18,7 +18,8 @@ from config import (
     TG_TOPIC_BAD as TOPIC_BAD,
     TG_TOPIC_MF_PLUS as TOPIC_MF_PLUS,
     TG_TOPIC_MF_MINUS as TOPIC_MF_MINUS,
-    MIDDAY_HOUR, MIDDAY_MINUTE, BACKFILL_HOUR, BACKFILL_MINUTE, RECOMPUTE_HOUR, RECOMPUTE_MINUTE,
+    MIDDAY_HOUR, MIDDAY_MINUTE, BACKFILL_HOUR, BACKFILL_MINUTE,
+    RECOMPUTE_HOUR, RECOMPUTE_MINUTE, INTRADAY_HOUR, INTRADAY_MINUTE,
 )
 from core.db import get_scraper_db, transaction, fetchall
 import psycopg2
@@ -300,9 +301,9 @@ async def scraper_main():
             except Exception as e:
                 log.error(f"❌ Listener error: {e}")
 
-        log.info(f"👂 Listening | midday {MIDDAY_HOUR:02d}:{MIDDAY_MINUTE:02d} / backfill {BACKFILL_HOUR:02d}:{BACKFILL_MINUTE:02d} / recompute {RECOMPUTE_HOUR:02d}:{RECOMPUTE_MINUTE:02d} WIB")
+        log.info(f"👂 Listening | midday {MIDDAY_HOUR:02d}:{MIDDAY_MINUTE:02d} / backfill {BACKFILL_HOUR:02d}:{BACKFILL_MINUTE:02d} / recompute {RECOMPUTE_HOUR:02d}:{RECOMPUTE_MINUTE:02d} / intraday {INTRADAY_HOUR:02d}:{INTRADAY_MINUTE:02d} WIB")
 
-        midday_pass_done = first_pass_done = second_pass_done = backtest_done_today = False
+        midday_pass_done = first_pass_done = second_pass_done = backtest_done_today = intraday_done_today = False
         last_check_date = None
 
         while True:
@@ -313,7 +314,7 @@ async def scraper_main():
             log.debug(f"⏰ Loop iteration at {now_wib.strftime('%H:%M:%S')}")
 
             if today_str != last_check_date:
-                midday_pass_done = first_pass_done = second_pass_done = backtest_done_today = False
+                midday_pass_done = first_pass_done = second_pass_done = backtest_done_today = intraday_done_today = False
                 last_check_date = today_str
 
             if not midday_pass_done and (now_wib.hour > MIDDAY_HOUR or (now_wib.hour == MIDDAY_HOUR and now_wib.minute >= MIDDAY_MINUTE)):
@@ -350,6 +351,27 @@ async def scraper_main():
                     log.error(f"❌ Nightly backtest: {e}")
                 finally:
                     backtest_done_today = True
+
+            if not intraday_done_today and (now_wib.hour > INTRADAY_HOUR or (now_wib.hour == INTRADAY_HOUR and now_wib.minute >= INTRADAY_MINUTE)):
+                try:
+                    import threading
+                    from data.intraday_collector import collect_intraday_incremental
+                    def _run_intraday():
+                        from core.db import get_scraper_db
+                        _conn = get_scraper_db()
+                        try:
+                            result = collect_intraday_incremental(_conn)
+                            _conn.commit()
+                            log.info(f"✅ Intraday collect done: {result}")
+                        except Exception as e:
+                            log.error(f"❌ Intraday collect error: {e}")
+                        finally:
+                            _conn.close()
+                    threading.Thread(target=_run_intraday, daemon=True).start()
+                except Exception as e:
+                    log.error(f"❌ Intraday collect start: {e}")
+                finally:
+                    intraday_done_today = True
 
             with _backfill_lock:
                 bf_status = _backfill_request.get("status", "idle")

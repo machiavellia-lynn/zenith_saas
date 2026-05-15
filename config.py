@@ -51,10 +51,12 @@ TG_TOPIC_MF_MINUS = 1025260
 # ── Scraper Schedule ───────────────────────────────────────────────────────────
 MIDDAY_HOUR      = 12
 MIDDAY_MINUTE    = 10
-BACKFILL_HOUR   = 15
-BACKFILL_MINUTE = 30
+BACKFILL_HOUR    = 15
+BACKFILL_MINUTE  = 30
 RECOMPUTE_HOUR   = 16
 RECOMPUTE_MINUTE = 30
+INTRADAY_HOUR    = 16
+INTRADAY_MINUTE  = 45
 
 SCRAPER_ENABLED = os.environ.get("SCRAPER_ENABLED", "1") == "1"
 
