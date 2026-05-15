@@ -18,6 +18,12 @@ _TIMEFRAME_PERIOD = {"5m": "60d", "15m": "60d"}
 _MARKET_OPEN_H  = 9
 _MARKET_CLOSE_H = 16
 
+# Throttle config — conservative to avoid Yahoo rate limits
+_DELAY_PER_TICKER  = 0.5   # seconds between each ticker
+_PAUSE_EVERY_N     = 20    # pause longer every N tickers
+_PAUSE_LONG_S      = 10    # seconds for the longer pause
+_RETRY_DELAYS      = [5, 15, 30]  # backoff seconds on rate-limit hit
+
 
 def _get_all_tickers(conn) -> list:
     rows = fetchall(conn, "SELECT DISTINCT ticker FROM eod_summary ORDER BY ticker")
@@ -31,16 +37,31 @@ def _fetch_and_save(conn, ticker: str, timeframe: str,
     Return jumlah baris baru tersimpan."""
     symbol = f"{ticker}.JK"
     period = _TIMEFRAME_PERIOD.get(timeframe, "60d")
-    try:
-        df = yf.download(
-            symbol,
-            period=period,
-            interval=timeframe,
-            auto_adjust=False,
-            progress=False,
-        )
-    except Exception as e:
-        log.warning("yf.download failed ticker=%s tf=%s: %s", ticker, timeframe, e)
+
+    df = None
+    for attempt, backoff in enumerate([0] + _RETRY_DELAYS):
+        if backoff:
+            log.info("Rate limit hit for %s %s — retrying in %ds (attempt %d)",
+                     ticker, timeframe, backoff, attempt + 1)
+            time.sleep(backoff)
+        try:
+            df = yf.download(
+                symbol,
+                period=period,
+                interval=timeframe,
+                auto_adjust=False,
+                progress=False,
+            )
+            break  # success
+        except Exception as e:
+            err = str(e).lower()
+            if "429" in err or "rate limit" in err or "too many" in err:
+                if attempt < len(_RETRY_DELAYS):
+                    continue
+            log.warning("yf.download failed ticker=%s tf=%s: %s", ticker, timeframe, e)
+            return 0
+
+    if df is None:
         return 0
 
     if df is None or df.empty:
@@ -104,9 +125,17 @@ def _collect_batch(conn, tickers: list, timeframes: list,
             except Exception as e:
                 log.warning("collect failed ticker=%s tf=%s: %s", ticker, tf, e)
                 skipped += 1
-            time.sleep(0.05)
-        if i % 100 == 0:
-            log.info("%s progress: %d/%d tickers", label, i, total)
+            time.sleep(_DELAY_PER_TICKER)
+
+        if i % 10 == 0:
+            log.info("%s progress: %d/%d tickers (saved=%d)", label, i, total, saved)
+
+        # Longer pause every N tickers to let Yahoo rate limit window reset
+        if i % _PAUSE_EVERY_N == 0 and i < total:
+            log.info("%s — pausing %ds at ticker %d/%d to avoid rate limit",
+                     label, _PAUSE_LONG_S, i, total)
+            time.sleep(_PAUSE_LONG_S)
+
     return {"saved": saved, "skipped": skipped, "tickers": total}
 
 
