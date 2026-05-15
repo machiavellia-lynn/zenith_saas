@@ -17,6 +17,7 @@ def ensure_schema():
     _create_raw_mf_messages(conn)
     _create_eod_summary(conn)
     _create_price_history(conn)
+    _create_ticker_universe(conn)
     _create_trade_journal(conn)
     _create_backtest_cache(conn)
     _create_ohlcv_cache(conn)
@@ -145,11 +146,7 @@ def _create_eod_summary(conn):
         ("is_sideways",     "BOOLEAN"),
         ("close_pos",       "REAL"),
         ("prev_high_break", "BOOLEAN"),
-        ("mf_ratio",            "REAL"),
-        ("ma5_price_streak",    "INTEGER"),
-        ("daily_value",         "REAL"),
-        ("prev_close_below_ma5",       "BOOLEAN"),
-        ("prev_close_below_bb_lower",  "BOOLEAN"),
+        ("mf_ratio",        "REAL"),
     ]:
         conn.cursor().execute(
             f"ALTER TABLE eod_summary ADD COLUMN IF NOT EXISTS {col} {typedef}"
@@ -170,9 +167,52 @@ def _create_price_history(conn):
         )
     """)
     conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_ph_ticker ON price_history(ticker, date)")
-    # Migration: add OHLCV columns to existing table
-    for col, typedef in [("open", "REAL"), ("high", "REAL"), ("low", "REAL"), ("volume", "BIGINT")]:
+    # Migration: add OHLCV columns + BSJP indicator columns
+    for col, typedef in [
+        ("open",   "REAL"), ("high", "REAL"), ("low", "REAL"), ("volume", "BIGINT"),
+        # MAs
+        ("ma5",   "REAL"), ("ma13",  "REAL"), ("ma34", "REAL"),
+        ("ma50",  "REAL"), ("ma200", "REAL"),
+        ("atr_pct", "REAL"),
+        # Bollinger Bands
+        ("bb_upper", "REAL"), ("bb_mid", "REAL"), ("bb_lower", "REAL"), ("bb_width", "REAL"),
+        # Price behaviour
+        ("close_pos",        "REAL"),
+        ("prev_high_break",  "BOOLEAN"),
+        ("ma5_price_streak", "INTEGER"),
+        ("is_sideways",      "BOOLEAN"),
+        ("daily_value",      "REAL"),
+        # Previous-day flags
+        ("prev_close_below_ma5",      "BOOLEAN"),
+        ("prev_close_below_bb_lower", "BOOLEAN"),
+        # Level-touch tracking
+        ("days_since_near_ma50",   "INTEGER"),
+        ("days_since_near_bb_mid", "INTEGER"),
+    ]:
         conn.cursor().execute(f"ALTER TABLE price_history ADD COLUMN IF NOT EXISTS {col} {typedef}")
+
+
+def _create_ticker_universe(conn):
+    """Master list of all IDX tickers to track for BSJP.
+    Auto-populated when new tickers arrive via Telegram scraper."""
+    conn.cursor().execute("""
+        CREATE TABLE IF NOT EXISTS ticker_universe (
+            ticker    TEXT PRIMARY KEY,
+            is_active BOOLEAN DEFAULT TRUE,
+            added_at  TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    # Seed from existing data on first migration (idempotent via ON CONFLICT DO NOTHING)
+    conn.cursor().execute("""
+        INSERT INTO ticker_universe (ticker)
+        SELECT DISTINCT ticker FROM eod_summary
+        ON CONFLICT (ticker) DO NOTHING
+    """)
+    conn.cursor().execute("""
+        INSERT INTO ticker_universe (ticker)
+        SELECT DISTINCT ticker FROM price_history
+        ON CONFLICT (ticker) DO NOTHING
+    """)
 
 
 def _create_trade_journal(conn):

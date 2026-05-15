@@ -8,8 +8,22 @@ import logging
 log = logging.getLogger("zenith.saver")
 
 
+def _register_tickers(conn, rows: list[dict]) -> None:
+    """Upsert ticker into universe so BSJP scanner tracks it."""
+    cur = conn.cursor()
+    for row in rows:
+        try:
+            cur.execute("""
+                INSERT INTO ticker_universe (ticker) VALUES (%s)
+                ON CONFLICT (ticker) DO NOTHING
+            """, (row["ticker"],))
+        except Exception:
+            pass
+
+
 def save_sm_bm_rows(conn, message_id: int, rows: list[dict]) -> int:
     """Insert SM/BM rows. Returns count of new rows inserted."""
+    _register_tickers(conn, rows)
     saved = 0
     cur = conn.cursor()
     for row in rows:
@@ -42,6 +56,7 @@ def save_sm_bm_rows(conn, message_id: int, rows: list[dict]) -> int:
 
 def save_mf_rows(conn, message_id: int, rows: list[dict]) -> int:
     """Insert MF+/MF- rows. Returns count of new rows inserted."""
+    _register_tickers(conn, rows)
     saved = 0
     cur = conn.cursor()
     for row in rows:

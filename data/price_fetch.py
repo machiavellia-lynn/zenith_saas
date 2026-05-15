@@ -441,10 +441,13 @@ def backfill_prices(conn, days: int = 30, date_from: str = None, date_to: str = 
 
 
 def backfill_price_history_ohlcv(conn, date_from: str = None, date_to: str = None):
-    """Backfill price_history with full OHLCV for all tickers in eod_summary.
+    """Backfill price_history with full OHLCV for all active tickers in ticker_universe.
     date_from / date_to in DD-MM-YYYY or None for last 210 days.
     Caller is responsible for commit."""
-    tickers = [r["ticker"] for r in fetchall(conn, "SELECT DISTINCT ticker FROM eod_summary")]
+    tickers = [r["ticker"] for r in fetchall(conn,
+        "SELECT ticker FROM ticker_universe WHERE is_active = TRUE")]
+    if not tickers:
+        tickers = [r["ticker"] for r in fetchall(conn, "SELECT DISTINCT ticker FROM eod_summary")]
     now     = datetime.now(WIB)
 
     if date_from and date_to:
@@ -485,12 +488,16 @@ def backfill_price_history_200d(conn):
 
 
 def enrich_daily_ohlcv(conn, date_str: str) -> int:
-    """Fetch today's OHLCV from Yahoo for all active tickers.
-    Stores full OHLCV in price_history AND updates eod_summary.price_close.
-    Single Yahoo call per ticker — replaces enrich_daily_prices + sync_price_history_from_eod.
+    """Fetch today's OHLCV from Yahoo for all active tickers in ticker_universe.
+    Stores full OHLCV in price_history AND updates eod_summary.price_close when row exists.
+    Single Yahoo call per ticker.
     Caller is responsible for commit."""
     tickers = [r["ticker"] for r in fetchall(conn,
-        "SELECT DISTINCT ticker FROM eod_summary WHERE date = %s", [date_str])]
+        "SELECT ticker FROM ticker_universe WHERE is_active = TRUE")]
+    if not tickers:
+        # Fallback for first run before ticker_universe is seeded
+        tickers = [r["ticker"] for r in fetchall(conn,
+            "SELECT DISTINCT ticker FROM eod_summary WHERE date = %s", [date_str])]
     if not tickers:
         return 0
 
@@ -519,6 +526,7 @@ def enrich_daily_ohlcv(conn, date_str: str) -> int:
                     low  = EXCLUDED.low,  close = EXCLUDED.close,
                     volume = EXCLUDED.volume
             """, [best["date"], ticker, best["open"], best["high"], best["low"], best["close"], best["volume"]])
+            # Only update eod_summary if a Telegram row exists for this date
             execute(conn,
                 "UPDATE eod_summary SET price_close = %s WHERE date = %s AND ticker = %s",
                 [best["close"], date_str, ticker])

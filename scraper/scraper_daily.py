@@ -28,6 +28,7 @@ from scraper.scraper_saver import save_sm_bm_rows, save_mf_rows
 from algo.summary_rebuild import rebuild_summary_for_date, rebuild_all_summaries
 from algo.analytics_daily import compute_analytics_for_date
 from data.price_fetch import enrich_daily_ohlcv, backfill_price_history_ohlcv, sync_eod_prices_from_history
+from algo.analytics_bsjp import compute_bsjp_for_date
 from algo.algo_backtest import run_backtest
 
 # ── Shared handler on parent "zenith" so all zenith.* loggers emit to console ──
@@ -196,6 +197,8 @@ async def run_backfill(client, conn):
             enrich_daily_ohlcv(conn, today_wib)
         with transaction(conn):
             compute_analytics_for_date(conn, today_wib)
+        with transaction(conn):
+            compute_bsjp_for_date(conn, today_wib)
     except Exception as e:
         log.warning("Post-backfill analytics failed: %s", e)
 
@@ -506,12 +509,34 @@ async def scraper_main():
                         if i % 10 == 0 or i == len(ana_dates):
                             log.info("  fix_all analytics %d/%d (rows=%d)", i, len(ana_dates), total_a)
 
+                    # Step 5: compute BSJP indicators for all tickers
+                    _set_step("bsjp")
+                    log.info("Fix All — Step 5: compute BSJP indicators")
+                    bsjp_dates = [r["date"] for r in fetchall(conn, """
+                        SELECT DISTINCT date FROM price_history
+                        ORDER BY date
+                    """)]
+                    total_b = 0
+                    for i, d in enumerate(bsjp_dates, 1):
+                        try:
+                            n = compute_bsjp_for_date(conn, d)
+                            total_b += n
+                            conn.commit()
+                        except Exception as e:
+                            conn.rollback()
+                            log.error("Fix All BSJP failed date=%s: %s", d, e)
+                        if i % 20 == 0 or i == len(bsjp_dates):
+                            log.info("  bsjp progress %d/%d (rows=%d)", i, len(bsjp_dates), total_b)
+
                     with _backfill_lock:
                         _fix_all_request.update({
                             "status": "done", "step": None,
-                            "result": {"dates": len(ana_dates), "analytics_rows": total_a},
+                            "result": {
+                                "dates": len(ana_dates), "analytics_rows": total_a,
+                                "bsjp_dates": len(bsjp_dates), "bsjp_rows": total_b,
+                            },
                         })
-                    log.info("Fix All done: %d dates, %d analytics rows", len(ana_dates), total_a)
+                    log.info("Fix All done: %d Wyckoff dates, %d BSJP dates", len(ana_dates), len(bsjp_dates))
                 except Exception as e:
                     log.error(f"❌ Fix All: {e}")
                     with _backfill_lock:
