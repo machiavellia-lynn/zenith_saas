@@ -634,9 +634,11 @@ def backfill_intraday_15m(conn, date_from: str, date_to: str) -> dict:
 
     inserted = 0
     skipped  = 0
+    skipped_tickers = []
     for ticker, rows in results:
         if not rows:
             skipped += 1
+            skipped_tickers.append(ticker)
             continue
         for r in rows:
             try:
@@ -652,11 +654,13 @@ def backfill_intraday_15m(conn, date_from: str, date_to: str) -> dict:
             except Exception as e:
                 log.warning("15m insert fail ticker=%s dt=%s: %s", ticker, r["datetime"], e)
 
-    log.info("backfill_intraday_15m done: %d rows, %d tickers skipped", inserted, skipped)
+    log.info("backfill_intraday_15m done: %d rows, %d tickers skipped: %s",
+             inserted, skipped, ", ".join(skipped_tickers) if skipped_tickers else "none")
     return {
         "ok": True,
         "tickers": len(tickers),
         "tickers_skipped": skipped,
+        "skipped_list": skipped_tickers,
         "rows_inserted": inserted,
         "date_from": date_from,
         "date_to": date_to,
