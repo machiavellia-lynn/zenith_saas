@@ -20,6 +20,7 @@ def ensure_schema():
     _create_ticker_universe(conn)
     _create_trade_journal(conn)
     _create_backtest_cache(conn)
+    _create_price_history_15m(conn)
     _create_ohlcv_cache(conn)
     _create_corporate_events(conn)
     _create_inst_flow_cache(conn)
@@ -213,6 +214,26 @@ def _create_ticker_universe(conn):
         SELECT DISTINCT ticker FROM price_history
         ON CONFLICT (ticker) DO NOTHING
     """)
+
+
+def _create_price_history_15m(conn):
+    """15-minute OHLCV candles for all tickers — used by BSJP backtest.
+    datetime stored in WIB (UTC+7). Yahoo Finance provides max 60 days back."""
+    conn.cursor().execute("""
+        CREATE TABLE IF NOT EXISTS price_history_15m (
+            datetime  TEXT NOT NULL,
+            ticker    TEXT NOT NULL,
+            open      REAL,
+            high      REAL,
+            low       REAL,
+            close     REAL NOT NULL,
+            volume    BIGINT,
+            PRIMARY KEY (datetime, ticker)
+        )
+    """)
+    conn.cursor().execute(
+        "CREATE INDEX IF NOT EXISTS idx_ph15m_ticker ON price_history_15m(ticker, datetime)"
+    )
 
 
 def _create_trade_journal(conn):

@@ -248,6 +248,37 @@ def admin_backfill_200d():
     return jsonify({"ok": True, "message": "200d price history backfill started"})
 
 
+@bp_admin.route("/admin/backfill-intraday")
+def admin_backfill_intraday():
+    if not is_authed():
+        return redirect("/")
+    date_from = request.args.get("date_from", "").strip()
+    date_to   = request.args.get("date_to",   "").strip()
+    if not date_from or not date_to:
+        return jsonify({"ok": False, "error": "date_from dan date_to wajib (DD-MM-YYYY)"}), 400
+
+    import threading
+    from data.price_fetch import backfill_intraday_15m
+    from core.db import get_scraper_db
+    import logging as _logging
+    _log = _logging.getLogger("zenith.admin")
+
+    def _run():
+        conn = get_scraper_db()
+        try:
+            res = backfill_intraday_15m(conn, date_from, date_to)
+            conn.commit()
+            _log.info("backfill_intraday_15m done: %s", res)
+        except Exception as e:
+            conn.rollback()
+            _log.error("backfill_intraday_15m failed: %s", e)
+        finally:
+            conn.close()
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"ok": True, "message": f"Intraday 15m backfill dimulai ({date_from} → {date_to}). Cek server log untuk progress."})
+
+
 @bp_admin.route("/admin/trigger-backtest")
 def trigger_backtest():
     if not is_authed():

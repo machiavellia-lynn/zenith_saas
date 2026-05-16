@@ -231,6 +231,34 @@ select.sel{background:var(--bg);border:1px solid var(--border2);color:var(--text
     </div>
   </div>
 
+  <!-- BSJP INTRADAY 15m -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">BSJP Intraday 15m</div>
+        <div class="card-sub">Fetch 15m candles semua saham dari Yahoo — max 60 hari kebelakang</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div style="font-size:11px;color:var(--muted)">
+        Fetch per range kecil (maks 2–3 hari per trigger) untuk menghindari bottleneck.
+        Data disimpan di <code style="font-family:Space Mono,monospace;font-size:10px;color:var(--accent2)">price_history_15m</code>.
+        Yahoo Finance membatasi 15m data hingga ~60 hari kebelakang.
+      </div>
+      <div>
+        <div class="section-label">Date Range</div>
+        <div class="btn-row" style="flex-wrap:wrap;gap:6px">
+          <input type="text" class="num-input" id="id15mFrom" placeholder="DD-MM-YYYY" style="width:110px"/>
+          <span style="font-size:11px;color:var(--muted)">s/d</span>
+          <input type="text" class="num-input" id="id15mTo"   placeholder="DD-MM-YYYY" style="width:110px"/>
+          <button class="btn" id="id15mBtn" onclick="triggerIntraday15m()">Fetch 15m</button>
+        </div>
+        <div class="progress-wrap" id="id15mProgress"><div class="progress-bar indeterminate"></div></div>
+        <div class="status" id="id15mStatus"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- BOTTOM TWO-COLUMN -->
   <div class="two-col">
 
@@ -589,6 +617,42 @@ function triggerFixAll() {
     st.className = 'status err'; st.textContent = 'Error: ' + e.message;
     pw.classList.remove('active'); btn.disabled = false;
   });
+}
+
+// ── Intraday 15m ──────────────────────────────────────────────────────────────
+function triggerIntraday15m() {
+  const dateFrom = document.getElementById('id15mFrom').value.trim();
+  const dateTo   = document.getElementById('id15mTo').value.trim();
+  const st  = document.getElementById('id15mStatus');
+  const pw  = document.getElementById('id15mProgress');
+  const btn = document.getElementById('id15mBtn');
+
+  if (!dateFrom || !dateTo) {
+    st.className = 'status err'; st.textContent = 'Isi date_from dan date_to dulu!'; return;
+  }
+
+  btn.disabled = true;
+  pw.classList.add('active');
+  st.className = 'status'; st.textContent = 'Memulai fetch 15m...';
+
+  fetch(`/admin/backfill-intraday?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`)
+    .then(r => r.json())
+    .then(d => {
+      pw.classList.remove('active');
+      btn.disabled = false;
+      if (d.ok) {
+        st.className = 'status ok';
+        st.textContent = d.message || 'Fetch dimulai di background. Cek server log untuk progress.';
+      } else {
+        st.className = 'status err';
+        st.textContent = d.error || 'Gagal';
+      }
+    })
+    .catch(e => {
+      pw.classList.remove('active');
+      btn.disabled = false;
+      st.className = 'status err'; st.textContent = 'Error: ' + e.message;
+    });
 }
 
 // ── Session upload ────────────────────────────────────────────────────────────

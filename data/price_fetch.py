@@ -566,6 +566,103 @@ def sync_eod_prices_from_history(conn, date_from: str = None, date_to: str = Non
     return updated
 
 
+def _fetch_ohlcv_intraday_15m(ticker: str, dt_f: datetime, dt_t: datetime):
+    """Fetch 15m OHLCV for ticker. Yahoo allows max ~60 days back for 15m interval.
+    Returns (ticker, rows) where rows are dicts with datetime (WIB), OHLCV."""
+    symbol = f"{ticker}.JK"
+    try:
+        resp = requests.get(
+            f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
+            headers=YF_HEADERS,
+            params={
+                "interval": "15m",
+                "period1": int(dt_f.timestamp()),
+                "period2": int(dt_t.timestamp()),
+                "includePrePost": "false",
+                "includeAdjustedClose": "false",
+            },
+            timeout=15,
+        )
+        r = resp.json().get("chart", {}).get("result", [None])[0]
+        if not r:
+            return ticker, []
+        timestamps = r.get("timestamp", [])
+        q       = r.get("indicators", {}).get("quote", [{}])[0]
+        opens   = q.get("open",   [])
+        highs   = q.get("high",   [])
+        lows    = q.get("low",    [])
+        closes  = q.get("close",  [])
+        volumes = q.get("volume", [])
+        rows = []
+        for i, ts in enumerate(timestamps):
+            c = closes[i] if i < len(closes) else None
+            if not c:
+                continue
+            dt_wib = datetime.fromtimestamp(ts, tz=WIB)
+            rows.append({
+                "datetime": dt_wib.strftime("%Y-%m-%d %H:%M"),
+                "open":   round(float(opens[i]),  0) if i < len(opens)  and opens[i]  else None,
+                "high":   round(float(highs[i]),  0) if i < len(highs)  and highs[i]  else None,
+                "low":    round(float(lows[i]),   0) if i < len(lows)   and lows[i]   else None,
+                "close":  round(float(c),         0),
+                "volume": int(volumes[i])             if i < len(volumes) and volumes[i] else None,
+            })
+        return ticker, rows
+    except Exception:
+        return ticker, []
+
+
+def backfill_intraday_15m(conn, date_from: str, date_to: str) -> dict:
+    """Fetch and store 15m OHLCV candles for all active tickers in ticker_universe.
+    date_from / date_to in DD-MM-YYYY. Yahoo allows max ~60 days back.
+    Caller is responsible for commit."""
+    tickers = [r["ticker"] for r in fetchall(conn,
+        "SELECT ticker FROM ticker_universe WHERE is_active = TRUE")]
+    if not tickers:
+        tickers = [r["ticker"] for r in fetchall(conn, "SELECT DISTINCT ticker FROM eod_summary")]
+    if not tickers:
+        return {"ok": False, "error": "No tickers found"}
+
+    fmt  = "%d-%m-%Y"
+    dt_f = datetime.strptime(date_from, fmt).replace(tzinfo=WIB)
+    dt_t = datetime.strptime(date_to,   fmt).replace(tzinfo=WIB) + timedelta(days=1)
+
+    log.info("backfill_intraday_15m %s → %s for %d tickers", date_from, date_to, len(tickers))
+
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        results = list(ex.map(lambda t: _fetch_ohlcv_intraday_15m(t, dt_f, dt_t), tickers))
+
+    inserted = 0
+    skipped  = 0
+    for ticker, rows in results:
+        if not rows:
+            skipped += 1
+            continue
+        for r in rows:
+            try:
+                execute(conn, """
+                    INSERT INTO price_history_15m (datetime, ticker, open, high, low, close, volume)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (datetime, ticker) DO UPDATE SET
+                        open = EXCLUDED.open, high = EXCLUDED.high,
+                        low  = EXCLUDED.low,  close = EXCLUDED.close,
+                        volume = EXCLUDED.volume
+                """, [r["datetime"], ticker, r["open"], r["high"], r["low"], r["close"], r["volume"]])
+                inserted += 1
+            except Exception as e:
+                log.warning("15m insert fail ticker=%s dt=%s: %s", ticker, r["datetime"], e)
+
+    log.info("backfill_intraday_15m done: %d rows, %d tickers skipped", inserted, skipped)
+    return {
+        "ok": True,
+        "tickers": len(tickers),
+        "tickers_skipped": skipped,
+        "rows_inserted": inserted,
+        "date_from": date_from,
+        "date_to": date_to,
+    }
+
+
 def fetch_all_gains_to_db(conn, date_str: str, delay_ms: int = 333):
     """Fetch gains for all tickers in eod_summary for date_str and write to DB.
     Caller is responsible for commit."""
