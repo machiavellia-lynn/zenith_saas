@@ -246,15 +246,27 @@ select.sel{background:var(--bg);border:1px solid var(--border2);color:var(--text
         Yahoo Finance membatasi 15m data hingga ~60 hari kebelakang.
       </div>
       <div>
-        <div class="section-label">Date Range</div>
+        <div class="section-label">Date Range (manual)</div>
         <div class="btn-row" style="flex-wrap:wrap;gap:6px">
           <input type="text" class="num-input" id="id15mFrom" placeholder="DD-MM-YYYY" style="width:110px"/>
           <span style="font-size:11px;color:var(--muted)">s/d</span>
           <input type="text" class="num-input" id="id15mTo"   placeholder="DD-MM-YYYY" style="width:110px"/>
-          <button class="btn" id="id15mBtn" onclick="triggerIntraday15m()">Fetch 15m</button>
+          <button class="btn outline" id="id15mBtn" onclick="triggerIntraday15m()">Fetch Range</button>
         </div>
         <div class="progress-wrap" id="id15mProgress"><div class="progress-bar indeterminate"></div></div>
         <div class="status" id="id15mStatus"></div>
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:16px">
+        <div class="section-label">Fetch All (~42 hari bursa, delay 30 det/hari)</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
+          Loop otomatis semua tanggal IDX 60 hari kalender kebelakang. Estimasi ~21 menit. Jalan di background.
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="idAllBtn" onclick="triggerIntradayAll()">Fetch All 15m</button>
+        </div>
+        <div class="progress-wrap" id="idAllProgress" style="margin-top:10px"><div class="progress-bar" id="idAllBar" style="transition:width .5s"></div></div>
+        <div class="status" id="idAllStatus" style="margin-top:6px"></div>
       </div>
     </div>
   </div>
@@ -655,6 +667,84 @@ function triggerIntraday15m() {
     });
 }
 
+// ── Intraday All 15m ─────────────────────────────────────────────────────────
+let _intradayAllPolling = null;
+
+function triggerIntradayAll() {
+  const st  = document.getElementById('idAllStatus');
+  const pw  = document.getElementById('idAllProgress');
+  const bar = document.getElementById('idAllBar');
+  const btn = document.getElementById('idAllBtn');
+
+  btn.disabled = true;
+  pw.classList.add('active');
+  bar.style.width = '0%';
+  st.className = 'status'; st.textContent = 'Memulai Fetch All...';
+
+  fetch('/admin/backfill-intraday-all')
+    .then(r => r.json())
+    .then(d => {
+      if (!d.ok) {
+        pw.classList.remove('active'); btn.disabled = false;
+        st.className = 'status err'; st.textContent = d.error || 'Gagal';
+        return;
+      }
+      st.textContent = 'Berjalan di background...';
+      if (_intradayAllPolling) clearInterval(_intradayAllPolling);
+      _intradayAllPolling = setInterval(pollIntradayAll, 5000);
+    })
+    .catch(e => {
+      pw.classList.remove('active'); btn.disabled = false;
+      st.className = 'status err'; st.textContent = 'Error: ' + e.message;
+    });
+}
+
+function pollIntradayAll() {
+  const st  = document.getElementById('idAllStatus');
+  const pw  = document.getElementById('idAllProgress');
+  const bar = document.getElementById('idAllBar');
+  const btn = document.getElementById('idAllBtn');
+
+  fetch('/admin/intraday-all-status')
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'idle') return;
+      const pct = d.total > 0 ? Math.round(d.done / d.total * 100) : 0;
+      bar.style.width = pct + '%';
+      if (d.status === 'running') {
+        st.className = 'status';
+        st.textContent = `Hari ke-${d.done}/${d.total} — ${d.current_date || '...'} | ${(d.rows_total||0).toLocaleString()} rows`;
+      } else if (d.status === 'done') {
+        clearInterval(_intradayAllPolling); _intradayAllPolling = null;
+        pw.classList.remove('active'); btn.disabled = false;
+        bar.style.width = '100%';
+        st.className = 'status ok';
+        st.textContent = `Selesai — ${d.total} tanggal, ${(d.rows_total||0).toLocaleString()} rows total.`;
+        showToast('Fetch All 15m selesai!', 'ok');
+      } else if (d.status === 'error') {
+        clearInterval(_intradayAllPolling); _intradayAllPolling = null;
+        pw.classList.remove('active'); btn.disabled = false;
+        st.className = 'status err'; st.textContent = 'Error: ' + (d.error || 'Gagal');
+        showToast('Fetch All 15m gagal', 'err');
+      }
+    });
+}
+
+// Auto-resume polling jika job sudah running saat halaman dibuka
+function checkIntradayAllOnLoad() {
+  fetch('/admin/intraday-all-status')
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'running') {
+        document.getElementById('idAllBtn').disabled = true;
+        document.getElementById('idAllProgress').classList.add('active');
+        if (_intradayAllPolling) clearInterval(_intradayAllPolling);
+        _intradayAllPolling = setInterval(pollIntradayAll, 5000);
+        pollIntradayAll();
+      }
+    }).catch(() => {});
+}
+
 // ── Session upload ────────────────────────────────────────────────────────────
 function uploadSession() {
   const file = document.getElementById('sessFile').files[0];
@@ -736,6 +826,7 @@ async function deleteUser(id, username) {
 document.addEventListener('DOMContentLoaded', () => {
   refreshStatus();
   loadUsers();
+  checkIntradayAllOnLoad();
   setInterval(() => { if (!document.hidden) refreshStatus(); }, 8000);
 });
 </script>

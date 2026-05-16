@@ -8,6 +8,16 @@ from core.auth import is_authed
 
 bp_admin = Blueprint("admin", __name__)
 
+# Module-level state for "Fetch All 15m" background job
+_intraday_all = {
+    "status":       "idle",   # idle | running | done | error
+    "current_date": None,
+    "done":         0,
+    "total":        0,
+    "rows_total":   0,
+    "error":        None,
+}
+
 
 @bp_admin.route("/admin")
 def admin_page():
@@ -277,6 +287,78 @@ def admin_backfill_intraday():
 
     threading.Thread(target=_run, daemon=True).start()
     return jsonify({"ok": True, "message": f"Intraday 15m backfill dimulai ({date_from} → {date_to}). Cek server log untuk progress."})
+
+
+@bp_admin.route("/admin/backfill-intraday-all")
+def admin_backfill_intraday_all():
+    if not is_authed():
+        return redirect("/")
+    if _intraday_all["status"] == "running":
+        return jsonify({"ok": False, "error": "Sudah berjalan, tunggu selesai dulu."})
+
+    import threading, time as _time
+    from datetime import datetime, timedelta
+    from data.price_fetch import backfill_intraday_15m
+    from core.db import get_scraper_db, fetchall
+    from config import WIB
+    import logging as _logging
+    _log = _logging.getLogger("zenith.admin")
+
+    def _run():
+        # Ambil semua tanggal IDX dalam 60 hari kalender dari price_history
+        conn = get_scraper_db()
+        try:
+            cutoff = (datetime.now(WIB) - timedelta(days=60)).strftime("%Y-%m-%d")
+            rows   = fetchall(conn, """
+                SELECT DISTINCT date FROM price_history
+                WHERE date >= %s ORDER BY date
+            """, [cutoff])
+        except Exception as e:
+            _intraday_all.update({"status": "error", "error": str(e)})
+            conn.close()
+            return
+        finally:
+            conn.close()
+
+        dates = [r["date"] for r in rows]  # format YYYY-MM-DD
+        _intraday_all.update({
+            "status": "running", "total": len(dates),
+            "done": 0, "rows_total": 0, "error": None, "current_date": None,
+        })
+        _log.info("intraday_all: %d tanggal akan diproses", len(dates))
+
+        for i, date_yyyy in enumerate(dates):
+            d, m, y = date_yyyy[8:10], date_yyyy[5:7], date_yyyy[:4]
+            date_dmy = f"{d}-{m}-{y}"
+            _intraday_all["current_date"] = date_yyyy
+
+            conn = get_scraper_db()
+            try:
+                res = backfill_intraday_15m(conn, date_dmy, date_dmy)
+                conn.commit()
+                _intraday_all["rows_total"] += res.get("rows_inserted", 0)
+            except Exception as e:
+                conn.rollback()
+                _log.error("intraday_all failed %s: %s", date_yyyy, e)
+            finally:
+                conn.close()
+
+            _intraday_all["done"] = i + 1
+            if i < len(dates) - 1:
+                _time.sleep(30)
+
+        _intraday_all.update({"status": "done", "current_date": None})
+        _log.info("intraday_all done: %d tanggal, %d rows", len(dates), _intraday_all["rows_total"])
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"ok": True, "message": "Fetch All 15m dimulai di background."})
+
+
+@bp_admin.route("/admin/intraday-all-status")
+def admin_intraday_all_status():
+    if not is_authed():
+        return redirect("/")
+    return jsonify(_intraday_all)
 
 
 @bp_admin.route("/admin/trigger-backtest")
