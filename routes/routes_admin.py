@@ -18,6 +18,18 @@ _intraday_all = {
     "error":        None,
 }
 
+# Module-level state for "Fetch All OHLCV Daily" background job
+_ohlcv_daily_all = {
+    "status":         "idle",   # idle | running | done | error
+    "current_ticker": None,
+    "done":           0,
+    "total":          0,
+    "rows_total":     0,
+    "error":          None,
+    "date_from":      None,
+    "date_to":        None,
+}
+
 
 @bp_admin.route("/admin")
 def admin_page():
@@ -359,6 +371,104 @@ def admin_intraday_all_status():
     if not is_authed():
         return redirect("/")
     return jsonify(_intraday_all)
+
+
+@bp_admin.route("/admin/backfill-ohlcv-daily")
+def admin_backfill_ohlcv_daily():
+    if not is_authed():
+        return redirect("/")
+    if _ohlcv_daily_all["status"] == "running":
+        return jsonify({"ok": False, "error": "Sudah berjalan, tunggu selesai dulu."})
+
+    date_from = request.args.get("date_from", "").strip()
+    date_to   = request.args.get("date_to",   "").strip()
+    if not date_from or not date_to:
+        return jsonify({"ok": False, "error": "date_from dan date_to wajib (DD-MM-YYYY)"}), 400
+
+    import threading, time as _time
+    from datetime import datetime, timedelta
+    from data.price_fetch import _fetch_ohlcv_history
+    from core.db import get_scraper_db, fetchall, execute
+    from config import WIB
+    import logging as _logging
+    _log = _logging.getLogger("zenith.admin")
+
+    fmt = "%d-%m-%Y"
+    try:
+        dt_f = datetime.strptime(date_from, fmt).replace(tzinfo=WIB)
+        dt_t = datetime.strptime(date_to,   fmt).replace(tzinfo=WIB) + timedelta(days=1)
+    except ValueError:
+        return jsonify({"ok": False, "error": "Format tanggal salah, gunakan DD-MM-YYYY"}), 400
+
+    _ohlcv_daily_all.update({
+        "status": "idle", "current_ticker": None,
+        "done": 0, "total": 0, "rows_total": 0,
+        "error": None, "date_from": date_from, "date_to": date_to,
+    })
+
+    def _run():
+        conn = get_scraper_db()
+        try:
+            rows = fetchall(conn, "SELECT ticker FROM ticker_universe WHERE is_active = TRUE ORDER BY ticker")
+            if not rows:
+                rows = fetchall(conn, "SELECT DISTINCT ticker FROM eod_summary ORDER BY ticker")
+            tickers = [r["ticker"] for r in rows]
+        except Exception as e:
+            _ohlcv_daily_all.update({"status": "error", "error": str(e)})
+            conn.close()
+            return
+        finally:
+            conn.close()
+
+        _ohlcv_daily_all.update({
+            "status": "running", "total": len(tickers),
+            "done": 0, "rows_total": 0, "error": None,
+        })
+        _log.info("ohlcv_daily_all: %d tickers, %s → %s", len(tickers), date_from, date_to)
+
+        for i, ticker in enumerate(tickers):
+            _ohlcv_daily_all["current_ticker"] = ticker
+            conn = get_scraper_db()
+            try:
+                _, ohlcv_rows = _fetch_ohlcv_history(ticker, dt_f, dt_t)
+                inserted = 0
+                for r in ohlcv_rows:
+                    try:
+                        execute(conn, """
+                            INSERT INTO price_history (date, ticker, open, high, low, close, volume)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                            ON CONFLICT (date, ticker) DO UPDATE SET
+                                open = EXCLUDED.open, high = EXCLUDED.high,
+                                low  = EXCLUDED.low,  close = EXCLUDED.close,
+                                volume = EXCLUDED.volume
+                        """, [r["date"], ticker, r["open"], r["high"], r["low"], r["close"], r["volume"]])
+                        inserted += 1
+                    except Exception as e:
+                        _log.warning("ohlcv_daily insert fail ticker=%s date=%s: %s", ticker, r.get("date"), e)
+                conn.commit()
+                _ohlcv_daily_all["rows_total"] += inserted
+            except Exception as e:
+                conn.rollback()
+                _log.error("ohlcv_daily_all failed ticker=%s: %s", ticker, e)
+            finally:
+                conn.close()
+
+            _ohlcv_daily_all["done"] = i + 1
+            if i < len(tickers) - 1:
+                _time.sleep(0.5)
+
+        _ohlcv_daily_all.update({"status": "done", "current_ticker": None})
+        _log.info("ohlcv_daily_all done: %d tickers, %d rows", len(tickers), _ohlcv_daily_all["rows_total"])
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"ok": True, "message": f"OHLCV Daily backfill dimulai ({date_from} → {date_to})."})
+
+
+@bp_admin.route("/admin/ohlcv-daily-status")
+def admin_ohlcv_daily_status():
+    if not is_authed():
+        return redirect("/")
+    return jsonify(_ohlcv_daily_all)
 
 
 @bp_admin.route("/admin/trigger-backtest")

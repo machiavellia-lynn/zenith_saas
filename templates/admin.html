@@ -271,6 +271,37 @@ select.sel{background:var(--bg);border:1px solid var(--border2);color:var(--text
     </div>
   </div>
 
+  <!-- OHLCV DAILY ALL SAHAM -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">OHLCV Daily — Semua Saham</div>
+        <div class="card-sub">Backfill data harian semua ticker aktif dari Yahoo — sequential 0.5s/ticker</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div style="font-size:11px;color:var(--muted)">
+        Fetch OHLCV daily (open, high, low, close, volume) untuk <strong style="color:var(--text)">semua saham aktif</strong> di <code style="font-family:Space Mono,monospace;font-size:10px;color:var(--accent2)">ticker_universe</code>.
+        Data disimpan ke <code style="font-family:Space Mono,monospace;font-size:10px;color:var(--accent2)">price_history</code>.
+        Berjalan sequential dengan delay 0.5s/ticker untuk menghindari Yahoo rate limit.
+      </div>
+      <div>
+        <div class="section-label">Date Range</div>
+        <div class="btn-row" style="flex-wrap:wrap;gap:6px">
+          <input type="text" class="num-input" id="ohlcvDailyFrom" placeholder="DD-MM-YYYY" style="width:110px"/>
+          <span style="font-size:11px;color:var(--muted)">s/d</span>
+          <input type="text" class="num-input" id="ohlcvDailyTo"   placeholder="DD-MM-YYYY" style="width:110px"/>
+          <button class="btn" id="ohlcvDailyBtn" onclick="triggerOhlcvDailyAll()">Fetch All OHLCV Daily</button>
+        </div>
+        <div style="margin-top:6px;font-size:10px;color:var(--muted);font-family:Space Mono,monospace">
+          Contoh: 01-01-2025 s/d hari ini. Estimasi ~5 mnt untuk 500 saham.
+        </div>
+      </div>
+      <div class="progress-wrap" id="ohlcvDailyProgress" style="margin-top:4px"><div class="progress-bar" id="ohlcvDailyBar" style="transition:width .5s"></div></div>
+      <div class="status" id="ohlcvDailyStatus" style="margin-top:6px"></div>
+    </div>
+  </div>
+
   <!-- BOTTOM TWO-COLUMN -->
   <div class="two-col">
 
@@ -745,6 +776,89 @@ function checkIntradayAllOnLoad() {
     }).catch(() => {});
 }
 
+// ── OHLCV Daily All ───────────────────────────────────────────────────────────
+let _ohlcvDailyPolling = null;
+
+function triggerOhlcvDailyAll() {
+  const dateFrom = document.getElementById('ohlcvDailyFrom').value.trim();
+  const dateTo   = document.getElementById('ohlcvDailyTo').value.trim();
+  const st  = document.getElementById('ohlcvDailyStatus');
+  const pw  = document.getElementById('ohlcvDailyProgress');
+  const bar = document.getElementById('ohlcvDailyBar');
+  const btn = document.getElementById('ohlcvDailyBtn');
+
+  if (!dateFrom || !dateTo) {
+    st.className = 'status err'; st.textContent = 'Isi date_from dan date_to dulu!'; return;
+  }
+
+  btn.disabled = true;
+  pw.classList.add('active');
+  bar.style.width = '0%';
+  st.className = 'status'; st.textContent = 'Memulai Fetch All OHLCV Daily...';
+
+  fetch(`/admin/backfill-ohlcv-daily?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`)
+    .then(r => r.json())
+    .then(d => {
+      if (!d.ok) {
+        pw.classList.remove('active'); btn.disabled = false;
+        st.className = 'status err'; st.textContent = d.error || 'Gagal';
+        return;
+      }
+      st.textContent = 'Berjalan di background...';
+      if (_ohlcvDailyPolling) clearInterval(_ohlcvDailyPolling);
+      _ohlcvDailyPolling = setInterval(pollOhlcvDailyAll, 3000);
+    })
+    .catch(e => {
+      pw.classList.remove('active'); btn.disabled = false;
+      st.className = 'status err'; st.textContent = 'Error: ' + e.message;
+    });
+}
+
+function pollOhlcvDailyAll() {
+  const st  = document.getElementById('ohlcvDailyStatus');
+  const pw  = document.getElementById('ohlcvDailyProgress');
+  const bar = document.getElementById('ohlcvDailyBar');
+  const btn = document.getElementById('ohlcvDailyBtn');
+
+  fetch('/admin/ohlcv-daily-status')
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'idle') return;
+      const pct = d.total > 0 ? Math.round(d.done / d.total * 100) : 0;
+      bar.style.width = pct + '%';
+      if (d.status === 'running') {
+        st.className = 'status';
+        st.textContent = `Ticker ke-${d.done}/${d.total} — ${d.current_ticker || '...'} | ${(d.rows_total||0).toLocaleString()} rows`;
+      } else if (d.status === 'done') {
+        clearInterval(_ohlcvDailyPolling); _ohlcvDailyPolling = null;
+        pw.classList.remove('active'); btn.disabled = false;
+        bar.style.width = '100%';
+        st.className = 'status ok';
+        st.textContent = `Selesai — ${d.total} tickers, ${(d.rows_total||0).toLocaleString()} rows (${d.date_from} → ${d.date_to}).`;
+        showToast('Fetch All OHLCV Daily selesai!', 'ok');
+      } else if (d.status === 'error') {
+        clearInterval(_ohlcvDailyPolling); _ohlcvDailyPolling = null;
+        pw.classList.remove('active'); btn.disabled = false;
+        st.className = 'status err'; st.textContent = 'Error: ' + (d.error || 'Gagal');
+        showToast('Fetch All OHLCV Daily gagal', 'err');
+      }
+    });
+}
+
+function checkOhlcvDailyOnLoad() {
+  fetch('/admin/ohlcv-daily-status')
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'running') {
+        document.getElementById('ohlcvDailyBtn').disabled = true;
+        document.getElementById('ohlcvDailyProgress').classList.add('active');
+        if (_ohlcvDailyPolling) clearInterval(_ohlcvDailyPolling);
+        _ohlcvDailyPolling = setInterval(pollOhlcvDailyAll, 3000);
+        pollOhlcvDailyAll();
+      }
+    }).catch(() => {});
+}
+
 // ── Session upload ────────────────────────────────────────────────────────────
 function uploadSession() {
   const file = document.getElementById('sessFile').files[0];
@@ -827,6 +941,7 @@ document.addEventListener('DOMContentLoaded', () => {
   refreshStatus();
   loadUsers();
   checkIntradayAllOnLoad();
+  checkOhlcvDailyOnLoad();
   setInterval(() => { if (!document.hidden) refreshStatus(); }, 8000);
 });
 </script>
