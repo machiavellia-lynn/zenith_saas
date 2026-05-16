@@ -627,35 +627,40 @@ def backfill_intraday_15m(conn, date_from: str, date_to: str) -> dict:
     dt_f = datetime.strptime(date_from, fmt).replace(tzinfo=WIB)
     dt_t = datetime.strptime(date_to,   fmt).replace(tzinfo=WIB) + timedelta(days=1)
 
-    log.info("backfill_intraday_15m %s → %s for %d tickers", date_from, date_to, len(tickers))
-
-    with ThreadPoolExecutor(max_workers=4) as ex:
-        results = list(ex.map(lambda t: _fetch_ohlcv_intraday_15m(t, dt_f, dt_t), tickers))
+    log.info("backfill_intraday_15m %s → %s for %d tickers (sequential, 0.5s/ticker)", date_from, date_to, len(tickers))
 
     inserted = 0
     skipped  = 0
     skipped_tickers = []
-    for ticker, rows in results:
+
+    for i, ticker in enumerate(tickers):
+        _, rows = _fetch_ohlcv_intraday_15m(ticker, dt_f, dt_t)
         if not rows:
             skipped += 1
             skipped_tickers.append(ticker)
-            continue
-        for r in rows:
-            try:
-                execute(conn, """
-                    INSERT INTO price_history_15m (datetime, ticker, open, high, low, close, volume)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (datetime, ticker) DO UPDATE SET
-                        open = EXCLUDED.open, high = EXCLUDED.high,
-                        low  = EXCLUDED.low,  close = EXCLUDED.close,
-                        volume = EXCLUDED.volume
-                """, [r["datetime"], ticker, r["open"], r["high"], r["low"], r["close"], r["volume"]])
-                inserted += 1
-            except Exception as e:
-                log.warning("15m insert fail ticker=%s dt=%s: %s", ticker, r["datetime"], e)
+        else:
+            for r in rows:
+                try:
+                    execute(conn, """
+                        INSERT INTO price_history_15m (datetime, ticker, open, high, low, close, volume)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (datetime, ticker) DO UPDATE SET
+                            open = EXCLUDED.open, high = EXCLUDED.high,
+                            low  = EXCLUDED.low,  close = EXCLUDED.close,
+                            volume = EXCLUDED.volume
+                    """, [r["datetime"], ticker, r["open"], r["high"], r["low"], r["close"], r["volume"]])
+                    inserted += 1
+                except Exception as e:
+                    log.warning("15m insert fail ticker=%s dt=%s: %s", ticker, r["datetime"], e)
+
+        if i < len(tickers) - 1:
+            time.sleep(0.5)
+
+        if (i + 1) % 50 == 0:
+            log.info("backfill_intraday_15m progress: %d/%d tickers, %d rows so far", i + 1, len(tickers), inserted)
 
     log.info("backfill_intraday_15m done: %d rows, %d tickers skipped: %s",
-             inserted, skipped, ", ".join(skipped_tickers) if skipped_tickers else "none")
+             inserted, skipped, ", ".join(skipped_tickers[:20]) if skipped_tickers else "none")
     return {
         "ok": True,
         "tickers": len(tickers),
