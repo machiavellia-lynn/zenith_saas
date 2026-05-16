@@ -1152,9 +1152,26 @@ backfill_intraday_15m(conn, date_from: str, date_to: str)
 - Accumulate history gradually
 
 **Admin Panel:**
-- GET `/admin/backfill-intraday?date_from=DD-MM-YYYY&date_to=DD-MM-YYYY`
-- Card "BSJP Intraday 15m" dengan date range inputs
-- Run in background thread, return immediately
+1. **Manual Range**: `/admin/backfill-intraday?date_from=DD-MM-YYYY&date_to=DD-MM-YYYY`
+   - Fetch single date range manual
+   - 4 concurrent workers, ThreadPoolExecutor
+   
+2. **Fetch All (Otomatis)**: `/admin/backfill-intraday-all`
+   - Loop semua tanggal IDX dalam 60 hari kalender kebelakang
+   - 180 detik (3 menit) delay antar tanggal untuk avoid rate limit
+   - 4 concurrent workers per tanggal (reduced dari 8 untuk safety)
+   - Estimasi: ~2 jam untuk 42 hari bursa
+   - Progress polling: status real-time, "Hari ke-5/42 — 2026-03-25 | 3.247 rows"
+   - Auto-resume jika halaman di-refresh saat job berjalan
+
+**Rate Limit Mitigation:**
+- Yahoo Finance: ~2000 req/jam limit (~1 req/sec sustained)
+- Strategy:
+  - Max 4 concurrent workers (vs 8) → reduce burst load
+  - 180s delay between dates → let Yahoo "cool down"
+  - Each date fetch ~3-4 min, delay 3 min → ~6-7 min per tanggal
+  - Total untuk 42 hari: ~42 × 6-7 min = ~4-5 jam (diestimasi ~2 jam worst-case)
+- Jika masih kena limit: reduce `max_workers` ke 2-3, atau extend delay ke 5 menit
 
 ---
 
@@ -1414,7 +1431,13 @@ Semua tabel dan file sudah dibuat, tapi **tidak ada API call aktif** karena `DAT
 
 **Intraday 15m (16 Mei):**
 - Ditambah: `price_history_15m` table (datetime WIB PK)
-- Ditambah: `backfill_intraday_15m()` untuk fetch semua tickers (user-triggered, 2–3 hari per run)
-- Ditambah: `/admin/backfill-intraday` endpoint
-- Ditambah: BSJP Intraday 15m card di admin UI
+- Ditambah: `backfill_intraday_15m()` untuk fetch range spesifik (user-triggered)
+- Ditambah: `backfill_intraday_all()` untuk auto-loop 60 hari kalender, 180s delay/hari
+- Ditambah: `/admin/backfill-intraday` (manual range) dan `/admin/backfill-intraday-all` (fetch all)
+- Ditambah: BSJP Intraday 15m card di admin UI dengan "Fetch Range" + "Fetch All" buttons
 - Use case: BSJP backtest perlu exact timing SL/TP hit intra-day (daily OHLC tidak cukup)
+
+**Rate Limit Mitigation (16 Mei revisi):**
+- Yahoo block 805 tickers sekaligus dengan 8 workers (burst ~800 req/menit)
+- Solusi: `max_workers` 8 → 4, delay 30s → 180s (3 menit) antar tanggal
+- Estimasi: ~2 jam untuk 42 hari bursa (vs ~21 menit sebelumnya, tapi sustainable)
