@@ -471,6 +471,36 @@ def admin_ohlcv_daily_status():
     return jsonify(_ohlcv_daily_all)
 
 
+@bp_admin.route("/admin/seed-eod")
+def admin_seed_eod():
+    if not is_authed():
+        return redirect("/")
+    date_from = request.args.get("date_from", "").strip() or None
+    date_to   = request.args.get("date_to",   "").strip() or None
+
+    import threading
+    from algo.summary_rebuild import seed_eod_from_price_history
+    from core.db import get_scraper_db, transaction
+    import logging as _logging
+    _log = _logging.getLogger("zenith.admin")
+
+    def _run():
+        conn = get_scraper_db()
+        try:
+            with transaction(conn):
+                inserted = seed_eod_from_price_history(conn, date_from, date_to)
+            _log.info("seed_eod done: %d rows inserted", inserted)
+        except Exception as e:
+            conn.rollback()
+            _log.error("seed_eod failed: %s", e)
+        finally:
+            conn.close()
+
+    threading.Thread(target=_run, daemon=True).start()
+    label = f"{date_from} → {date_to}" if date_from else "semua tanggal"
+    return jsonify({"ok": True, "message": f"Seed EOD Summary dimulai ({label}). Cek server log untuk result."})
+
+
 @bp_admin.route("/admin/trigger-backtest")
 def trigger_backtest():
     if not is_authed():

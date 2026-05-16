@@ -25,7 +25,7 @@ from core.db import get_scraper_db, transaction, fetchall
 import psycopg2
 from scraper.scraper_parser import parse_joker_message, parse_mf_message
 from scraper.scraper_saver import save_sm_bm_rows, save_mf_rows
-from algo.summary_rebuild import rebuild_summary_for_date, rebuild_all_summaries
+from algo.summary_rebuild import rebuild_summary_for_date, rebuild_all_summaries, seed_eod_from_price_history
 from algo.analytics_daily import compute_analytics_for_date
 from data.price_fetch import enrich_daily_ohlcv, backfill_price_history_ohlcv, sync_eod_prices_from_history
 from algo.analytics_bsjp import compute_bsjp_for_date
@@ -195,6 +195,8 @@ async def run_backfill(client, conn):
             rebuild_summary_for_date(conn, today_wib)
         with transaction(conn):
             enrich_daily_ohlcv(conn, today_wib)
+        with transaction(conn):
+            seed_eod_from_price_history(conn, today_wib, today_wib)
         with transaction(conn):
             compute_analytics_for_date(conn, today_wib)
         with transaction(conn):

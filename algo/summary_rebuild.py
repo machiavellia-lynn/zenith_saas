@@ -99,3 +99,43 @@ def rebuild_all_summaries(conn):
     for date_str in dates:
         rebuild_summary_for_date(conn, date_str, full_reset=False)
         conn.commit()
+
+
+def seed_eod_from_price_history(conn, date_from: str = None, date_to: str = None) -> int:
+    """Seed eod_summary rows for ALL active tickers for each trading date in price_history.
+    Only inserts missing rows — existing rows are preserved (ON CONFLICT DO NOTHING).
+    date_from / date_to: DD-MM-YYYY. None = all dates in price_history.
+    Caller is responsible for commit."""
+
+    def _to_yyyy(d):
+        if d and len(d) == 10 and d[2] == '-':
+            return f"{d[6:10]}-{d[3:5]}-{d[:2]}"
+        return d
+
+    if date_from and date_to:
+        cur = execute(conn, """
+            INSERT INTO eod_summary (date, ticker, sm_val, bm_val, tx_count)
+            SELECT
+                TO_CHAR(ph.date::date, 'DD-MM-YYYY'),
+                tu.ticker,
+                0, 0, 0
+            FROM (SELECT DISTINCT date FROM price_history
+                  WHERE date >= %s AND date <= %s) ph
+            CROSS JOIN (SELECT ticker FROM ticker_universe WHERE is_active = TRUE) tu
+            ON CONFLICT (date, ticker) DO NOTHING
+        """, [_to_yyyy(date_from), _to_yyyy(date_to)])
+    else:
+        cur = execute(conn, """
+            INSERT INTO eod_summary (date, ticker, sm_val, bm_val, tx_count)
+            SELECT
+                TO_CHAR(ph.date::date, 'DD-MM-YYYY'),
+                tu.ticker,
+                0, 0, 0
+            FROM (SELECT DISTINCT date FROM price_history) ph
+            CROSS JOIN (SELECT ticker FROM ticker_universe WHERE is_active = TRUE) tu
+            ON CONFLICT (date, ticker) DO NOTHING
+        """)
+
+    inserted = cur.rowcount if cur else 0
+    log.info("seed_eod_from_price_history %s → %s: %d rows inserted", date_from or "all", date_to or "all", inserted)
+    return inserted

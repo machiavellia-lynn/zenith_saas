@@ -299,6 +299,21 @@ select.sel{background:var(--bg);border:1px solid var(--border2);color:var(--text
       </div>
       <div class="progress-wrap" id="ohlcvDailyProgress" style="margin-top:4px"><div class="progress-bar" id="ohlcvDailyBar" style="transition:width .5s"></div></div>
       <div class="status" id="ohlcvDailyStatus" style="margin-top:6px"></div>
+
+      <div style="border-top:1px solid var(--border);padding-top:16px">
+        <div class="section-label">Step 2 — Seed EOD Summary</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
+          Buat rows di <code style="font-family:Space Mono,monospace;font-size:10px;color:var(--accent2)">eod_summary</code> untuk <strong style="color:var(--text)">semua 805 saham aktif</strong> berdasarkan tanggal di price_history.
+          Gunakan date range yang sama seperti step 1. Berjalan cepat (single SQL query).
+        </div>
+        <div class="btn-row" style="flex-wrap:wrap;gap:6px">
+          <input type="text" class="num-input" id="seedEodFrom" placeholder="DD-MM-YYYY" style="width:110px"/>
+          <span style="font-size:11px;color:var(--muted)">s/d</span>
+          <input type="text" class="num-input" id="seedEodTo"   placeholder="DD-MM-YYYY" style="width:110px"/>
+          <button class="btn outline" id="seedEodBtn" onclick="triggerSeedEod()">Seed EOD Summary</button>
+        </div>
+        <div class="status" id="seedEodStatus" style="margin-top:8px"></div>
+      </div>
     </div>
   </div>
 
@@ -774,6 +789,38 @@ function checkIntradayAllOnLoad() {
         pollIntradayAll();
       }
     }).catch(() => {});
+}
+
+// ── Seed EOD Summary ─────────────────────────────────────────────────────────
+function triggerSeedEod() {
+  const dateFrom = document.getElementById('seedEodFrom').value.trim();
+  const dateTo   = document.getElementById('seedEodTo').value.trim();
+  const st  = document.getElementById('seedEodStatus');
+  const btn = document.getElementById('seedEodBtn');
+
+  if (!dateFrom || !dateTo) {
+    st.className = 'status err'; st.textContent = 'Isi date_from dan date_to dulu!'; return;
+  }
+
+  btn.disabled = true;
+  st.className = 'status'; st.textContent = 'Seeding...';
+
+  fetch(`/admin/seed-eod?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`)
+    .then(r => r.json())
+    .then(d => {
+      btn.disabled = false;
+      if (d.ok) {
+        st.className = 'status ok';
+        st.textContent = d.message || 'Seed dimulai. Cek server log untuk result.';
+        showToast('Seed EOD Summary dimulai!', 'ok');
+      } else {
+        st.className = 'status err'; st.textContent = d.error || 'Gagal';
+      }
+    })
+    .catch(e => {
+      btn.disabled = false;
+      st.className = 'status err'; st.textContent = 'Error: ' + e.message;
+    });
 }
 
 // ── OHLCV Daily All ───────────────────────────────────────────────────────────
