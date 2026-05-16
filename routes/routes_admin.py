@@ -345,7 +345,7 @@ def admin_backfill_intraday_all():
 
             _intraday_all["done"] = i + 1
             if i < len(dates) - 1:
-                _time.sleep(30)
+                _time.sleep(180)
 
         _intraday_all.update({"status": "done", "current_date": None})
         _log.info("intraday_all done: %d tanggal, %d rows", len(dates), _intraday_all["rows_total"])

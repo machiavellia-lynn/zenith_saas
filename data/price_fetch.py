@@ -629,7 +629,7 @@ def backfill_intraday_15m(conn, date_from: str, date_to: str) -> dict:
 
     log.info("backfill_intraday_15m %s → %s for %d tickers", date_from, date_to, len(tickers))
 
-    with ThreadPoolExecutor(max_workers=8) as ex:
+    with ThreadPoolExecutor(max_workers=4) as ex:
         results = list(ex.map(lambda t: _fetch_ohlcv_intraday_15m(t, dt_f, dt_t), tickers))
 
     inserted = 0
