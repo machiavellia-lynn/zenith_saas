@@ -513,70 +513,9 @@ _bsjp_backfill = {
 
 
 def _run_bsjp_scan_for_date(conn, date_str: str) -> int:
-    """Sync version of bsjp scan for a specific date (no live yfinance). Returns signal count."""
-    import logging
-    from algo.algo_bsjp import BSJPAlgo
-    from scraper.scraper_daily import _compute_bsjp_score, TOP_N_BSJP, BSJP_BLACKLIST
-    from datetime import datetime, timezone, timedelta
-    log = logging.getLogger("zenith.admin")
-    WIB_TZ = timezone(timedelta(hours=7))
-
-    algo = BSJPAlgo()
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT e.*, p.ma5, p.bb_mid, p.bb_lower, p.ma5_price_streak,
-                   p.prev_high_break, p.is_sideways, p.daily_value,
-                   p.prev_close_below_ma5, p.prev_close_below_bb_lower,
-                   p.days_since_near_bb_mid, p.close_pos,
-                   p.close AS ph_close
-            FROM eod_summary e
-            LEFT JOIN price_history p
-                ON p.ticker = e.ticker
-                AND p.date = TO_CHAR(TO_DATE(e.date,'DD-MM-YYYY'),'YYYY-MM-DD')
-            WHERE e.date = %s AND e.sri IS NOT NULL AND e.sm_val > 0
-        """, (date_str,))
-        eod_rows = [dict(r) for r in cur.fetchall()]
-
-    scored = []
-    for row in eod_rows:
-        t = row.get("ticker", "")
-        if t in BSJP_BLACKLIST:
-            continue
-        row["price_close"] = row.get("ph_close") or row.get("price_close")
-        if not row.get("price_close"):
-            continue
-        sig = algo.signal_detail(t, row)
-        if not sig:
-            continue
-        score = _compute_bsjp_score(row, sig)
-        lot   = int(10_000_000 / float(row["price_close"]))
-        scored.append((score, t, sig, row, lot))
-
-    scored.sort(key=lambda x: -x[0])
-    top = scored[:TOP_N_BSJP]
-    now_str = datetime.now(WIB_TZ).isoformat()
-
-    for rank, (score, ticker, sig, row, lot) in enumerate(top, 1):
-        entry = round(float(row["price_close"]))
-        with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO bsjp_signals
-                    (date, ticker, setup, entry_est, entry_final, tp1, tp2, sl, sl_type,
-                     score, day_rank, lot_size, status, computed_at)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'CONFIRMED',%s)
-                ON CONFLICT (date, ticker) DO UPDATE SET
-                    setup=EXCLUDED.setup, entry_est=EXCLUDED.entry_est,
-                    entry_final=EXCLUDED.entry_final,
-                    tp1=EXCLUDED.tp1, tp2=EXCLUDED.tp2, sl=EXCLUDED.sl,
-                    sl_type=EXCLUDED.sl_type, score=EXCLUDED.score,
-                    day_rank=EXCLUDED.day_rank, lot_size=EXCLUDED.lot_size,
-                    status='CONFIRMED', computed_at=EXCLUDED.computed_at
-            """, (date_str, ticker, sig["setup"], entry, entry,
-                  sig["tp1"], sig["tp2"], sig["sl"], sig["sl_type"],
-                  score, rank, lot, now_str))
-    conn.commit()
-    log.info("[BSJP backfill] %s → %d signals", date_str, len(top))
-    return len(top)
+    """Run BSJP scan for a specific date. Delegates to scraper's run_bsjp_scan."""
+    from scraper.scraper_daily import run_bsjp_scan
+    return run_bsjp_scan(conn, date_str)
 
 
 @bp_admin.route("/admin/bsjp-scan")
@@ -599,27 +538,6 @@ def admin_bsjp_scan():
     finally:
         conn.close()
 
-
-@bp_admin.route("/admin/bsjp-finalize")
-def admin_bsjp_finalize():
-    """Manual BSJP finalize pass for a specific date."""
-    if not is_authed():
-        return redirect("/")
-    date_str = request.args.get("date", "").strip()
-    if not date_str:
-        return jsonify({"ok": False, "error": "Parameter date wajib (DD-MM-YYYY)"}), 400
-
-    from scraper.scraper_daily import run_bsjp_finalize_pass
-    from core.db import get_scraper_db
-    conn = get_scraper_db()
-    try:
-        run_bsjp_finalize_pass(conn)
-        return jsonify({"ok": True, "date": date_str})
-    except Exception as e:
-        conn.rollback()
-        return jsonify({"ok": False, "error": str(e)}), 500
-    finally:
-        conn.close()
 
 
 @bp_admin.route("/admin/bsjp-backfill")

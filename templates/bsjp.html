@@ -450,16 +450,8 @@ td.left { text-align: left; }
     <span class="s-val" id="sTotal">—</span>
   </div>
   <div class="stat-item">
-    <span class="s-label">Confirmed</span>
-    <span class="s-val up" id="sConfirmed">—</span>
-  </div>
-  <div class="stat-item">
-    <span class="s-label">Estimasi</span>
-    <span class="s-val neutral" id="sEstimasi">—</span>
-  </div>
-  <div class="stat-item">
-    <span class="s-label">Invalid</span>
-    <span class="s-val muted" id="sInvalid">—</span>
+    <span class="s-label">Pending</span>
+    <span class="s-val neutral" id="sPending">—</span>
   </div>
   <div class="stat-item">
     <span class="s-label">Modal / Hari</span>
@@ -476,12 +468,6 @@ td.left { text-align: left; }
 <!-- TOOLBAR -->
 <div class="toolbar">
   <input type="date" class="date-input" id="datePicker" title="Pilih tanggal">
-  <div class="status-filter-group" id="statusFilterGroup">
-    <button class="status-filter-btn active" data-status="ALL"       onclick="setStatusFilter('ALL')">All</button>
-    <button class="status-filter-btn confirmed" data-status="CONFIRMED" onclick="setStatusFilter('CONFIRMED')">Confirmed</button>
-    <button class="status-filter-btn estimasi"  data-status="ESTIMASI"  onclick="setStatusFilter('ESTIMASI')">Estimasi</button>
-    <button class="status-filter-btn invalid"   data-status="INVALID"   onclick="setStatusFilter('INVALID')">Invalid</button>
-  </div>
   <div class="ticker-search-wrap">
     <span style="color:var(--muted);font-size:12px">⌕</span>
     <input type="text" id="tickerFilter" placeholder="Filter ticker..." oninput="renderTable()"/>
@@ -519,7 +505,7 @@ td.left { text-align: left; }
         <div class="modal-setup-name" id="mSetup">—</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
-        <span id="mBadge" class="badge estimasi">ESTIMASI</span>
+        <span id="mBadge" class="badge estimasi">PENDING</span>
         <button class="close-btn" onclick="closeModal()">✕</button>
       </div>
     </div>
@@ -547,10 +533,9 @@ td.left { text-align: left; }
 <script>
 const WIB_OFFSET = 7 * 60;
 
-let allSignals  = [];
-let statusFilter = 'ALL';
-let sortCol     = 'day_rank';
-let sortAsc     = true;
+let allSignals = [];
+let sortCol    = 'day_rank';
+let sortAsc    = true;
 
 /* ── Date helpers ── */
 function todayDMY() {
@@ -587,21 +572,9 @@ function fmtCapital(n) {
   return (total/1_000_000).toFixed(0) + 'jt';
 }
 
-/* ── Badge ── */
-function statusBadge(status) {
-  const map = {
-    'ESTIMASI':  ['estimasi',  '⏳ Estimasi'],
-    'CONFIRMED': ['confirmed', '✓ Confirmed'],
-    'INVALID':   ['invalid',   '✕ Invalid'],
-  };
-  const [cls, label] = map[status] || ['estimasi', status];
-  return `<span class="badge ${cls}">${label}</span>`;
-}
-
-/* ── Entry display (est vs confirmed) ── */
+/* ── Entry display ── */
 function entryVal(s) {
-  if (s.status === 'CONFIRMED' && s.entry_final != null) return s.entry_final;
-  return s.entry_est;
+  return s.entry;
 }
 
 /* ── Sort ── */
@@ -625,22 +598,12 @@ function updateSortIcons() {
   });
 }
 
-/* ── Status filter ── */
-function setStatusFilter(status) {
-  statusFilter = status;
-  document.querySelectorAll('.status-filter-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.status === status);
-  });
-  renderTable();
-}
-
 /* ── Render table ── */
 function renderTable() {
   const tickerQ = (document.getElementById('tickerFilter').value || '').toUpperCase().trim();
   const tbody   = document.getElementById('bsjpBody');
 
   let rows = allSignals.filter(s => {
-    if (statusFilter !== 'ALL' && s.status !== statusFilter) return false;
     if (tickerQ && !s.ticker.includes(tickerQ)) return false;
     return true;
   });
@@ -666,18 +629,13 @@ function renderTable() {
   tbody.innerHTML = '';
   rows.forEach(s => {
     const tr = document.createElement('tr');
-    const statusCls = { CONFIRMED: 'status-confirmed', ESTIMASI: 'status-estimasi', INVALID: 'status-invalid' }[s.status] || '';
-    tr.className = statusCls;
     tr.style.cursor = 'pointer';
     const ev = entryVal(s);
-    const entryHtml = ev != null
-      ? fmtPrice(ev) + (s.status !== 'CONFIRMED' ? '<span style="font-size:9px;color:var(--muted);margin-left:2px">est</span>' : '')
-      : '—';
     tr.innerHTML = `
       <td class="td-rank left">${s.day_rank ?? '—'}</td>
-      <td class="td-ticker left">${s.ticker}<br><span style="font-size:9px;font-family:'Space Mono',monospace;opacity:.6">${s.status}</span></td>
+      <td class="td-ticker left">${s.ticker}</td>
       <td class="td-setup left">${s.setup ?? '—'}</td>
-      <td class="td-price est">${entryHtml}</td>
+      <td class="td-price est">${ev != null ? fmtPrice(ev) : '—'}</td>
       <td class="td-score">${fmtScore(s.score)}</td>
     `;
     tr.addEventListener('click', () => openModal(s));
@@ -701,43 +659,33 @@ function openModal(s) {
   document.getElementById('mSetup').textContent  = s.setup ?? '—';
 
   const badge = document.getElementById('mBadge');
-  badge.className = 'badge ' + (s.status || '').toLowerCase();
-  badge.textContent = s.status;
+  badge.className   = 'badge estimasi';
+  badge.textContent = 'PENDING';
 
   // Score + breakdown
   document.getElementById('mScore').textContent = fmtScore(s.score);
   document.getElementById('mBreakdown').innerHTML = `
-    <div class="sb-item"><span class="sb-key">RSM × 0.30</span><span class="sb-val">${s.rsm != null ? Number(s.rsm).toFixed(1)+'%' : '—'}</span></div>
-    <div class="sb-item"><span class="sb-key">SRI × 0.25</span><span class="sb-val">${s.sri != null ? Number(s.sri).toFixed(2) : '—'}</span></div>
-    <div class="sb-item"><span class="sb-key">Setup WR × 0.25</span><span class="sb-val">${s.setup ?? '—'}</span></div>
-    <div class="sb-item"><span class="sb-key">MF Ratio × 0.10</span><span class="sb-val">${s.mf_ratio != null ? Number(s.mf_ratio).toFixed(1)+'%' : '—'}</span></div>
-    <div class="sb-item"><span class="sb-key">Close Pos × 0.10</span><span class="sb-val">${s.rpr != null ? Number(s.rpr).toFixed(2) : '—'}</span></div>
+    <div class="sb-item"><span class="sb-key">RSM × 0.30</span><span class="sb-val">—</span></div>
+    <div class="sb-item"><span class="sb-key">SRI × 0.25</span><span class="sb-val">—</span></div>
+    <div class="sb-item"><span class="sb-key">Setup WR × 0.25</span><span class="sb-val">—</span></div>
+    <div class="sb-item"><span class="sb-key">MF Ratio × 0.10</span><span class="sb-val">—</span></div>
+    <div class="sb-item"><span class="sb-key">Close Pos × 0.10</span><span class="sb-val">—</span></div>
   `;
 
   // Entry / TP / SL
   document.getElementById('mMetrics').innerHTML =
-    mm('ENTRY', entry != null ? fmtPrice(entry) + (s.status !== 'CONFIRMED' ? '<span style="font-size:9px;color:var(--muted)"> est</span>' : '') : '—', '') +
+    mm('ENTRY', entry != null ? fmtPrice(entry) : '—', '') +
     mm('TP1', fmtPrice(s.tp1) + pct(entry, s.tp1), 'up') +
     mm('TP2', fmtPrice(s.tp2) + pct(entry, s.tp2), 'up') +
     mm('SL',  fmtPrice(s.sl)  + pct(entry, s.sl),  'dn') +
-    mm('SL TYPE', s.sl_type ?? '—', 'bl') +
-    mm('RPR', s.rpr != null ? Number(s.rpr).toFixed(2) : '—', '');
+    mm('LOT',  fmtLot(s.lot_size), 'bl') +
+    mm('MODAL', s.lot_size && entry ? 'Rp ' + (s.lot_size * entry).toLocaleString('id-ID', {maximumFractionDigits:0}) : '—', '');
 
-  // Lot / Capital
-  const lot = s.lot_size;
-  const cap = lot ? (lot * (entry || 0)).toLocaleString('id-ID', {maximumFractionDigits:0}) : '—';
-  document.getElementById('mLot').innerHTML =
-    mm('LOT SIZE', fmtLot(lot), '') +
-    mm('MODAL (est)', lot && entry ? 'Rp ' + cap : '—', '');
+  // Lot / Capital (secondary row hidden — merged above)
+  document.getElementById('mLot').innerHTML = '';
 
-  // Keterangan
-  const ket = document.getElementById('mKet');
-  if (s.invalid_reason) {
-    ket.style.display = '';
-    ket.textContent   = s.invalid_reason;
-  } else {
-    ket.style.display = 'none';
-  }
+  // Keterangan hidden — no invalid_reason in new schema
+  document.getElementById('mKet').style.display = 'none';
 
   document.getElementById('modalBackdrop').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -777,16 +725,12 @@ async function loadSignals() {
 
   allSignals = data.signals || [];
 
-  const confirmed = allSignals.filter(s => s.status === 'CONFIRMED').length;
-  const estimasi  = allSignals.filter(s => s.status === 'ESTIMASI').length;
-  const invalid   = allSignals.filter(s => s.status === 'INVALID').length;
-  const active    = confirmed + estimasi;
+  const pending = allSignals.filter(s => s.status === 'PENDING').length;
+  const total   = allSignals.length;
 
-  document.getElementById('sTotal').textContent     = allSignals.length || '—';
-  document.getElementById('sConfirmed').textContent = confirmed || '—';
-  document.getElementById('sEstimasi').textContent  = estimasi  || '—';
-  document.getElementById('sInvalid').textContent   = invalid   || '—';
-  document.getElementById('sCapital').textContent   = active > 0 ? fmtCapital(active) : '—';
+  document.getElementById('sTotal').textContent   = total   || '—';
+  document.getElementById('sPending').textContent = pending || '—';
+  document.getElementById('sCapital').textContent = total > 0 ? fmtCapital(total) : '—';
 
   renderTable();
   checkMarketWarning(dmy);

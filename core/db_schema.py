@@ -25,6 +25,7 @@ def ensure_schema():
     _create_corporate_events(conn)
     _create_inst_flow_cache(conn)
     _create_bsjp_signals(conn)
+    _create_bsjp_results(conn)
     conn.commit()
     log.info("Schema ensured OK")
 
@@ -315,29 +316,52 @@ def _create_inst_flow_cache(conn):
 
 
 def _create_bsjp_signals(conn):
-    conn.cursor().execute("""
+    cur = conn.cursor()
+    # Migrate: drop old schema if entry_est column exists
+    cur.execute("""
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'bsjp_signals' AND column_name = 'entry_est'
+    """)
+    if cur.fetchone():
+        cur.execute("DROP TABLE IF EXISTS bsjp_signals CASCADE")
+
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS bsjp_signals (
-            id              SERIAL PRIMARY KEY,
-            date            TEXT NOT NULL,
-            ticker          TEXT NOT NULL,
-            setup           TEXT NOT NULL,
-            entry_est       REAL,
-            entry_final     REAL,
-            tp1             REAL,
-            tp2             REAL,
-            sl              REAL,
-            sl_type         TEXT,
-            score           REAL,
-            day_rank        INTEGER,
-            lot_size        INTEGER,
-            status          TEXT DEFAULT 'ESTIMASI',
-            invalid_reason  TEXT,
-            computed_at     TEXT,
+            id          SERIAL PRIMARY KEY,
+            date        TEXT NOT NULL,
+            ticker      TEXT NOT NULL,
+            setup       TEXT NOT NULL,
+            entry       INTEGER,
+            tp1         INTEGER,
+            tp2         INTEGER,
+            sl          INTEGER,
+            score       REAL,
+            day_rank    INTEGER,
+            lot_size    INTEGER,
+            status      TEXT DEFAULT 'PENDING',
+            computed_at TIMESTAMP DEFAULT NOW(),
             UNIQUE(date, ticker)
         )
     """)
-    conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_bsjp_date   ON bsjp_signals(date)")
-    conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_bsjp_ticker ON bsjp_signals(ticker)")
-    conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_bsjp_status ON bsjp_signals(status)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_bsjp_date   ON bsjp_signals(date)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_bsjp_status ON bsjp_signals(status)")
+
+
+def _create_bsjp_results(conn):
+    conn.cursor().execute("""
+        CREATE TABLE IF NOT EXISTS bsjp_results (
+            id          SERIAL PRIMARY KEY,
+            date        TEXT NOT NULL,
+            ticker      TEXT NOT NULL,
+            exit_price  REAL,
+            status      TEXT,
+            reason      TEXT,
+            exit_time   TEXT,
+            pnl         REAL,
+            computed_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(date, ticker)
+        )
+    """)
+    conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_bsjp_res_date ON bsjp_results(date)")
 
 
