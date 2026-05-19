@@ -17,6 +17,7 @@ from routes.routes_sector import bp_sector
 from routes.routes_backtest import bp_backtest
 from routes.routes_journal import bp_journal
 from routes.routes_admin import bp_admin
+from routes.routes_bsjp import bp_bsjp
 
 logging.basicConfig(
     level=getattr(logging, config.LOG_LEVEL, logging.WARNING),
@@ -36,6 +37,7 @@ app.register_blueprint(bp_sector)
 app.register_blueprint(bp_backtest)
 app.register_blueprint(bp_journal)
 app.register_blueprint(bp_admin)
+app.register_blueprint(bp_bsjp)
 
 _log = logging.getLogger("zenith.app")
 

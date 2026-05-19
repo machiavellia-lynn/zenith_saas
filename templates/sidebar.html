@@ -46,7 +46,7 @@
     <div class="s-divider"></div>
 
     <!-- Algo (collapsible) -->
-    <div class="s-group{% if request.path in ['/flow'] %} open{% endif %}" id="group-algo">
+    <div class="s-group{% if request.path in ['/wyckoff', '/flow', '/bsjp'] %} open{% endif %}" id="group-algo">
       <button class="s-group-toggle" onclick="sidebarToggleGroup('group-algo')">
         <svg class="s-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 2.5L8 13.5L13 2.5"/><line x1="5.2" y1="8" x2="10.8" y2="8"/></svg>
         <span class="s-text">Algo</span>
@@ -54,11 +54,20 @@
       </button>
       <div class="s-group-items">
         <div class="s-group-items-inner">
-          <a href="/flow" class="s-item s-sub{% if request.path == '/flow' %} active{% endif %}">
+          <a href="/wyckoff" class="s-item s-sub{% if request.path == '/wyckoff' %} active{% endif %}">
             <svg class="s-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 10C2.5 10 2.5 6 4 6S5.5 10 7 10S8.5 6 10 6S11.5 10 13 10S14.5 7 15 6"/></svg>
             <span class="s-text">Wyckoff</span>
           </a>
-          <div class="s-coming-soon">More coming soon</div>
+          <div class="s-divider-sub"></div>
+          <a href="/bsjp" class="s-item s-sub{% if request.path == '/bsjp' %} active{% endif %}">
+            <svg class="s-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 5.5V8l2 2"/></svg>
+            <span class="s-text">BSJP</span>
+          </a>
+          <div class="s-divider-sub"></div>
+          <a href="/flow" class="s-item s-sub{% if request.path == '/flow' %} active{% endif %}">
+            <svg class="s-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="4" cy="8" r="2"/><circle cx="12" cy="8" r="2"/><line x1="6" y1="8" x2="10" y2="8"/></svg>
+            <span class="s-text">Flow Guide</span>
+          </a>
         </div>
       </div>
     </div>

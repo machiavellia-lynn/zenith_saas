@@ -580,9 +580,6 @@ tbody tr {
   transition: background .1s;
   animation: rowIn .3s ease both;
 }
-tbody tr.action-buy  { border-left-color: var(--up); }
-tbody tr.action-sell { border-left-color: var(--down); }
-tbody tr.action-hold { border-left-color: var(--border2); }
 tbody tr:hover { background: rgba(0,232,162,.025); }
 @keyframes rowIn {
   from { opacity: 0; transform: translateY(4px); }
@@ -1244,26 +1241,6 @@ td:first-child { text-align: left; }
     <div class="date-arrow" id="dateModeToggle" onclick="toggleDateMode()" title="Klik untuk switch antara Single Date dan Date Range">→</div>
     <input type="text" class="date-input" id="dateTo" placeholder="DD/MM/YYYY" maxlength="10"/>
   </div>
-  <div class="filter-dropdown" id="filterDropdown">
-    <button class="filter-btn" onclick="toggleDropdown('filter')">FILTER <span class="arrow">▼</span><span class="filter-count" id="filterCount" style="display:none"></span></button>
-    <div class="filter-menu" id="filterMenu">
-      <div style="padding:4px 12px 6px;font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--border);margin-bottom:4px">ACTION</div>
-      <label class="filter-opt"><input type="checkbox" data-group="action" value="BUY" checked onchange="applyFilter()"><span style="font-size:11px">🚀</span>BUY</label>
-      <label class="filter-opt"><input type="checkbox" data-group="action" value="HOLD" checked onchange="applyFilter()"><span style="font-size:11px">⌛</span>HOLD</label>
-      <label class="filter-opt"><input type="checkbox" data-group="action" value="SELL" checked onchange="applyFilter()"><span style="font-size:11px">⚠️</span>SELL</label>
-      <div style="padding:6px 12px 6px;font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin:4px 0">PHASE</div>
-      <label class="filter-opt"><input type="checkbox" data-group="phase" value="SPRING" checked onchange="applyFilter()"><span class="dot-sm" style="background:#00e8a2"></span>SPRING</label>
-      <label class="filter-opt"><input type="checkbox" data-group="phase" value="ABSORB" checked onchange="applyFilter()"><span class="dot-sm" style="background:#4d9fff"></span>ABSORB</label>
-      <label class="filter-opt"><input type="checkbox" data-group="phase" value="SOS" checked onchange="applyFilter()"><span class="dot-sm" style="background:#00e8a2"></span>SOS</label>
-      <label class="filter-opt"><input type="checkbox" data-group="phase" value="ACCUM" checked onchange="applyFilter()"><span class="dot-sm" style="background:#5abf8e"></span>ACCUM</label>
-      <label class="filter-opt"><input type="checkbox" data-group="phase" value="UPTHRUST" checked onchange="applyFilter()"><span class="dot-sm" style="background:#ff8c42"></span>UPTHRUST</label>
-      <label class="filter-opt"><input type="checkbox" data-group="phase" value="DISTRI" checked onchange="applyFilter()"><span class="dot-sm" style="background:#ff4d6a"></span>DISTRI</label>
-      <label class="filter-opt"><input type="checkbox" data-group="phase" value="NEUTRAL" checked onchange="applyFilter()"><span class="dot-sm" style="background:#4a6070"></span>NEUTRAL</label>
-      <div style="padding:6px 12px;border-top:1px solid var(--border);margin-top:4px">
-        <button onclick="clearFilters()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:4px;padding:3px 10px;font-family:'Space Mono',monospace;font-size:10px;cursor:pointer;width:100%;transition:all .15s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">CLEAR ALL</button>
-      </div>
-    </div>
-  </div>
   <div class="ticker-search-wrap" style="margin-left:auto">
     <span style="color:var(--muted);font-size:12px">⌕</span>
     <input type="text" id="tickerFilter" placeholder="Filter ticker..."/>
@@ -1286,8 +1263,6 @@ td:first-child { text-align: left; }
         <th onclick="sortBy('mf_minus',event)"     data-col="mf_minus" title="Money Outflow">MF− <span class="sort-icon"></span></th>
         <th onclick="sortBy('net_mf',event)"       data-col="net_mf" title="Net Money Flow">NET MF <span class="sort-icon"></span></th>
         <th onclick="sortBy('gain_pct',event)"     data-col="gain_pct" title="% perubahan harga">GAIN% <span class="sort-icon"></span></th>
-        <th onclick="sortBy('phase',event)"        data-col="phase" title="Wyckoff Phase">PHASE <span class="sort-icon"></span></th>
-        <th onclick="sortBy('action',event)"       data-col="action" title="Trading Signal">ACTION <span class="sort-icon"></span></th>
       </tr>
     </thead>
     <tbody id="flowBody">
@@ -1365,11 +1340,6 @@ td:first-child { text-align: left; }
 
     <!-- TRANSAKSI SECTION -->
     <div class="modal-body" id="modalBody">
-      <!-- Signal Row -->
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-bottom:4px;border-bottom:1px solid var(--border);margin-bottom:2px;min-height:28px">
-        <span class="phase-badge" id="mPhaseBadge" style="font-size:11px;padding:4px 12px;display:none"></span>
-        <span class="action-badge" id="mActionBadge" style="font-family:'Space Mono',monospace;font-size:11px;font-weight:700;display:none"></span>
-      </div>
       <!-- Metrics Panel -->
       <div class="modal-metrics-panel" id="modalMetricsPanel">
         <div class="mm-item">
@@ -1593,8 +1563,6 @@ td:first-child { text-align: left; }
 let allRows      = [];
 let sortCols     = [{ col: 'clean_money', asc: false }]; // multi-sort
 let filterText   = '';
-let phaseFilter  = null; // null = all, Set = selected phases
-let actionFilter = null; // null = all, Set = selected actions
 let isSingleMode = true;      // Main toolbar: true = single date, false = range
 let trxIsSingleMode = true;   // Modal trx toolbar
 
@@ -1848,36 +1816,6 @@ function toggleDropdown(type) {
   if (!isOpen) { menu.classList.add('show'); btn.classList.add('open'); }
 }
 
-function applyFilter() {
-  const pChecked = [...document.querySelectorAll('#filterMenu input[data-group="phase"]:checked')].map(i => i.value);
-  const pAll = document.querySelectorAll('#filterMenu input[data-group="phase"]').length;
-  phaseFilter = (pChecked.length === pAll || pChecked.length === 0) ? null : new Set(pChecked);
-
-  const aChecked = [...document.querySelectorAll('#filterMenu input[data-group="action"]:checked')].map(i => i.value);
-  const aAll = document.querySelectorAll('#filterMenu input[data-group="action"]').length;
-  actionFilter = (aChecked.length === aAll || aChecked.length === 0) ? null : new Set(aChecked);
-
-  const totalFiltered = (phaseFilter ? pChecked.length : 0) + (actionFilter ? aChecked.length : 0);
-  const ct = document.getElementById('filterCount');
-  const btn = document.querySelector('#filterDropdown .filter-btn');
-  if (phaseFilter || actionFilter) {
-    ct.textContent = totalFiltered; ct.style.display = 'inline'; btn.classList.add('active');
-    btn.classList.add('has-filter');
-  } else {
-    ct.style.display = 'none'; btn.classList.remove('active');
-    btn.classList.remove('has-filter');
-  }
-  renderTable();
-}
-
-function clearFilters() {
-  document.querySelectorAll('#filterMenu input[type="checkbox"]').forEach(cb => cb.checked = false);
-  phaseFilter = null; actionFilter = null;
-  document.getElementById('filterCount').style.display = 'none';
-  document.querySelector('#filterDropdown .filter-btn').classList.remove('active');
-  document.querySelector('#filterDropdown .filter-btn').classList.remove('has-filter');
-  renderTable();
-}
 
 document.addEventListener('click', e => {
   if (!e.target.closest('.filter-dropdown')) {
@@ -1990,10 +1928,6 @@ function renderTable() {
   );
   // Sector filter
   if (sectorTickers) rows = rows.filter(r => sectorTickers.has(r.ticker));
-  // Phase & Action filter
-  if (phaseFilter) rows = rows.filter(r => phaseFilter.has(r.phase || 'NEUTRAL'));
-  if (actionFilter) rows = rows.filter(r => actionFilter.has(r.action || 'HOLD'));
-
   // Multi-sort
   rows.sort((a, b) => {
     for (const { col, asc } of sortCols) {
@@ -2040,20 +1974,14 @@ function renderTable() {
     const gainCls  = r.gain_pct === null ? 'zero' : r.gain_pct > 0 ? 'pos' : r.gain_pct < 0 ? 'neg' : 'zero';
     const gainStr  = r.gain_pct === null ? '—' : (r.gain_pct > 0 ? '▲ +' : r.gain_pct < 0 ? '▼ ' : '◆ ') + r.gain_pct.toFixed(2) + '%';
     const cmArrow  = (r.clean_money || 0) > 0 ? '▲ ' : (r.clean_money || 0) < 0 ? '▼ ' : '';
-    const nmfArrow = (r.net_mf || 0) > 0 ? '▲ ' : (r.net_mf || 0) < 0 ? '▼ ' : '';
     const rsmStr   = r.rsm !== null && r.rsm !== undefined ? r.rsm.toFixed(1) + '%' : '—';
 
     const vwapSm = r.vwap_sm ? r.vwap_sm.toLocaleString('id-ID') : '—';
     const vwapBm = r.vwap_bm ? r.vwap_bm.toLocaleString('id-ID') : '—';
     const atrStr = r.atr_pct ? r.atr_pct.toFixed(1) + '%' : '—';
 
-    // Watch dot: yellow ● for ARB_SPRING
-    const watchDot = r.watch === 'ARB_SPRING'
-      ? `<span class="watch-dot" role="img" aria-label="Peringatan ARB_SPRING" title="Peringatan: Penurunan > 1.5× ATR — Risiko ARB, butuh konfirmasi hari berikutnya">●</span>`
-      : '';
-
-    const actCls = r.action === 'BUY' ? 'action-buy' : r.action === 'SELL' ? 'action-sell' : r.action === 'HOLD' ? 'action-hold' : '';
-    return `<tr class="${actCls}" onclick="openModal('${r.ticker}')" style="animation-delay:${Math.min(i*15,300)}ms">
+    const nmfArrow = (r.net_mf || 0) > 0 ? '▲ ' : (r.net_mf || 0) < 0 ? '▼ ' : '';
+    return `<tr onclick="openModal('${r.ticker}')" style="animation-delay:${Math.min(i*15,300)}ms">
       <td><span class="td-ticker">${r.ticker}</span></td>
       <td><span class="td-num" style="color:var(--text)">${r.price !== null && r.price !== undefined ? r.price.toLocaleString('id-ID') : '—'}</span></td>
       <td><span class="td-num" style="color:var(--muted)">${r.tx ? r.tx.toLocaleString('id-ID') : '—'}</span></td>
@@ -2068,8 +1996,6 @@ function renderTable() {
       <td><span class="td-num mfm">${r.mf_minus !== null ? fmtM(r.mf_minus) : '—'}</span></td>
       <td><span class="td-num ${r.net_mf === null ? '' : r.net_mf >= 0 ? 'net-pos' : 'net-neg'}">${r.net_mf !== null ? nmfArrow + fmtM(Math.abs(r.net_mf)) : '—'}</span></td>
       <td><span class="gain-val ${gainCls}">${gainStr}</span></td>
-      <td><span class="phase-badge ${r.phase ? r.phase.toLowerCase() : ''}">${watchDot}${r.phase || '—'}</span></td>
-      <td><span class="action-badge ${r.action ? r.action.toLowerCase() : ''}" title="SRI:${r.sri!=null?r.sri:'-'} MES:${r.mes!=null?r.mes:'-'} RPR:${r.rpr!=null?r.rpr:'-'} VxGap:${r.volx_gap!=null?r.volx_gap+'%':'-'}">${r.action==='BUY'?'🚀 BUY':r.action==='SELL'?'⚠️ SELL':r.action==='HOLD'?'⌛ HOLD':'—'}</span></td>
     </tr>`;
   }).join('');
   // cmBars only — rows already have CSS rowIn animation with per-row delay
@@ -2233,40 +2159,15 @@ function populateMetricsPanel(r) {
     else if (r.volx_gap > 1.5) elVXG.className = 'mm-value neg';
   }
 
-  // Phase + Action headline
-  const phBadge = document.getElementById('mPhaseBadge');
-  const acBadge = document.getElementById('mActionBadge');
-  if (r && r.phase) {
-    const watchDotModal = r.watch === 'ARB_SPRING'
-      ? `<span class="watch-dot" role="img" aria-label="Peringatan ARB_SPRING" title="Peringatan: Penurunan > 1.5× ATR — Risiko ARB, butuh konfirmasi hari berikutnya">●</span>`
-      : '';
-    phBadge.innerHTML = watchDotModal + r.phase;
-    phBadge.className = 'phase-badge ' + r.phase.toLowerCase();
-    phBadge.style.display = 'inline-block';
-  } else {
-    phBadge.style.display = 'none';
-  }
-  if (r && r.action) {
-    const icons = { BUY: '🚀 BUY', SELL: '⚠️ SELL', HOLD: '⌛ HOLD' };
-    acBadge.textContent = icons[r.action] || r.action;
-    acBadge.className = 'action-badge ' + r.action.toLowerCase();
-    acBadge.style.display = 'inline-block';
-  } else {
-    acBadge.style.display = 'none';
-  }
-
-  // Show share button for BUY / SELL / HOLD signals
+  // Hide share button on flow page (no signals)
   const shareBtn = document.getElementById('mShareBtn');
-  if (shareBtn) {
-    const showShare = r && (r.action === 'BUY' || r.action === 'SELL' || r.action === 'HOLD');
-    shareBtn.style.display = showShare ? 'flex' : 'none';
-  }
+  if (shareBtn) shareBtn.style.display = 'none';
 }
 
 function populateTradeDetail(r) {
   const card = document.getElementById('tradeDetailCard');
-  if (!r) { card.style.display = 'none'; return; }
-  card.style.display = 'block';
+  card.style.display = 'none'; return; // not shown on /flow
+  if (!r) { return; }
 
   const price = r.price || r.price_close;
   const fmt   = (v) => v != null ? v.toLocaleString('id-ID', {maximumFractionDigits: 0}) : '—';
@@ -2876,9 +2777,6 @@ const INFO_CONTENT=`
     <div class="info-term"><div class="info-term-label bm">BM VAL — Bad Money</div><div class="info-term-desc">Total dana besar yang keluar dari saham. Dominan Bad Money = distribusi / penjualan besar. Perlu waspada.</div></div>
     <div class="info-term"><div class="info-term-label cm">CM — Clean Money</div><div class="info-term-desc">SM Val − BM Val. Positif besar = dana masuk dominan. Negatif = distribusi lebih dominan dari akumulasi.</div></div>
     <div class="info-term"><div class="info-term-label muted">RSM — Rasio Smart Money</div><div class="info-term-desc">SM / (SM + BM) × 100%. Makin tinggi = makin dominan Smart Money. Di atas 70% = sinyal kuat akumulasi.</div></div>
-    <div class="info-term"><div class="info-term-label cm">MF+ — Money Flow Plus</div><div class="info-term-desc">Akumulasi Money Flow positif dari sub-channel MF. Mengukur tekanan beli agregat di pasar.</div></div>
-    <div class="info-term"><div class="info-term-label bm">MF− — Money Flow Minus</div><div class="info-term-desc">Akumulasi Money Flow negatif. Mengukur tekanan jual agregat. Bandingkan dengan MF+ untuk lihat dominasi.</div></div>
-    <div class="info-term"><div class="info-term-label muted">NET MF</div><div class="info-term-desc">MF+ dikurangi MF−. Positif = tekanan beli lebih dominan. Negatif = tekanan jual lebih dominan.</div></div>
     <div class="info-term"><div class="info-term-label muted">TX — Jumlah Transaksi</div><div class="info-term-desc">Total akumulasi frekuensi trigger Smart/Bad Money yang muncul. Makin banyak TX = aktivitas lebih konsisten dan signifikan.</div></div>
   </div>
 </div>
@@ -2934,15 +2832,6 @@ const INFO_CONTENT=`
     <div class="info-scenario"><div class="info-scenario-title">🟢 ACCUM — Akumulasi Ringan</div><div class="info-scenario-desc">Ada pembelian bandar (CM positif) tapi belum cukup agresif untuk ABSORB atau SPRING. Masih tahap awal pengumpulan barang.</div></div>
     <div class="info-scenario"><div class="info-scenario-title">⚪ NEUTRAL — Netral</div><div class="info-scenario-desc">Tidak ada aktivitas signifikan. CM mendekati nol. Tidak ada sinyal arah yang jelas.</div></div>
   </div>
-</div>
-<div class="info-section">
-  <div class="info-section-title">Action — Sinyal Eksekusi</div>
-  <div class="info-glossary">
-    <div class="info-term"><div class="info-term-label cm">🚀 BUY</div><div class="info-term-desc">Phase SPRING/ABSORB/ACCUM + CM 3 hari terakhir konsisten positif. Bandar akumulasi + tren beli terkonfirmasi.</div></div>
-    <div class="info-term"><div class="info-term-label muted">⌛ HOLD</div><div class="info-term-desc">Phase SOS/ABSORB/ACCUM tapi CM 3 hari belum konsisten. Bisa berarti: (1) wait & see untuk entry — tunggu konfirmasi sebelum beli, atau (2) jika sudah punya posisi — tahan dulu, jangan jual. Ada sinyal positif tapi belum cukup kuat untuk action tegas.</div></div>
-    <div class="info-term"><div class="info-term-label bm">⚠️ SELL</div><div class="info-term-desc">Phase UPTHRUST/DISTRI. Bandar jualan atau jebakan naik terdeteksi. Hindari entry baru atau lakukan take profit.</div></div>
-  </div>
-  <div class="info-highlight neutral">💡 Hover di kolom ACTION untuk melihat detail metrik: SRI, MES, RPR, dan Volx Gap per emiten.</div>
 </div>
 <div class="info-section">
   <div class="info-section-title">Kesimpulan</div>

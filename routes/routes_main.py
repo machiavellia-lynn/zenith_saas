@@ -68,6 +68,13 @@ def chart_page():
     return render_template("chart.html")
 
 
+@bp_main.route("/wyckoff")
+def wyckoff_page():
+    if not is_authed():
+        return redirect("/")
+    return render_template("wyckoff.html")
+
+
 @bp_main.route("/flow")
 def flow_page():
     if not is_authed():

@@ -214,6 +214,8 @@ Index: `idx_mf_date`, `idx_mf_ticker_date`
 ### 5.4 `eod_summary` — Tabel Fakta Utama (Flow + Analytics)
 > Ini adalah tabel terpenting. Semua halaman web membaca dari sini.
 
+> **Desain terbaru (17 Mei 2026):** eod_summary sekarang mencakup **semua 805 tickers aktif** di `ticker_universe`, bukan hanya tickers yang punya data Telegram. Baris untuk tickers tanpa SM/BM/MF diinisialisasi dengan `sm_val=0, bm_val=0, tx_count=0`. Analytics (phase, MA, RSI, BSJP) tetap dihitung untuk semua tickers yang punya data di `price_history`. Ini memungkinkan dashboard menampilkan semua saham IDX, bukan hanya ~100-200 yang aktif di BST Telegram.
+
 ```sql
 -- Primary Key
 date             TEXT NOT NULL        -- DD-MM-YYYY
@@ -522,6 +524,22 @@ Weekly Backfill (request_backfill):
     → Scan histori N hari dari 4 topik
     → Stop per topik setelah 100 pesan lama berturut-turut
     → rebuild + price backfill + analytics + BSJP
+
+OHLCV Daily Backfill — /admin/backfill-ohlcv-daily (background, progress-tracked):
+    Sequential fetch 0.5s/ticker untuk semua tickers di ticker_universe
+    → Stores full OHLCV ke price_history untuk date range yang dipilih
+    → Enables MA200 computation (butuh 200+ hari data di price_history)
+    → Progress: current_ticker, done/total, rows_total
+    → Auto-resume: reload halaman tidak restart job
+    → Rate limit: sequential 0.5s/ticker (~2 req/sec) menghindari Yahoo block
+
+Seed EOD — /admin/seed-eod:
+    seed_eod_from_price_history(conn, date_from, date_to)
+    → CROSS JOIN price_history dates × ticker_universe (is_active=TRUE)
+    → INSERT INTO eod_summary (date, ticker, sm_val=0, bm_val=0, tx_count=0)
+    → ON CONFLICT DO NOTHING — baris existing tidak disentuh
+    → Satu query SQL, sangat cepat untuk ratusan ticker
+    → Hasil: eod_summary punya baris untuk SEMUA 805 tickers, bukan hanya Telegram-active
 ```
 
 ---
@@ -1045,6 +1063,9 @@ Return statistik backtest per ticker: win rate per fase, profit factor, trade hi
 | GET | `/admin/backfill-prices` | Backfill harga dari Yahoo + recompute |
 | GET | `/admin/backfill-200d` | Backfill OHLCV 210 hari ke price_history |
 | GET | `/admin/trigger-backtest` | Jalankan backtest via daemon queue |
+| GET | `/admin/backfill-ohlcv-daily?date_from=&date_to=` | **[Baru]** Fetch OHLCV harian untuk semua tickers, sequential 0.5s/ticker, background job |
+| GET | `/admin/ohlcv-daily-status` | **[Baru]** Poll progress OHLCV Daily Backfill (JSON) |
+| GET | `/admin/seed-eod?date_from=&date_to=` | **[Baru]** Seed eod_summary rows untuk semua tickers dari price_history |
 | POST | `/admin/upload-session` | Upload file session Telegram (binary) |
 | GET | `/admin/users` | Daftar user |
 | POST | `/admin/users/add` | Tambah user (username, password, role) |
@@ -1120,7 +1141,8 @@ fetch_ohlcv(ticker, tf, interval_map)
 - Karena itu BSJP bisa compute indicator untuk semua saham, tidak hanya yang punya Telegram data
 
 **Rate limiting:**
-- `asyncio.Semaphore(10)` → max 10 request bersamaan ke Yahoo
+- `asyncio.Semaphore(10)` → max 10 request bersamaan ke Yahoo (untuk `backfill_price_history_ohlcv`)
+- OHLCV Daily Backfill (`backfill_ohlcv_daily_all_tickers`): **sequential 0.5s/ticker** — bukan async/ThreadPool
 - Cache gain per ticker: 5 menit (`GAIN_CACHE_TTL`)
 
 **Format date:** Konversi DD-MM-YYYY ↔ YYYY-MM-DD sesuai kebutuhan.
@@ -1166,12 +1188,16 @@ backfill_intraday_15m(conn, date_from: str, date_to: str)
 
 **Rate Limit Mitigation:**
 - Yahoo Finance: ~2000 req/jam limit (~1 req/sec sustained)
-- Strategy:
-  - Max 4 concurrent workers (vs 8) → reduce burst load
-  - 180s delay between dates → let Yahoo "cool down"
-  - Each date fetch ~3-4 min, delay 3 min → ~6-7 min per tanggal
-  - Total untuk 42 hari: ~42 × 6-7 min = ~4-5 jam (diestimasi ~2 jam worst-case)
-- Jika masih kena limit: reduce `max_workers` ke 2-3, atau extend delay ke 5 menit
+- Strategy (final setelah beberapa revisi):
+  - **Sequential loop** (bukan ThreadPoolExecutor) — satu ticker pada satu waktu
+  - 0.5s sleep antar ticker → ~2 req/sec, well under Yahoo limit
+  - Progress log setiap 50 tickers
+  - 180s delay antar tanggal (Fetch All mode)
+  - Each date: ~9 menit (805 tickers × 0.5s) + 3 menit delay = ~12 menit
+  - Total untuk 42 hari: ~42 × 12 min = ~8-9 jam
+- Kenapa sequential: ThreadPoolExecutor burst (4 workers × 805 tickers = ~800 req burst)
+  menyebabkan Yahoo silently return empty data untuk semua tickers — tidak ada error,
+  hanya data kosong. Sequential 0.5s/ticker menghindari masalah ini.
 
 ---
 
@@ -1386,7 +1412,7 @@ algo/algo_backtest.py
 | `routes/*.py` | Routing + input validation only — no business logic, no direct API calls |
 | `algo/analytics_daily.py` | No HTTP calls. Wyckoff + flow analysis (Telegram tickers hanya). Per-ticker exception handling. |
 | `algo/analytics_bsjp.py` | No HTTP calls. Pure price-based BSJP indicators (all tickers). Per-ticker exception handling. No Telegram data. |
-| `algo/summary_rebuild.py` | Hanya agregasi flow — analytics fields disentuh `analytics_daily.py` atau `analytics_bsjp.py` |
+| `algo/summary_rebuild.py` | Agregasi flow + `seed_eod_from_price_history()`. Analytics fields tidak disentuh di sini. |
 | `scraper/scraper_saver.py` | Auto-register tickers ke `ticker_universe` via `_register_tickers()` |
 | `data/price_fetch.py` | Fetch dari `ticker_universe` (all active), fallback ke `eod_summary` jika universe kosong. Intraday 15m via `backfill_intraday_15m()` user-triggered. |
 
@@ -1419,7 +1445,7 @@ Semua tabel dan file sudah dibuat, tapi **tidak ada API call aktif** karena `DAT
 
 ---
 
-*Dokumen ini diupdate per 16 Mei 2026:*
+*Dokumen ini diupdate per 17 Mei 2026:*
 
 **BSJP Refactoring (15 Mei):**
 - Ditambah: `ticker_universe` table untuk master list semua saham
@@ -1437,7 +1463,21 @@ Semua tabel dan file sudah dibuat, tapi **tidak ada API call aktif** karena `DAT
 - Ditambah: BSJP Intraday 15m card di admin UI dengan "Fetch Range" + "Fetch All" buttons
 - Use case: BSJP backtest perlu exact timing SL/TP hit intra-day (daily OHLC tidak cukup)
 
-**Rate Limit Mitigation (16 Mei revisi):**
-- Yahoo block 805 tickers sekaligus dengan 8 workers (burst ~800 req/menit)
-- Solusi: `max_workers` 8 → 4, delay 30s → 180s (3 menit) antar tanggal
-- Estimasi: ~2 jam untuk 42 hari bursa (vs ~21 menit sebelumnya, tapi sustainable)
+**Rate Limit Mitigation — Final (16-17 Mei):**
+- Iterasi: 8 workers → 4 workers → sequential 0.5s/ticker
+- Root cause: ThreadPoolExecutor burst menyebabkan Yahoo silently return empty (tidak error)
+- Final strategy: sequential loop 0.5s/ticker = ~2 req/sec — ~9 menit per tanggal (805 tickers)
+- Total Fetch All 15m: ~9 min/tanggal + 3 min delay = ~8-9 jam untuk 42 hari
+
+**OHLCV Daily Backfill + Seed EOD (17 Mei):**
+- Ditambah: `/admin/backfill-ohlcv-daily` — fetch OHLCV harian untuk semua tickers, date range bebas
+  - Sequential 0.5s/ticker, background thread, progress-tracked, resume-on-reload
+  - Tujuan utama: populate price_history agar MA200 bisa dihitung untuk semua 805 tickers
+- Ditambah: `/admin/seed-eod` — seed eod_summary untuk semua active tickers dari price_history
+  - `seed_eod_from_price_history()` di `summary_rebuild.py`
+  - CROSS JOIN price_history × ticker_universe → INSERT ON CONFLICT DO NOTHING
+  - Satu query SQL, sangat cepat
+- Perubahan desain: eod_summary sekarang mencakup **semua 805 tickers** (bukan hanya Telegram-active)
+  - Tickers tanpa SM/BM diinisialisasi sm_val=0, bm_val=0
+  - Analytics (Wyckoff, BSJP, MA200) tetap computed selama price_history tersedia
+- Daily scraper: setelah `enrich_daily_ohlcv()`, otomatis seed eod_summary untuk hari baru
