@@ -1,388 +1,666 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="light">
 <head>
 <meta charset="UTF-8"/>
+<script>(function(){var t=localStorage.getItem('zenith-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Zenith — Hub</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/tokens.css">
-<style>
-:root{--bg:#080c10;--surface:#0e1318;--surface2:#121920;--border:#1a2230;--border2:#243040;--accent:#00e8a2;--accent2:#4d9fff;--danger:#ff4d6a;--text:#c8d8e8;--muted:#bfcbd4;--up:#00e8a2;--down:#ff4d6a}
-*{box-sizing:border-box;margin:0;padding:0;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
-::-webkit-scrollbar{width:5px;height:5px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px}
-::-webkit-scrollbar-thumb:hover{background:var(--muted)}
-html{scrollbar-gutter:stable}
-html,body{height:100%}
-body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;display:flex;flex-direction:column}
-
-/* ── HEADER ── */
-header{position:sticky;top:0;z-index:200;display:flex;align-items:center;gap:16px;padding:12px 24px;border-bottom:1px solid var(--border);background:rgba(8,12,16,.88);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
-header::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,232,162,.3),transparent)}
-.logo{display:flex;align-items:center;font-family:'Space Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.18em;color:var(--accent);text-transform:uppercase;white-space:nowrap;text-decoration:none}
-.logo-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);margin-right:7px;flex-shrink:0}
-.logo-sub{color:var(--muted)}
-.nav-group{display:flex;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:3px;gap:2px}
-.nav-btn{background:none;border:1px solid transparent;color:var(--muted);border-radius:4px;padding:4px 12px;cursor:pointer;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.06em;text-decoration:none;transition:all .15s}
-.nav-btn:hover{color:var(--accent)}
-.nav-btn.active{background:var(--surface);border-color:rgba(0,232,162,.25);color:var(--accent)}
-
-.nav-right{margin-left:auto;display:flex;align-items:center;gap:12px;font-family:'Space Mono',monospace}
-.ihsg-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:1px;font-family:'Space Mono',monospace}
-.ihsg-label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.ihsg-price{font-size:13px;font-weight:700;color:var(--text)}
-.ihsg-gain{font-size:10px;font-weight:700}
-
-.info-btn{background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:50%;width:28px;height:28px;cursor:pointer;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;transition:all .15s;display:flex;align-items:center;justify-content:center;flex-shrink:0;text-decoration:none;position:relative}
-.info-btn:hover{border-color:var(--accent);color:var(--accent);box-shadow:0 0 8px rgba(0,232,162,.25)}
-.info-btn svg{width:13px;height:13px}
-.info-btn.pulse{border-color:rgba(0,232,162,.5);color:var(--accent);animation:btnPulse 2.4s ease-in-out infinite}
-.info-btn.pulse:hover{animation:none;box-shadow:0 0 16px rgba(0,232,162,.5)}
-@keyframes btnPulse{
-  0%,100%{box-shadow:0 0 0 0 rgba(0,232,162,.45),0 0 8px rgba(0,232,162,.25)}
-  50%{box-shadow:0 0 0 7px rgba(0,232,162,0),0 0 16px rgba(0,232,162,.5)}
-}
-.floating-help{position:fixed;top:20px;right:24px;z-index:300}
-@media(max-width:560px){.floating-help{top:14px;right:14px}}
-@keyframes dotPulse{
-  0%,100%{box-shadow:0 0 6px var(--accent),0 0 0 0 rgba(0,232,162,.5)}
-  50%{box-shadow:0 0 14px var(--accent),0 0 0 5px rgba(0,232,162,0)}
-}
-
-/* ── HERO ── */
-.hero{text-align:center;padding:28px 24px 4px;position:relative}
-.hero::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:280px;height:1px;background:linear-gradient(90deg,transparent,rgba(0,232,162,.4),transparent)}
-.hero-eyebrow{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.22em;color:var(--muted);text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:10px}
-.hero-eyebrow::before,.hero-eyebrow::after{content:'';width:24px;height:1px;background:var(--border2)}
-.hero-logo{font-family:'Space Mono',monospace;font-size:36px;font-weight:700;letter-spacing:.35em;color:var(--accent);line-height:1}
-.hero-tag{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;margin-top:10px}
-
-/* ── STATS ROW ── */
-.stats-row{display:flex;justify-content:center;padding:20px 24px}
-.stats-row-inner{display:flex;align-items:stretch;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
-.sr-item{display:flex;flex-direction:column;gap:3px;padding:10px 24px;align-items:center}
-.sr-sep{width:1px;background:var(--border);align-self:stretch}
-.sr-label{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}
-.sr-val{font-family:'Space Mono',monospace;font-size:14px;font-weight:700}
-
-/* ── CARDS ── */
-.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;max-width:1100px;margin:0 auto;padding:10px 24px 32px;width:100%}
-@media(max-width:1000px){.cards{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:560px){.cards{grid-template-columns:1fr}}
-
-.card{background:var(--surface);border:1px solid var(--border);border-top:2px solid var(--border2);border-radius:10px;padding:16px;cursor:pointer;transition:border-color .25s cubic-bezier(.4,0,.2,1),transform .25s cubic-bezier(.4,0,.2,1),box-shadow .25s cubic-bezier(.4,0,.2,1),background .2s;display:flex;flex-direction:column;gap:8px;text-decoration:none;color:var(--text);position:relative;overflow:hidden;will-change:transform;box-shadow:0 4px 16px -4px rgba(0,0,0,.4)}
-.card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at var(--mx,50%) var(--my,50%),rgba(0,232,162,.08),transparent 60%);opacity:0;transition:opacity .3s;pointer-events:none}
-.card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:transparent;transition:background .25s}
-.card:hover{border-color:rgba(0,232,162,.35);border-top-color:var(--accent);transform:translateY(-4px) scale(1.01);box-shadow:0 12px 32px -8px rgba(0,0,0,.6),0 0 0 1px rgba(0,232,162,.08)}
-.card:hover::before{opacity:1}
-.card:hover::after{background:linear-gradient(90deg,transparent,rgba(0,232,162,.4),transparent)}
-.card:hover .card-accent-bar{background:var(--accent);width:48px}
-.card:active{transform:translateY(-2px) scale(.99);transition:transform .08s ease-out;box-shadow:0 4px 12px -4px rgba(0,0,0,.5)}
-.card-accent-bar{width:28px;height:3px;border-radius:2px;background:var(--border2);margin-bottom:2px;transition:background .25s,width .25s cubic-bezier(.4,0,.2,1)}
-.card-title{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text);transition:color .2s}
-.card:hover .card-title{color:var(--accent)}
-.card-sub{font-size:10px;font-family:'Space Mono',monospace;color:var(--accent);letter-spacing:.04em;margin-top:-4px}
-.card-desc{font-size:12px;color:var(--muted);line-height:1.55;flex:1}
-.card-footer{display:flex;justify-content:flex-end;margin-top:4px}
-.card-arrow{font-family:'Space Mono',monospace;font-size:14px;color:var(--border2);transition:color .2s,transform .25s cubic-bezier(.4,0,.2,1)}
-.card:hover .card-arrow{color:var(--accent);transform:translateX(4px)}
-
-.footer{text-align:center;padding:24px;font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);margin-top:auto}
-
-/* Spotlight onboarding */
-.spotlight-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0);pointer-events:none;transition:background .4s ease}
-.spotlight-overlay.active{background:rgba(0,0,0,.75);pointer-events:all}
-.spotlight-target{z-index:1001!important;pointer-events:all!important}
-.spotlight-target::after{content:'';position:absolute;inset:-8px;border-radius:50%;box-shadow:0 0 0 4px var(--accent),0 0 0 9999px rgba(0,0,0,.75);animation:spotPulse 1.5s ease-in-out infinite;pointer-events:none}
-@keyframes spotPulse{0%,100%{box-shadow:0 0 0 4px var(--accent),0 0 0 9999px rgba(0,0,0,.75)}50%{box-shadow:0 0 0 8px rgba(0,232,162,.5),0 0 0 9999px rgba(0,0,0,.75)}}
-.onboard-bubble{position:fixed;z-index:1002;background:var(--surface);border:1px solid var(--accent);border-radius:8px;padding:18px 20px;font-family:'Space Mono',monospace;font-size:11px;color:var(--text);line-height:1.5;max-width:280px;opacity:0;transform:translateY(4px);transition:opacity .3s ease,transform .3s ease;pointer-events:none}
-.onboard-bubble.visible{opacity:1;transform:translateY(0)}
-.onboard-bubble::before{content:'';position:absolute;top:-6px;right:20px;width:10px;height:6px;background:var(--accent);clip-path:polygon(50% 0%,0% 100%,100% 100%)}
-
-.info-backdrop{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
-.info-backdrop.open{opacity:1;pointer-events:all}
-.info-modal{background:var(--surface);border:1px solid var(--border2);border-radius:10px;width:min(90vw,760px);max-height:85vh;display:flex;flex-direction:column;transform:scale(.97);transition:transform .2s;overflow:hidden}
-.info-backdrop.open .info-modal{transform:scale(1)}
-.info-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0}
-.info-title{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;letter-spacing:.1em;color:var(--accent)}
-.info-sub{font-size:11px;color:var(--muted);margin-top:2px}
-.info-body{overflow-y:auto;padding:20px}
-.info-section{margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid var(--border)}
-.info-section:last-child{border-bottom:none;margin-bottom:0}
-.info-section-title{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--accent);text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px}
-.info-section-title::after{content:'';flex:1;height:1px;background:var(--border)}
-.info-p{font-size:12px;color:var(--text);line-height:1.65;margin-bottom:8px}
-.info-p:last-child{margin-bottom:0}
-.info-highlight{background:rgba(0,232,162,.07);border-left:3px solid var(--accent);border-radius:0 4px 4px 0;padding:10px 14px;margin:10px 0;font-family:'Space Mono',monospace;font-size:11px;color:var(--text);line-height:1.6}
-.info-highlight.danger{background:rgba(255,77,106,.07);border-left-color:var(--danger)}
-.info-highlight.neutral{background:rgba(77,159,255,.07);border-left-color:var(--accent2)}
-.info-glossary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
-@media(max-width:560px){.info-glossary{grid-template-columns:1fr}}
-.info-term{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px 14px}
-.info-term-label{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;margin-bottom:4px}
-.info-term-label.cm{color:var(--up)}.info-term-label.sm{color:var(--accent2)}.info-term-label.bm{color:#ff8c42}.info-term-label.muted{color:var(--muted)}
-.info-term-desc{font-size:11px;color:var(--muted);line-height:1.5}
-.info-scenarios{display:flex;flex-direction:column;gap:8px;margin-top:10px}
-.info-scenario{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px 14px}
-.info-scenario-title{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;color:var(--text);letter-spacing:.06em;margin-bottom:6px}
-.info-scenario-desc{font-size:11px;color:var(--muted);line-height:1.5}
-.close-btn{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:4px;transition:color .15s}
-.close-btn:hover{color:var(--text)}
-
-/* ── RESPONSIVE ── */
-@media(max-width:768px){
-  header{gap:8px;padding:10px 14px;flex-wrap:wrap}
-  .logo{font-size:11px}
-  .nav-btn{padding:3px 10px;font-size:10px}
-  .nav-right{gap:6px}
-  .ihsg-price{font-size:11px}
-  .hero{padding:28px 16px 0}
-  .hero-logo{font-size:26px;letter-spacing:.22em}
-  .hero-tag{font-size:9px;letter-spacing:.14em}
-  .hero-eyebrow{font-size:10px;letter-spacing:.18em;margin-bottom:10px}
-  .stats-row{padding:14px 16px}
-  .sr-item{padding:8px 14px}
-  .sr-val{font-size:12px}
-  .cards{padding:14px;gap:14px}
-  .card{padding:18px}
-  .card-desc{font-size:11px}
-}
-@media(max-width:420px){
-  header{gap:6px;padding:8px 12px}
-  .nav-btn{padding:3px 8px;font-size:9px}
-  .nav-right{margin-left:auto}
-  .hero-logo{font-size:22px}
-  .stats-row{padding:10px 14px}
-  .sr-item{padding:6px 10px}
-  .sr-label{font-size:10px}
-  .sr-val{font-size:11px}
-  .cards{padding:10px;gap:10px}
-  .card{padding:14px;gap:8px}
-  .card-title{font-size:12px}
-  .card-sub{font-size:10px}
-  .card-desc{font-size:10px}
-  .footer{font-size:9px;padding:14px}
-}
-</style>
 <link rel="stylesheet" href="/static/sidebar.css">
+<style>
+html, body { height: 100%; }
+body { display: flex; flex-direction: column; }
+
+.hub-content {
+  padding: 40px 32px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ── Hero ── */
+.hub-hero {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 48px;
+  align-items: center;
+  margin-bottom: 40px;
+}
+.hub-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 8px;
+  background: var(--surface);
+  border-radius: 99px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+.hub-live-dot {
+  width: 6px; height: 6px;
+  border-radius: 99px;
+  background: var(--up);
+}
+.hub-greeting {
+  font-family: var(--font-display);
+  font-size: 44px;
+  line-height: 1.05;
+  letter-spacing: -.03em;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0 0 14px;
+}
+.hub-greeting-sub {
+  font-size: 16px;
+  color: var(--text-dim);
+  max-width: 520px;
+  line-height: 1.55;
+  margin-bottom: 24px;
+}
+.hub-cta-row {
+  display: flex;
+  gap: 10px;
+}
+.btn-ink {
+  padding: 10px 16px;
+  background: var(--ink);
+  color: var(--bg);
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  text-decoration: none;
+  transition: opacity .15s;
+}
+.btn-ink:hover { opacity: .85; }
+.btn-outline {
+  padding: 10px 16px;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  text-decoration: none;
+  transition: border-color .15s;
+}
+.btn-outline:hover { border-color: var(--ink); }
+
+/* ── Snapshot card ── */
+.hub-snapshot {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.hub-snapshot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.hub-snapshot-live {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.hub-snapshot-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+.hub-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.hub-stat {
+  display: flex;
+  flex-direction: column;
+}
+.hub-stat-label {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+.hub-stat-val {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -.01em;
+}
+.hub-stat-delta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 1px;
+}
+.hub-snapshot-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-dim);
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.hub-snapshot-link {
+  color: var(--accent);
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+/* ── Modules ── */
+.hub-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 14px;
+}
+.hub-section-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.hub-section-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.hub-modules {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.hub-module-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  cursor: pointer;
+  min-height: 200px;
+  text-decoration: none;
+  color: var(--text);
+  transition: border-color .15s, box-shadow .15s;
+}
+.hub-module-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 4px 16px rgba(0,0,0,.06);
+}
+.hub-module-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.hub-module-icon {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  background: var(--surface2);
+  color: var(--text-dim);
+  display: flex; align-items: center; justify-content: center;
+}
+.hub-module-icon.accent {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.hub-module-num {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  letter-spacing: .1em;
+}
+.hub-module-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -.01em;
+  margin-top: 6px;
+}
+.hub-module-sub {
+  font-size: 12.5px;
+  color: var(--accent);
+  font-weight: 500;
+}
+.hub-module-desc {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.55;
+  flex: 1;
+}
+.hub-module-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+}
+.hub-module-open {
+  font-size: 12.5px;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* ── Today's accumulation ── */
+.hub-accum {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 22px;
+}
+.hub-accum-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.hub-accum-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.hub-accum-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.hub-accum-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+.hub-accum-item {
+  padding: 12px 14px;
+  background: var(--surface2);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.hub-accum-ticker-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.hub-accum-ticker {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.hub-accum-chg {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+.hub-accum-cm {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.hub-accum-bar-track {
+  height: 3px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.hub-accum-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+}
+.hub-accum-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+/* ── Footer ── */
+.hub-page-footer {
+  text-align: center;
+  padding: 24px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+}
+
+/* ── Responsive ── */
+@media (max-width: 1100px) { .hub-modules { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 900px)  { .hub-hero { grid-template-columns: 1fr; } .hub-greeting { font-size: 34px; } }
+@media (max-width: 700px)  { .hub-modules { grid-template-columns: 1fr; } .hub-accum-grid { grid-template-columns: repeat(2, 1fr); } }
+</style>
 </head>
 <body class="sidebar-layout" data-page="hub">
-{% include 'sidebar.html' %}<div class="main-content">
-<a href="#main" class="skip-link">Skip to main content</a>
-<!-- Mobile top bar (hamburger) -->
-<div class="hub-mobile-bar">
-  <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg></button>
-</div>
-<button class="info-btn pulse floating-help" id="infoTrigger" onclick="openInfoModal()" title="Panduan membaca data (tekan ?)" aria-label="Panduan membaca data" aria-expanded="false" aria-controls="infoModal">?</button>
+{% include 'sidebar.html' %}
 
-<main id="main">
-<div class="hero">
-  <div class="hero-eyebrow">Smart Money and Wyckoff Analysis</div>
-  <div class="hero-logo">ZENITH</div>
-  <div class="hero-tag">IDX Market Intelligence Platform</div>
-</div>
-
-<div class="stats-row">
-  <div class="stats-row-inner">
-    <div class="sr-item"><span class="sr-label">IHSG</span><span class="sr-val" id="sIHSG" style="color:var(--text)">—</span></div>
-    <div class="sr-sep"></div>
-    <div class="sr-item"><span class="sr-label">WIB</span><span class="sr-val" id="sTime" style="color:var(--text)">—</span></div>
-    <div class="sr-sep"></div>
-    <div class="sr-item"><span class="sr-label">Clean Money</span><span class="sr-val" id="sCM" style="color:var(--accent)">—</span></div>
+<div class="main-content">
+  <div class="hub-mobile-bar">
+    <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/>
+      </svg>
+    </button>
   </div>
+
+  <a href="#main" class="skip-link">Skip to main content</a>
+  <main id="main" class="hub-content">
+
+    <!-- Hero -->
+    <div class="hub-hero">
+      <div>
+        <div class="hub-live-badge">
+          <div class="hub-live-dot"></div>
+          Market live · <span id="hubTime">--:-- WIB</span>
+        </div>
+        <h1 class="hub-greeting">Good day, {{ session.get('user','Trader') | capitalize }}.</h1>
+        <p class="hub-greeting-sub">Smart money is rotating. Here's where to look first today.</p>
+        <div class="hub-cta-row">
+          <a href="/flow" class="btn-ink">Open Flow →</a>
+          <a href="/wyckoff" class="btn-outline">Wyckoff analysis</a>
+        </div>
+      </div>
+
+      <!-- Snapshot card -->
+      <div class="hub-snapshot">
+        <div class="hub-snapshot-header">
+          <div class="hub-snapshot-live">
+            <div class="hub-live-dot"></div>
+            Live snapshot
+          </div>
+          <div class="hub-snapshot-time" id="snapTime">--:--:--</div>
+        </div>
+        <div class="hub-stats-grid">
+          <div class="hub-stat">
+            <div class="hub-stat-label">IHSG</div>
+            <div class="hub-stat-val" id="snapIHSG">—</div>
+            <div class="hub-stat-delta" id="snapIHSGChg">—</div>
+          </div>
+          <div class="hub-stat">
+            <div class="hub-stat-label">Clean Money</div>
+            <div class="hub-stat-val" id="snapCM">—</div>
+            <div class="hub-stat-delta" id="snapCMSub">today</div>
+          </div>
+          <div class="hub-stat">
+            <div class="hub-stat-label">Smart-active</div>
+            <div class="hub-stat-val" id="snapSMCount">—</div>
+            <div class="hub-stat-delta">emiten today</div>
+          </div>
+          <div class="hub-stat">
+            <div class="hub-stat-label">SM / BM ratio</div>
+            <div class="hub-stat-val" id="snapRatio">—</div>
+            <div class="hub-stat-delta" id="snapRatioBias">—</div>
+          </div>
+        </div>
+        <div class="hub-snapshot-footer">
+          <span id="snapTopMover">Top mover · —</span>
+          <a href="/flow" class="hub-snapshot-link">Open ledger →</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modules -->
+    <div class="hub-section-header">
+      <div class="hub-section-title">Modules</div>
+      <div class="hub-section-sub">Four lenses · same source of truth</div>
+    </div>
+    <div class="hub-modules">
+      <a href="/chart" class="hub-module-card">
+        <div class="hub-module-header">
+          <div class="hub-module-icon">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13L6 8L9 11L14 4"/><circle cx="2" cy="13" r="1.2" fill="currentColor"/><circle cx="14" cy="4" r="1.2" fill="currentColor"/></svg>
+          </div>
+          <div class="hub-module-num">01</div>
+        </div>
+        <div class="hub-module-name">Chart</div>
+        <div class="hub-module-sub">Candlesticks with flow overlay</div>
+        <div class="hub-module-desc">Price action with smart money markers, every timeframe.</div>
+        <div class="hub-module-footer">
+          <span class="hub-module-open">Open</span>
+          <span style="color:var(--text-dim)">→</span>
+        </div>
+      </a>
+      <a href="/flow" class="hub-module-card">
+        <div class="hub-module-header">
+          <div class="hub-module-icon accent">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 11C3 11 3 5 5 5S7 11 9 11S11 5 13 5S14.5 8 15 7"/></svg>
+          </div>
+          <div class="hub-module-num">02</div>
+        </div>
+        <div class="hub-module-name">Flow</div>
+        <div class="hub-module-sub">Smart vs bad money ledger</div>
+        <div class="hub-module-desc">Per-ticker breakdown with multi-sort and date filter.</div>
+        <div class="hub-module-footer">
+          <span class="hub-module-open">Open</span>
+          <span style="color:var(--text-dim)">→</span>
+        </div>
+      </a>
+      <a href="/sector" class="hub-module-card">
+        <div class="hub-module-header">
+          <div class="hub-module-icon">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+          </div>
+          <div class="hub-module-num">03</div>
+        </div>
+        <div class="hub-module-name">Sector</div>
+        <div class="hub-module-sub">Sector rotation analysis</div>
+        <div class="hub-module-desc">Which industries are being accumulated, ranked.</div>
+        <div class="hub-module-footer">
+          <span class="hub-module-open">Open</span>
+          <span style="color:var(--text-dim)">→</span>
+        </div>
+      </a>
+      <a href="/backtest" class="hub-module-card">
+        <div class="hub-module-header">
+          <div class="hub-module-icon">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 5V11H6"/><path d="M2 11A6 6 0 1 0 4 4.5"/></svg>
+          </div>
+          <div class="hub-module-num">04</div>
+        </div>
+        <div class="hub-module-name">Backtest</div>
+        <div class="hub-module-sub">Strategy leaderboard</div>
+        <div class="hub-module-desc">Test entry/exit pairings against historical data.</div>
+        <div class="hub-module-footer">
+          <span class="hub-module-open">Open</span>
+          <span style="color:var(--text-dim)">→</span>
+        </div>
+      </a>
+    </div>
+
+    <!-- Today's accumulation -->
+    <div class="hub-accum">
+      <div class="hub-accum-header">
+        <div>
+          <div class="hub-accum-title">Today's accumulation</div>
+          <div class="hub-accum-sub">Top emiten by Clean Money</div>
+        </div>
+        <a href="/flow" class="hub-snapshot-link">View all →</a>
+      </div>
+      <div class="hub-accum-grid" id="accumGrid">
+        <!-- filled by JS -->
+        <div class="hub-accum-item" style="opacity:.4">
+          <div class="hub-accum-ticker-row"><div class="hub-accum-ticker skeleton"></div></div>
+          <div class="hub-accum-cm skeleton wide"></div>
+        </div>
+        <div class="hub-accum-item" style="opacity:.3">
+          <div class="hub-accum-ticker-row"><div class="hub-accum-ticker skeleton"></div></div>
+          <div class="hub-accum-cm skeleton wide"></div>
+        </div>
+        <div class="hub-accum-item" style="opacity:.2">
+          <div class="hub-accum-ticker-row"><div class="hub-accum-ticker skeleton"></div></div>
+          <div class="hub-accum-cm skeleton wide"></div>
+        </div>
+        <div class="hub-accum-item" style="opacity:.15">
+          <div class="hub-accum-ticker-row"><div class="hub-accum-ticker skeleton"></div></div>
+          <div class="hub-accum-cm skeleton wide"></div>
+        </div>
+        <div class="hub-accum-item" style="opacity:.1">
+          <div class="hub-accum-ticker-row"><div class="hub-accum-ticker skeleton"></div></div>
+          <div class="hub-accum-cm skeleton wide"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hub-page-footer">zenith v2.0 · by machiavellia · <span class="kbd">?</span> help</div>
+  </main>
 </div>
 
-<div class="cards">
-  <a href="/chart" class="card">
-    <div class="card-accent-bar"></div>
-    <div class="card-title">Chart</div>
-    <div class="card-sub">End-of-Day Candlestick IDX</div>
-    <div class="card-desc">Analisis pergerakan harga saham IDX dengan timeframe 5m hingga 1D. Dilengkapi overlay CM, SM, dan BM langsung di atas candlestick.</div>
-    <div class="card-footer"><span class="card-arrow">→</span></div>
-  </a>
-  <a href="/flow" class="card">
-    <div class="card-accent-bar"></div>
-    <div class="card-title">Flow</div>
-    <div class="card-sub">Smart & Bad Money Flow</div>
-    <div class="card-desc">Pantau aliran dana smart money dan bad money per emiten IDX. Filter tanggal, multi-sort, dan detail transaksi lengkap per ticker.</div>
-    <div class="card-footer"><span class="card-arrow">→</span></div>
-  </a>
-  <a href="/sector" class="card">
-    <div class="card-accent-bar"></div>
-    <div class="card-title">Sector</div>
-    <div class="card-sub">Sector Rotation Analysis</div>
-    <div class="card-desc">Identifikasi sektor yang sedang diakumulasi atau didistribusi. Breakdown CM, SM, BM per sektor industri IDX.</div>
-    <div class="card-footer"><span class="card-arrow">→</span></div>
-  </a>
-  <a href="/backtest" class="card">
-    <div class="card-accent-bar"></div>
-    <div class="card-title">Backtest</div>
-    <div class="card-sub">Strategy Leaderboard</div>
-    <div class="card-desc">Uji performa kombinasi entry dan exit signal terhadap data historis IDX.</div>
-    <div class="card-footer"><span class="card-arrow">→</span></div>
-  </a>
-</div>
-
-</main>
-<div class="footer">zenith project v1.0 | by machiavellia · <span class="kbd">?</span> help · <span class="kbd">H</span> hub</div>
 <script src="/static/focus-trap.js" defer></script>
 <script src="/static/animations.js" defer></script>
 <script src="/static/shortcuts.js" defer></script>
-
 <script>
-function fmtM(v){if(v===null||v===undefined)return'—';const a=Math.abs(v),s=v<0?'-':'';if(a>=1000)return s+(a/1000).toFixed(1)+'B';if(a>=1)return s+a.toFixed(1)+'M';if(a>0)return s+(a*1000).toFixed(0)+'K';return'0'}
+function fmtM(v) {
+  if (v === null || v === undefined) return '—';
+  var a = Math.abs(v), s = v < 0 ? '-' : '+';
+  if (a >= 1000) return s + (a/1000).toFixed(1) + 'B';
+  if (a >= 1) return s + a.toFixed(1) + 'M';
+  if (a > 0) return s + (a*1000).toFixed(0) + 'K';
+  return '0';
+}
+function fmtPct(v) {
+  if (v === null || v === undefined) return '—';
+  return (v > 0 ? '+' : '') + v.toFixed(2) + '%';
+}
 
-async function init(){
-  try{
-    const r=await fetch('/api/ihsg');const d=await r.json();
-    if(d.price){
-      const p=d.price.toLocaleString('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2});
-      const g=d.gain_pct;
-      const gStr=g!==null&&g!==undefined?(g>0?'+':'')+g.toFixed(2)+'%':'';
-      const sEl=document.getElementById('sIHSG');
-      if(sEl){
-        sEl.textContent=p+(gStr?' ('+gStr+')':'');
-        if(g!==null&&g!==undefined)sEl.style.color=g>=0?'var(--up)':'var(--down)';
+function tick() {
+  var now = new Date(Date.now() + 7*3600*1000);
+  var hms = String(now.getUTCHours()).padStart(2,'0') + ':' +
+            String(now.getUTCMinutes()).padStart(2,'0') + ':' +
+            String(now.getUTCSeconds()).padStart(2,'0');
+  var hm  = hms.substring(0, 5) + ' WIB';
+  document.getElementById('snapTime').textContent = hms;
+  document.getElementById('hubTime').textContent  = hm;
+}
+tick(); setInterval(tick, 1000);
+
+async function init() {
+  /* IHSG */
+  try {
+    var r = await fetch('/api/ihsg');
+    var d = await r.json();
+    if (d.price) {
+      var p = d.price.toLocaleString('id-ID', {minimumFractionDigits:2, maximumFractionDigits:2});
+      document.getElementById('snapIHSG').textContent = p;
+      var g = d.gain_pct;
+      if (g !== null && g !== undefined) {
+        var el = document.getElementById('snapIHSGChg');
+        el.textContent = (g > 0 ? '+' : '') + g.toFixed(2) + '%';
+        el.style.color = g >= 0 ? 'var(--up)' : 'var(--down)';
       }
     }
-  }catch(_){}
-  try{
-    const r2=await fetch('/api/last-date');const ld=await r2.json();
-    if(ld.date){
-      const apiDate=ld.date.replace(/\//g,'-');
-      const r3=await fetch(`/api/flow?date_from=${apiDate}&date_to=${apiDate}`);
-      const fd=await r3.json();
-      if(fd.totals){
-        const cm=(fd.totals.sm||0)-(fd.totals.bm||0);
-        const el=document.getElementById('sCM');
-        el.textContent=(cm>0?'+':'')+fmtM(cm);
-        el.style.color=cm>=0?'var(--up)':'var(--down)';
+  } catch(_) {}
+
+  /* Flow data */
+  try {
+    var r2 = await fetch('/api/last-date');
+    var ld = await r2.json();
+    if (ld.date) {
+      var dt = ld.date.replace(/\//g, '-');
+      var r3 = await fetch('/api/flow?date_from=' + dt + '&date_to=' + dt);
+      var fd = await r3.json();
+      if (fd.totals) {
+        var sm = fd.totals.sm || 0, bm = fd.totals.bm || 0;
+        var cm = sm - bm;
+        document.getElementById('snapCM').textContent = fmtM(cm);
+        document.getElementById('snapCM').style.color = cm >= 0 ? 'var(--up)' : 'var(--down)';
+        document.getElementById('snapSMCount').textContent = fd.totals.sm_count || '—';
+        var ratio = bm !== 0 ? (sm / Math.abs(bm)).toFixed(2) + '×' : '—';
+        document.getElementById('snapRatio').textContent = ratio;
+        document.getElementById('snapRatioBias').textContent = cm >= 0 ? 'accumulation bias' : 'distribution bias';
+      }
+      if (fd.rows && fd.rows.length > 0) {
+        /* Top mover by price change */
+        var top = fd.rows.reduce(function(a, b) { return Math.abs((b.price_change||0)) > Math.abs((a.price_change||0)) ? b : a; });
+        if (top && top.ticker) {
+          var chg = top.price_change || 0;
+          document.getElementById('snapTopMover').textContent =
+            'Top mover · ' + top.ticker + ' ' + (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+        }
+        /* Accumulation strip — top 5 by CM */
+        var sorted = fd.rows.slice().sort(function(a, b) { return (b.cm||0) - (a.cm||0); }).slice(0, 5);
+        var maxCM = Math.max.apply(null, sorted.map(function(r){ return Math.abs(r.cm||0); })) || 1;
+        var html = sorted.map(function(r) {
+          var cm = r.cm || 0, chg = r.price_change || 0;
+          var barPct = Math.min(100, Math.abs(cm) / maxCM * 100);
+          return '<div class="hub-accum-item">' +
+            '<div class="hub-accum-ticker-row">' +
+              '<span class="hub-accum-ticker">' + r.ticker + '</span>' +
+              '<span class="hub-accum-chg" style="color:' + (chg>=0?'var(--up)':'var(--down)') + '">' + fmtPct(chg) + '</span>' +
+            '</div>' +
+            '<div class="hub-accum-cm">' + fmtM(cm) + '</div>' +
+            '<div class="hub-accum-bar-track"><div class="hub-accum-bar-fill" style="width:' + barPct + '%"></div></div>' +
+            '<div class="hub-accum-meta">RSM ' + (r.rsm||0).toFixed(1) + '% · TX ' + (r.tx||0) + '</div>' +
+          '</div>';
+        }).join('');
+        document.getElementById('accumGrid').innerHTML = html;
       }
     }
-  }catch(_){}
-  function tick(){const now=new Date(Date.now()+7*3600*1000);document.getElementById('sTime').textContent=String(now.getUTCHours()).padStart(2,'0')+':'+String(now.getUTCMinutes()).padStart(2,'0')+':'+String(now.getUTCSeconds()).padStart(2,'0')}
-  tick();setInterval(tick,1000);
-}
-window.addEventListener('DOMContentLoaded',init);
-window.addEventListener('DOMContentLoaded',initOnboarding);
-window.addEventListener('DOMContentLoaded',initCardEffects);
-
-function initCardEffects(){
-  document.querySelectorAll('.card').forEach(card=>{
-    card.addEventListener('mousemove',e=>{
-      const r=card.getBoundingClientRect();
-      card.style.setProperty('--mx',((e.clientX-r.left)/r.width*100)+'%');
-      card.style.setProperty('--my',((e.clientY-r.top)/r.height*100)+'%');
-    });
-    card.addEventListener('mousedown',()=>card.style.setProperty('transition','transform .08s ease-out'));
-    card.addEventListener('mouseup',()=>card.style.removeProperty('transition'));
-    card.addEventListener('mouseleave',()=>card.style.removeProperty('transition'));
-  });
+  } catch(_) {}
 }
 
-function initOnboarding(){
-  if(localStorage.getItem('zenith_onboarded'))return;
-  setTimeout(()=>{
-    const overlay=document.getElementById('spotlightOverlay');
-    const bubble=document.getElementById('onboardBubble');
-    const infoBtn=document.querySelector('.info-btn');
-    if(!infoBtn)return;
-    overlay.classList.add('active');
-    const rect=infoBtn.getBoundingClientRect();
-    infoBtn.classList.add('spotlight-target');
-    bubble.style.top=(rect.bottom+12)+'px';
-    bubble.style.right=(window.innerWidth-rect.right-10)+'px';
-    setTimeout(()=>bubble.classList.add('visible'),200);
-    infoBtn._origOnclick=infoBtn.onclick;
-    infoBtn.onclick=function(){dismissSpotlight();openInfoModal()};
-  },800);
-}
-function dismissSpotlight(){
-  document.getElementById('spotlightOverlay').classList.remove('active');
-  document.getElementById('onboardBubble').classList.remove('visible');
-  const infoBtn=document.querySelector('.info-btn');
-  if(infoBtn){infoBtn.classList.remove('spotlight-target');if(infoBtn._origOnclick)infoBtn.onclick=infoBtn._origOnclick}
-  localStorage.setItem('zenith_onboarded','1');
-}
+window.addEventListener('DOMContentLoaded', init);
 
-
-const INFO_CONTENT=`
-<div class="info-section">
-  <div class="info-section-title">Glossary Kolom Dashboard</div>
-  <div class="info-glossary">
-    <div class="info-term"><div class="info-term-label sm">SM VAL — Smart Money</div><div class="info-term-desc">Total dana besar yang masuk ke saham dari pemain institusional, fund manager, atau bandar besar. Semakin besar = potensi akumulasi.</div></div>
-    <div class="info-term"><div class="info-term-label bm">BM VAL — Bad Money</div><div class="info-term-desc">Total dana besar yang keluar dari saham. Dominan Bad Money = distribusi / penjualan besar. Perlu waspada.</div></div>
-    <div class="info-term"><div class="info-term-label cm">CM — Clean Money</div><div class="info-term-desc">SM Val − BM Val. Positif besar = dana masuk dominan. Negatif = distribusi lebih dominan dari akumulasi.</div></div>
-    <div class="info-term"><div class="info-term-label muted">RSM — Rasio Smart Money</div><div class="info-term-desc">SM / (SM + BM) × 100%. Makin tinggi = makin dominan Smart Money. Di atas 70% = sinyal kuat akumulasi.</div></div>
-    <div class="info-term"><div class="info-term-label cm">MF+ — Money Flow Plus</div><div class="info-term-desc">Akumulasi Money Flow positif dari sub-channel MF. Mengukur tekanan beli agregat di pasar.</div></div>
-    <div class="info-term"><div class="info-term-label bm">MF− — Money Flow Minus</div><div class="info-term-desc">Akumulasi Money Flow negatif. Mengukur tekanan jual agregat. Bandingkan dengan MF+ untuk lihat dominasi.</div></div>
-    <div class="info-term"><div class="info-term-label muted">NET MF</div><div class="info-term-desc">MF+ dikurangi MF−. Positif = tekanan beli lebih dominan. Negatif = tekanan jual lebih dominan.</div></div>
-    <div class="info-term"><div class="info-term-label muted">TX — Jumlah Transaksi</div><div class="info-term-desc">Total akumulasi frekuensi trigger Smart/Bad Money yang muncul. Makin banyak TX = aktivitas lebih konsisten dan signifikan.</div></div>
-  </div>
-</div>
-<div class="info-section">
-  <div class="info-section-title">Memahami Smart Money</div>
-  <div class="info-p">Smart Money adalah aktivitas transaksi dari pemain besar di pasar saham: institusi, fund manager, market maker, dan bandar besar. Mereka memiliki modal besar dan biasanya membeli saham secara bertahap agar tidak langsung menggerakkan harga — proses ini disebut <strong>akumulasi</strong>.</div>
-  <div class="info-highlight">Clean Money = Smart Money − Bad Money<br>Positif → dana masuk lebih dominan<br>Negatif → distribusi lebih dominan</div>
-  <div class="info-p">Trigger Smart Money dibuat untuk membantu trader mendeteksi aktivitas ini lebih awal sebelum harga bergerak signifikan.</div>
-</div>
-<div class="info-section">
-  <div class="info-section-title">Skenario Pembacaan</div>
-  <div class="info-scenarios">
-    <div class="info-scenario"><div class="info-scenario-title">📈 SKENARIO 1 — Akumulasi Awal</div><div class="info-scenario-desc">SM muncul, Clean Money positif, harga belum naik jauh, volume mulai meningkat. Makna: Bandar sedang mengumpulkan saham secara diam-diam. Strategi: masukkan ke watchlist atau entry bertahap.</div></div>
-    <div class="info-scenario"><div class="info-scenario-title">🔁 SKENARIO 2 — Akumulasi Berulang</div><div class="info-scenario-desc">SM muncul berkali-kali dalam satu hari (TX tinggi). Makna: terjadi akumulasi bertahap oleh pemain besar. Semakin sering muncul = semakin signifikan.</div></div>
-    <div class="info-scenario"><div class="info-scenario-title">🚀 SKENARIO 3 — Breakout Momentum</div><div class="info-scenario-desc">SM sangat besar, volume 5–10× rata-rata, harga menembus resistance. Makna: pemain besar mulai mendorong harga naik. Strategi: momentum buy.</div></div>
-    <div class="info-scenario"><div class="info-scenario-title">⚠️ SKENARIO 4 — Distribusi</div><div class="info-scenario-desc">Bad Money dominan, Clean Money negatif, volume tinggi, harga mulai turun. Makna: bandar mulai menjual saham ke pasar. Strategi: hindari entry atau lakukan take profit.</div></div>
-  </div>
-</div>
-<div class="info-section">
-  <div class="info-section-title">Smart Money Asli vs False Signal</div>
-  <div class="info-glossary">
-    <div class="info-term"><div class="info-term-label cm">✅ Smart Money Asli</div><div class="info-term-desc">Muncul berulang (TX tinggi) · Clean Money positif · Volume meningkat konsisten · Harga tidak langsung turun setelah trigger</div></div>
-    <div class="info-term"><div class="info-term-label bm">⚠️ Fake Smart Money</div><div class="info-term-desc">Hanya muncul sekali (TX rendah) · Volume tidak stabil · Harga langsung turun setelah trigger · Clean Money kecil atau negatif</div></div>
-  </div>
-</div>
-<div class="info-section">
-  <div class="info-section-title">Kesalahan Umum Trader</div>
-  <div class="info-highlight danger">❌ Langsung buy saat trigger pertama muncul tanpa konfirmasi<br>❌ Tidak melihat Clean Money — hanya fokus ke SM saja<br>❌ Tidak memperhatikan volume dan arah harga<br>❌ Mengabaikan TX — satu trigger tidak cukup untuk konfirmasi</div>
-  <div class="info-p">Smart Money sebaiknya dijadikan alat <strong>konfirmasi</strong>, bukan satu-satunya indikator. Gunakan bersama: Support/Resistance, Volume, Trend harga, dan Breakout level.</div>
-</div>
-<div class="info-section">
-  <div class="info-section-title">Waktu Penting Smart Money</div>
-  <div class="info-highlight neutral">Pagi: 09:30 – 10:30 WIB → sering terjadi aktivitas institusi pembuka<br>Siang: 13:30 – 15:00 WIB → sesi sore, sering ada dorongan akhir hari</div>
-  <div class="info-p">Trigger yang muncul di luar jam-jam ini tetap valid, namun perlu konfirmasi tambahan dari volume dan pergerakan harga.</div>
-</div>
-<div class="info-section">
-  <div class="info-section-title">Kesimpulan</div>
-  <div class="info-highlight">SM besar + CM positif + TX tinggi = Potensi kenaikan harga<br>BM besar + CM negatif = Potensi penurunan harga<br>RSM > 70% = Smart Money mendominasi hari itu</div>
-</div>
-`;
-function openInfoModal(){document.getElementById('infoBody').innerHTML=INFO_CONTENT;ZenithModal.open('infoBackdrop',document.getElementById('infoTrigger'))}
-function closeInfoModal(){ZenithModal.close('infoBackdrop')}
-function handleInfoBackdrop(e){if(e.target===document.getElementById('infoBackdrop'))closeInfoModal()}
-
+/* Help modal */
+window.__showZenithHelp = function() {
+  if (typeof ZenithModal !== 'undefined' && document.getElementById('infoBackdrop')) {
+    ZenithModal.open('infoBackdrop', document.getElementById('sidebarHelpBtn'));
+  }
+};
 </script>
 
-<div class="info-backdrop" id="infoBackdrop" onclick="handleInfoBackdrop(event)">
-  <div class="info-modal" id="infoModal">
-    <div class="info-header">
+<!-- Info modal (help) -->
+<div class="info-backdrop" id="infoBackdrop" style="position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;" onclick="if(event.target===this&&typeof ZenithModal!=='undefined')ZenithModal.close('infoBackdrop')">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;width:min(90vw,580px);max-height:82vh;display:flex;flex-direction:column;box-shadow:0 16px 64px rgba(0,0,0,.16);transform:scale(.97);transition:transform .2s;">
+    <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
       <div>
-        <div class="info-title">PANDUAN MEMBACA DATA</div>
-        <div class="info-sub">Smart Money Analysis — Zenith</div>
+        <div style="font-size:16px;font-weight:600;color:var(--ink);">Panduan membaca data</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;">Smart Money Analysis — Zenith</div>
       </div>
-      <button class="close-btn" onclick="closeInfoModal()">✕</button>
+      <button onclick="if(typeof ZenithModal!=='undefined')ZenithModal.close('infoBackdrop')" style="background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;padding:2px 8px;">✕</button>
     </div>
-    <div class="info-body" id="infoBody"></div>
+    <div style="overflow-y:auto;padding:20px 22px;display:flex;flex-direction:column;gap:14px;">
+      <div style="padding:14px 16px;background:var(--surface2);border-radius:10px;border-left:3px solid var(--moss);">
+        <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px;">SM VAL — Smart Money</div>
+        <div style="font-size:12.5px;color:var(--text-dim);line-height:1.55;">Total dana besar yang masuk ke saham dari pemain institusional. Semakin besar = potensi akumulasi.</div>
+      </div>
+      <div style="padding:14px 16px;background:var(--surface2);border-radius:10px;border-left:3px solid var(--accent);">
+        <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px;">BM VAL — Bad Money</div>
+        <div style="font-size:12.5px;color:var(--text-dim);line-height:1.55;">Total dana besar yang keluar dari saham. Dominan Bad Money = distribusi / penjualan besar.</div>
+      </div>
+      <div style="padding:14px 16px;background:var(--surface2);border-radius:10px;border-left:3px solid var(--moss);">
+        <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px;">CM — Clean Money</div>
+        <div style="font-size:12.5px;color:var(--text-dim);line-height:1.55;">SM Val − BM Val. Positif besar = dana masuk dominan. Negatif = distribusi lebih dominan.</div>
+      </div>
+      <div style="padding:14px 16px;background:var(--surface2);border-radius:10px;border-left:3px solid var(--muted);">
+        <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px;">RSM — Rasio Smart Money</div>
+        <div style="font-size:12.5px;color:var(--text-dim);line-height:1.55;">SM / (SM + BM) × 100%. Di atas 70% = sinyal kuat akumulasi.</div>
+      </div>
+      <div style="padding:14px 16px;background:var(--accent-soft);border-radius:10px;">
+        <div style="font-size:12.5px;color:var(--accent);font-weight:600;margin-bottom:6px;">Clean Money Formula</div>
+        <div style="font-family:var(--font-mono);font-size:12px;color:var(--ink);line-height:1.7;">
+          CM = SM − BM<br>
+          Positif → akumulasi dominan<br>
+          Negatif → distribusi dominan<br>
+          RSM &gt; 70% → sinyal kuat SM
+        </div>
+      </div>
+    </div>
   </div>
-</div>
-
-<div class="spotlight-overlay" id="spotlightOverlay" onclick="dismissSpotlight()"></div>
-<div class="onboard-bubble" id="onboardBubble">
-  👋 Hei! Pertama kali di sini?<br>
-  Klik tombol <strong style="color:var(--accent)">?</strong> ini dulu buat baca panduan singkat Smart Money!
-</div>
 </div>
 </body>
 </html>

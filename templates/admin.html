@@ -1,24 +1,18 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="light">
 <head>
 <meta charset="UTF-8"/>
+<script>(function(){var t=localStorage.getItem('zenith-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Zenith — Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/tokens.css">
+<link rel="stylesheet" href="/static/sidebar.css">
 <style>
-:root{--bg:#080c10;--surface:#0e1318;--surface2:#121920;--border:#1a2230;--border2:#243040;--accent:#00e8a2;--accent2:#4d9fff;--danger:#ff4d6a;--text:#c8d8e8;--muted:#bfcbd4}
 *{box-sizing:border-box;margin:0;padding:0;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 html,body{min-height:100%}
-body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px}
-
-/* HEADER */
-header{position:sticky;top:0;z-index:200;display:flex;align-items:center;gap:16px;padding:12px 24px;border-bottom:1px solid var(--border);background:rgba(8,12,16,.92);backdrop-filter:blur(12px)}
-header::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,232,162,.3),transparent)}
-.logo{display:flex;align-items:center;font-family:'Space Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.18em;color:var(--accent);text-transform:uppercase;white-space:nowrap;text-decoration:none}
-.logo-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:8px;flex-shrink:0;animation:dotPulse 2.4s ease-in-out infinite}
 @keyframes dotPulse{0%,100%{box-shadow:0 0 6px var(--accent),0 0 0 0 rgba(0,232,162,.5)}50%{box-shadow:0 0 14px var(--accent),0 0 0 5px rgba(0,232,162,0)}}
 .chip{display:inline-flex;align-items:center;gap:6px;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.06em;padding:4px 10px;border-radius:20px;border:1px solid var(--border2);background:var(--bg);color:var(--muted);text-transform:uppercase}
 .chip .dot{width:6px;height:6px;border-radius:50%;background:var(--border2);flex-shrink:0}
@@ -90,19 +84,24 @@ select.sel{background:var(--bg);border:1px solid var(--border2);color:var(--text
 .toast.ok{border-color:rgba(0,232,162,.4);color:var(--accent)}.toast.err{border-color:rgba(255,77,106,.4);color:var(--danger)}
 </style>
 </head>
-<body>
+<body class="sidebar-layout">
+{% include 'sidebar.html' %}<div class="main-content">
+<a href="#main" class="skip-link">Skip to main content</a>
 
-<header>
-  <a href="/hub" class="logo"><span class="logo-dot"></span>ZENITH</a>
-  <div class="chip" id="scraperChip"><span class="dot"></span><span id="scraperChipLabel">—</span></div>
-  <div class="header-right">
-    <button class="hdr-btn" onclick="refreshScraperStatus()">↻ Refresh</button>
-    <a href="/hub" class="hdr-btn">
-      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M1.5 5.5L6 1.5L10.5 5.5V10.5H7.5V7.5H4.5V10.5H1.5V5.5Z"/></svg>
-      Hub
-    </a>
+<div class="hub-mobile-bar">
+  <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg></button>
+  <span style="font-family:var(--font-display);font-weight:600;font-size:15px;color:var(--ink)">Admin</span>
+</div>
+<div class="page-header" id="main">
+  <div>
+    <div class="page-subtitle">System</div>
+    <h1 class="page-title">Admin</h1>
   </div>
-</header>
+  <div class="page-header-actions">
+    <div class="chip" id="scraperChip"><span class="dot"></span><span id="scraperChipLabel">—</span></div>
+    <button class="hdr-btn" onclick="refreshScraperStatus()">↻ Refresh</button>
+  </div>
+</div>
 
 <div class="page">
 
@@ -544,5 +543,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <script src="/static/shortcuts.js" defer></script>
+</div>
 </body>
 </html>

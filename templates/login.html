@@ -1,109 +1,427 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="light">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Zenith — Access</title>
+<script>
+(function(){
+  var t = localStorage.getItem('zenith-theme') || 'light';
+  document.documentElement.setAttribute('data-theme', t);
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/tokens.css">
 <style>
-:root{--bg:#080c10;--surface:#0e1318;--border:#1a2230;--border2:#243040;--accent:#00e8a2;--text:#c8d8e8;--muted:#bfcbd4;--danger:#ff4d6a}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative}
-body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(200,216,232,.02) 2px,rgba(200,216,232,.02) 4px);pointer-events:none;z-index:0}
-.card{position:relative;z-index:1;width:380px;display:flex;flex-direction:column;align-items:center;gap:28px;animation:fadeIn .5s ease}
-@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-.logo{font-family:'Space Mono',monospace;font-size:28px;font-weight:700;letter-spacing:.3em;color:var(--accent);text-transform:uppercase}
-.tagline{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--muted);text-transform:uppercase;margin-top:-16px}
-.form{width:100%;display:flex;flex-direction:column;gap:12px}
-.form-label{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
-.form-input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:12px 14px;font-family:'Space Mono',monospace;font-size:13px;outline:none;transition:border-color .2s,box-shadow .2s;letter-spacing:.04em}
-.form-input:focus{border-color:var(--accent);box-shadow:0 0 12px rgba(0,232,162,.1)}
-.form-input::placeholder{color:var(--muted)}
-.form-btn{width:100%;background:var(--accent);color:var(--bg);border:none;border-radius:6px;padding:12px;font-family:'Space Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:opacity .15s}
-.form-btn:hover{opacity:.85}
-.pw-wrap{position:relative;width:100%}
-.pw-wrap .form-input{padding-right:40px}
-.pw-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:color .15s;padding:0}
-.pw-toggle:hover{color:var(--text)}
-.pw-toggle svg{width:14px;height:14px;pointer-events:none}
-.msg{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.06em;text-align:center;min-height:18px;transition:opacity .2s}
-.msg.error{color:var(--danger);animation:shake .4s ease}
-.msg.success{color:var(--accent)}
-@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
-.footer{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.06em;z-index:1}
+html, body { height: 100%; overflow: hidden; }
+body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100vh;
+}
 
+/* ── Left panel ── */
+.login-left {
+  padding: 36px 56px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+.login-logo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15.5px;
+  letter-spacing: -.02em;
+  color: var(--ink);
+  text-decoration: none;
+}
+.login-logo-icon {
+  width: 24px; height: 24px;
+  border-radius: 7px;
+  background: var(--ink);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.login-hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 420px;
+}
+.login-badge {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 11px 5px 8px;
+  background: var(--accent-soft);
+  border-radius: 99px;
+  font-size: 11.5px;
+  color: var(--accent);
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+.login-badge-dot {
+  width: 6px; height: 6px;
+  border-radius: 99px;
+  background: var(--accent);
+}
+.login-headline {
+  font-family: var(--font-display);
+  font-size: 52px;
+  line-height: 1.05;
+  letter-spacing: -.025em;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0 0 20px;
+}
+.login-sub {
+  font-size: 15.5px;
+  color: var(--text-dim);
+  line-height: 1.55;
+  margin: 0 0 32px;
+}
+.login-features {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.login-feature {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 14px;
+  align-items: flex-start;
+}
+.login-feature-check {
+  width: 20px; height: 20px;
+  border-radius: 99px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--accent);
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+.login-feature-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.login-feature-desc {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 1px;
+}
+.login-footer {
+  font-size: 12px;
+  color: var(--muted);
+}
 
-/* ── RESPONSIVE ──────────────────────────── */
-@media(max-width:440px){
-  .card{width:calc(100vw - 32px)}
-  .logo{font-size:24px;letter-spacing:.22em}
-  .tagline{font-size:10px}
-  .form-input{font-size:16px;padding:11px 12px}
+/* ── Right panel (sign-in card) ── */
+.login-right {
+  padding: 36px 56px;
+  background: var(--surface2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.login-card {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 36px 36px 32px;
+  border: 1px solid var(--border);
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 1px 0 rgba(0,0,0,.02), 0 24px 48px -24px rgba(40,30,20,.08);
+}
+[data-theme="dark"] .login-card {
+  box-shadow: 0 1px 0 rgba(255,255,255,.02), 0 24px 48px -24px rgba(0,0,0,.4);
+}
+.login-card-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -.015em;
+  margin-bottom: 6px;
+}
+.login-card-sub {
+  font-size: 13.5px;
+  color: var(--text-dim);
+  margin-bottom: 28px;
+}
+.form-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.form-label-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.form-input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  border-radius: 9px;
+  padding: 10px 14px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  margin-bottom: 16px;
+}
+.form-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.form-input::placeholder { color: var(--muted); }
+.pw-wrap { position: relative; margin-bottom: 16px; }
+.pw-wrap .form-input { margin-bottom: 0; padding-right: 44px; }
+.pw-toggle {
+  position: absolute; right: 10px; top: 50%;
+  transform: translateY(-50%);
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; padding: 4px;
+}
+.pw-toggle:hover { color: var(--text); }
+
+.remember-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 24px;
+}
+.remember-check {
+  width: 18px; height: 18px;
+  border-radius: 5px;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.remember-label { font-size: 13px; color: var(--text); cursor: pointer; }
+
+.btn-primary {
+  width: 100%;
+  padding: 12px 18px;
+  background: var(--ink);
+  color: var(--bg);
+  border: none;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 12px;
+  font-family: var(--font-sans);
+  transition: opacity .15s;
+}
+.btn-primary:hover { opacity: .85; }
+.btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+
+.btn-google {
+  width: 100%;
+  padding: 12px 18px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: not-allowed;
+  font-family: var(--font-sans);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  opacity: .55;
+  margin-bottom: 24px;
+  transition: opacity .15s;
+}
+
+.form-footer {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.form-link {
+  color: var(--accent);
+  font-weight: 500;
+  cursor: pointer;
+}
+.form-msg {
+  font-size: 12px;
+  min-height: 18px;
+  text-align: center;
+  margin-bottom: 12px;
+  transition: opacity .2s;
+}
+.form-msg.error { color: var(--danger); }
+.form-msg.success { color: var(--up); }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  body { grid-template-columns: 1fr; overflow-y: auto; height: auto; }
+  .login-left { display: none; }
+  .login-right { min-height: 100vh; padding: 24px 20px; }
+  .login-card { max-width: 100%; }
 }
 </style>
-  <link rel="stylesheet" href="/static/tokens.css">
 </head>
 <body>
-<a href="#main" class="skip-link">Skip to main content</a>
-<main id="main">
-<div class="card">
-  <div class="logo">ZENITH</div>
-  <div class="tagline">Smart Money Analysis Platform</div>
-  <div class="form">
+<a href="#main" class="skip-link">Skip to main</a>
+
+<!-- Left: marketing copy -->
+<div class="login-left">
+  <div class="login-logo">
+    <div class="login-logo-icon">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M2 10L5.5 5L8.5 8L12 3" stroke="#c8633a" stroke-width="1.7" stroke-linecap="round"/>
+      </svg>
+    </div>
+    Zenith
+  </div>
+
+  <div class="login-hero">
+    <div class="login-badge">
+      <div class="login-badge-dot"></div>
+      v2.0 · Algorithm refresh
+    </div>
+    <h1 class="login-headline">The quiet way to read the market.</h1>
+    <p class="login-sub">Smart Money &amp; Wyckoff analysis for IDX. Built for clarity. Designed so you can think.</p>
+
+    <div class="login-features">
+      <div class="login-feature">
+        <div class="login-feature-check">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2 5.5L4.5 8L9 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </div>
+        <div>
+          <div class="login-feature-title">Per-emiten flow ledger</div>
+          <div class="login-feature-desc">See accumulation as it happens</div>
+        </div>
+      </div>
+      <div class="login-feature">
+        <div class="login-feature-check">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2 5.5L4.5 8L9 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </div>
+        <div>
+          <div class="login-feature-title">Sector rotation lens</div>
+          <div class="login-feature-desc">Industries being bought, quietly</div>
+        </div>
+      </div>
+      <div class="login-feature">
+        <div class="login-feature-check">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2 5.5L4.5 8L9 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </div>
+        <div>
+          <div class="login-feature-title">Backtest engine</div>
+          <div class="login-feature-desc">Validate before you commit</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="login-footer">© Zenith Project · Machiavellia · 2026</div>
+</div>
+
+<!-- Right: sign-in card -->
+<div class="login-right">
+  <div class="login-card" id="main">
+    <div class="login-card-title">Welcome back</div>
+    <div class="login-card-sub">Sign in to your account to continue</div>
+
     <label for="usernameInput" class="form-label">Username</label>
-    <input type="text" class="form-input" id="usernameInput" placeholder="Username..." autofocus autocomplete="username"/>
-    <label for="passwordInput" class="form-label">Password</label>
+    <input type="text" class="form-input" id="usernameInput"
+      placeholder="Username..." autofocus autocomplete="username"/>
+
+    <div class="form-label-row">
+      <label for="passwordInput" class="form-label" style="margin-bottom:0">Password</label>
+      <span class="form-link" style="font-size:12px">Forgot?</span>
+    </div>
     <div class="pw-wrap">
-      <input type="password" class="form-input" id="passwordInput" placeholder="Password..." autocomplete="current-password"/>
+      <input type="password" class="form-input" id="passwordInput"
+        placeholder="Password..." autocomplete="current-password"/>
       <button type="button" class="pw-toggle" id="pwToggle" onclick="togglePw()" aria-label="Tampilkan password">
-        <svg id="pwEyeIcon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 8C1 8 3.5 3 8 3S15 8 15 8S12.5 13 8 13S1 8 1 8Z"/><circle cx="8" cy="8" r="2.5"/></svg>
+        <svg id="pwEyeIcon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+          <path d="M1 8C1 8 3.5 3 8 3S15 8 15 8S12.5 13 8 13S1 8 1 8Z"/>
+          <circle cx="8" cy="8" r="2.5"/>
+        </svg>
       </button>
     </div>
-    <button class="form-btn" id="authBtn" onclick="doAuth()">Authenticate →</button>
-    <div class="msg" id="msg" role="alert" aria-live="polite" aria-atomic="true"></div>
+
+    <div class="remember-row">
+      <div class="remember-check">
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2 5.5L4.5 8L9 3" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+      <span class="remember-label">Remember me for 30 days</span>
+    </div>
+
+    <div class="form-msg" id="msg" role="alert" aria-live="polite"></div>
+
+    <button class="btn-primary" id="authBtn" onclick="doAuth()">Sign in</button>
+
+    <button class="btn-google" disabled title="Google login — coming soon">
+      <svg width="16" height="16" viewBox="0 0 24 24">
+        <path fill="#4285f4" d="M21.35 11.1H12v3.2h5.35c-.23 1.34-1.74 3.92-5.35 3.92a6.22 6.22 0 1 1 0-12.44c1.9 0 3.18.81 3.91 1.5l2.66-2.57C16.85 3.2 14.6 2.2 12 2.2 6.58 2.2 2.2 6.58 2.2 12s4.38 9.8 9.8 9.8c5.66 0 9.4-3.97 9.4-9.56 0-.65-.07-1.14-.05-1.14z"/>
+      </svg>
+      Continue with Google
+    </button>
+
+    <div class="form-footer">
+      Don't have an account? <span class="form-link">Request access</span>
+    </div>
   </div>
 </div>
-<div class="footer">zenith project v1.0 | by machiavellia &nbsp;·&nbsp; <a href="/admin" style="color:var(--muted);text-decoration:none;opacity:.35;font-size:9px;letter-spacing:.08em">admin</a></div>
+
 <script>
-function togglePw(){
-  const inp=document.getElementById('passwordInput');
-  const btn=document.getElementById('pwToggle');
-  const show=inp.type==='password';
-  inp.type=show?'text':'password';
-  btn.setAttribute('aria-label',show?'Sembunyikan password':'Tampilkan password');
-  document.getElementById('pwEyeIcon').style.opacity=show?'.5':'1';
+function togglePw() {
+  var inp = document.getElementById('passwordInput');
+  var show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  document.getElementById('pwEyeIcon').style.opacity = show ? '.5' : '1';
+  document.getElementById('pwToggle').setAttribute('aria-label', show ? 'Sembunyikan password' : 'Tampilkan password');
 }
-async function doAuth(){
-  const username=document.getElementById('usernameInput').value.trim();
-  const password=document.getElementById('passwordInput').value.trim();
-  if(!username||!password)return;
-  const btn=document.getElementById('authBtn');
-  btn.disabled=true;btn.textContent='Authenticating...';
-  try{
-    const fd=new FormData();fd.append('username',username);fd.append('password',password);
-    const res=await fetch('/',{method:'POST',body:fd});
-    const d=await res.json();
-    const msg=document.getElementById('msg');
-    if(d.ok){
-      msg.className='msg success';msg.textContent='✓ ACCESS GRANTED';
-      setTimeout(()=>location.href='/hub',600);
-    }else{
-      msg.className='msg error';msg.textContent='⚠ ACCESS DENIED';
-      document.getElementById('passwordInput').value='';
+
+async function doAuth() {
+  var username = document.getElementById('usernameInput').value.trim();
+  var password = document.getElementById('passwordInput').value.trim();
+  if (!username || !password) return;
+  var btn = document.getElementById('authBtn');
+  var msg = document.getElementById('msg');
+  btn.disabled = true; btn.textContent = 'Signing in...';
+  try {
+    var fd = new FormData();
+    fd.append('username', username); fd.append('password', password);
+    var res = await fetch('/', { method: 'POST', body: fd });
+    var d = await res.json();
+    if (d.ok) {
+      msg.className = 'form-msg success'; msg.textContent = '✓ Access granted';
+      setTimeout(function(){ location.href = '/hub'; }, 500);
+    } else {
+      msg.className = 'form-msg error'; msg.textContent = '⚠ Invalid credentials';
+      document.getElementById('passwordInput').value = '';
       document.getElementById('usernameInput').focus();
-      btn.disabled=false;btn.textContent='Authenticate →';
+      btn.disabled = false; btn.textContent = 'Sign in';
     }
-  }catch(e){
-    document.getElementById('msg').className='msg error';
-    document.getElementById('msg').textContent='⚠ Network error';
-    btn.disabled=false;btn.textContent='Authenticate →';
+  } catch(e) {
+    msg.className = 'form-msg error'; msg.textContent = '⚠ Network error';
+    btn.disabled = false; btn.textContent = 'Sign in';
   }
 }
-document.getElementById('passwordInput').addEventListener('keydown',e=>{if(e.key==='Enter')doAuth()});
-document.getElementById('usernameInput').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('passwordInput').focus()});
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') doAuth();
+});
 </script>
-<script src="/static/shortcuts.js" defer></script>
-</main>
 </body>
 </html>

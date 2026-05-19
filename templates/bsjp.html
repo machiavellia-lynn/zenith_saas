@@ -1,27 +1,14 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="light">
 <head>
 <meta charset="UTF-8"/>
+<script>(function(){var t=localStorage.getItem('zenith-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Zenith — BSJP Signal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/tokens.css">
 <style>
-:root {
-  --bg:       #080c10;
-  --surface:  #0e1318;
-  --surface2: #121920;
-  --border:   #1a2230;
-  --border2:  #243040;
-  --accent:   #00e8a2;
-  --accent2:  #4d9fff;
-  --danger:   #ff4d6a;
-  --text:     #c8d8e8;
-  --muted:    #bfcbd4;
-  --up:       #00e8a2;
-  --down:     #ff4d6a;
-}
 * { box-sizing: border-box; margin: 0; padding: 0; scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -421,21 +408,23 @@ td.left { text-align: left; }
 {% include 'sidebar.html' %}<div class="main-content">
 <a href="#main" class="skip-link">Skip to main content</a>
 
-<!-- HEADER -->
-<header>
+<div class="hub-mobile-bar">
   <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg></button>
-  <a href="/hub" class="logo"><span class="logo-dot"></span>ZENITH</a>
-  <div class="nav-group">
-    <a href="/wyckoff" class="nav-btn">⊞ Wyckoff</a>
-    <a href="/bsjp" class="nav-btn active">⏳ BSJP</a>
+  <span style="font-family:var(--font-display);font-weight:600;font-size:15px;color:var(--ink)">BSJP</span>
+</div>
+<div class="page-header">
+  <div>
+    <div class="page-subtitle">Breakout · Pullback</div>
+    <h1 class="page-title">BSJP Algo</h1>
   </div>
-  <div class="ihsg-wrap">
-    <span class="ihsg-label">IHSG</span>
-    <span id="sIHSG" class="ihsg-price" style="color:var(--text)">—</span>
-    <span id="sIHSGGain" class="ihsg-gain" style="display:none"></span>
+  <div class="page-header-actions">
+    <div class="ihsg-badge">
+      <span class="ihsg-badge-label">IHSG</span>
+      <span id="sIHSG" class="ihsg-badge-price">—</span>
+      <span id="sIHSGGain" class="ihsg-badge-gain" style="display:none"></span>
+    </div>
   </div>
-  <a href="/hub" class="info-btn" title="Kembali ke Hub" aria-label="Kembali ke Hub"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 5.5L6 1.5L10.5 5.5V10.5H7.5V7.5H4.5V10.5H1.5V5.5Z"/></svg></a>
-</header>
+</div>
 
 <main id="main">
 

@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="light">
 <head>
 <meta charset="UTF-8"/>
+<script>(function(){var t=localStorage.getItem('zenith-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Zenith — Chart</title>
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pikaday/1.8.2/css/pikaday.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pikaday/1.8.2/pikaday.min.js"></script>
 <style>
-:root{--bg:#080c10;--surface:#0e1318;--surface2:#121920;--border:#1a2230;--border2:#243040;--accent:#00e8a2;--accent2:#4d9fff;--danger:#ff4d6a;--text:#c8d8e8;--muted:#bfcbd4;--up:#00e8a2;--down:#ff4d6a}
 *{box-sizing:border-box;margin:0;padding:0;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
 ::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -224,33 +224,34 @@ input[type="text"]:focus{border-color:var(--accent)}
 <body class="sidebar-layout" data-page="chart">
 {% include 'sidebar.html' %}<div class="main-content">
 <a href="#main" class="skip-link">Skip to main content</a>
-<header>
+<div class="hub-mobile-bar">
   <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg></button>
-  <a href="/hub" class="logo"><span class="logo-dot"></span>ZENITH</a>
-  <div class="nav-group">
-    <a href="/chart" class="nav-btn active">⬡ Chart</a>
-    <a href="/flow" class="nav-btn">⊞ Flow</a>
-    <a href="/sector" class="nav-btn">◈ Sector</a>
-  </div>
-  <div class="search-wrap">
-    <input type="text" id="tickerInput" placeholder="Ticker..." value="BBRI" maxlength="8"/>
-  </div>
-  <button class="search-btn" onclick="doLoad()">Load</button>
-  <div class="ticker-info">
-    <div class="t-name" id="tName">—</div>
-    <div class="t-price" id="tPrice">—</div>
-  </div>
-  <div class="nav-right">
-    <div class="ihsg-wrap">
-      <span class="ihsg-label">IHSG</span>
-      <span class="ihsg-price" id="ihsgPrice">—</span>
-      <span class="ihsg-gain" id="ihsgGain">—</span>
+  <span style="font-family:var(--font-display);font-weight:600;font-size:15px;color:var(--ink)">Chart</span>
+</div>
+<div class="page-header" style="flex-wrap:wrap;gap:12px">
+  <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
+    <div>
+      <div class="page-subtitle">Candlestick</div>
+      <h1 class="page-title">Chart</h1>
     </div>
-    <a href="/backtest" class="info-btn" title="Backtest Leaderboard" aria-label="Backtest Leaderboard"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 10V7M6 10V3M10 10V5"/></svg></a>
-    <a href="/hub" class="info-btn" title="Kembali ke Hub" aria-label="Kembali ke Hub"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 5.5L6 1.5L10.5 5.5V10.5H7.5V7.5H4.5V10.5H1.5V5.5Z"/></svg></a>
+    <div class="search-wrap" style="margin-left:8px">
+      <input type="text" id="tickerInput" placeholder="Ticker..." value="BBRI" maxlength="8"/>
+    </div>
+    <button class="search-btn" onclick="doLoad()">Load</button>
+    <div class="ticker-info">
+      <div class="t-name" id="tName">—</div>
+      <div class="t-price" id="tPrice">—</div>
+    </div>
+  </div>
+  <div class="page-header-actions">
+    <div class="ihsg-badge">
+      <span class="ihsg-badge-label">IHSG</span>
+      <span class="ihsg-badge-price" id="ihsgPrice">—</span>
+      <span class="ihsg-badge-gain" id="ihsgGain">—</span>
+    </div>
     <button class="info-btn pulse" onclick="openInfoModal()" title="Panduan membaca data" aria-label="Panduan membaca data">?</button>
   </div>
-</header>
+</div>
 <main id="main">
 
 <main>
