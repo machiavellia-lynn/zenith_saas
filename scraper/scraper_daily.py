@@ -83,8 +83,10 @@ TOPIC_CHANNELS = {
 }
 
 # ── BSJP constants ────────────────────────────────────────────────────────────
-BSJP_HOUR      = 15
-BSJP_MINUTE    = 48
+BSJP_15M_HOUR   = 15
+BSJP_15M_MINUTE = 46
+BSJP_HOUR       = 15
+BSJP_MINUTE     = 48
 TOP_N_BSJP = 15
 
 # ── Analytics throttle — recompute at most once per 60s per date ───────────────
@@ -437,7 +439,7 @@ async def scraper_main():
         log.info(f"👂 Listening | midday {MIDDAY_HOUR:02d}:{MIDDAY_MINUTE:02d} / backfill {BACKFILL_HOUR:02d}:{BACKFILL_MINUTE:02d} / recompute {RECOMPUTE_HOUR:02d}:{RECOMPUTE_MINUTE:02d} WIB")
 
         midday_pass_done = first_pass_done = second_pass_done = backtest_done_today = False
-        bsjp_scan_done = False
+        bsjp_15m_done = bsjp_scan_done = False
         last_check_date = None
 
         while True:
@@ -449,7 +451,7 @@ async def scraper_main():
 
             if today_str != last_check_date:
                 midday_pass_done = first_pass_done = second_pass_done = backtest_done_today = False
-                bsjp_scan_done = False
+                bsjp_15m_done = bsjp_scan_done = False
                 last_check_date = today_str
 
             if not midday_pass_done and (now_wib.hour > MIDDAY_HOUR or (now_wib.hour == MIDDAY_HOUR and now_wib.minute >= MIDDAY_MINUTE)):
@@ -478,6 +480,20 @@ async def scraper_main():
                     log.error(f"❌ Second pass: {e}")
                 finally:
                     second_pass_done = True
+
+            # 15:46 — Fetch today's 15m candles (so 15:45 close is ready for BSJP scan)
+            if not bsjp_15m_done and now_wib.hour == BSJP_15M_HOUR and now_wib.minute >= BSJP_15M_MINUTE:
+                try:
+                    log.info("📡 BSJP 15m enrich (15:46)")
+                    from data.price_fetch import backfill_intraday_15m
+                    today_dmy = now_wib.strftime("%d-%m-%Y")
+                    res = backfill_intraday_15m(conn, today_dmy, today_dmy)
+                    conn.commit()
+                    log.info(f"📡 15m enrich done: {res.get('rows_inserted', 0)} rows")
+                except Exception as e:
+                    log.error(f"❌ BSJP 15m enrich: {e}")
+                finally:
+                    bsjp_15m_done = True
 
             # 15:48 — BSJP Signal
             if not bsjp_scan_done and now_wib.hour == BSJP_HOUR and now_wib.minute >= BSJP_MINUTE:
