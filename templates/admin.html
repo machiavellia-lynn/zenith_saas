@@ -6,543 +6,527 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Zenith — Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/tokens.css">
 <link rel="stylesheet" href="/static/sidebar.css">
+<link rel="stylesheet" href="/static/components.css">
 <style>
-*{box-sizing:border-box;margin:0;padding:0;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
-::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
-html,body{min-height:100%}
-@keyframes dotPulse{0%,100%{box-shadow:0 0 6px var(--accent),0 0 0 0 rgba(0,232,162,.5)}50%{box-shadow:0 0 14px var(--accent),0 0 0 5px rgba(0,232,162,0)}}
-.chip{display:inline-flex;align-items:center;gap:6px;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.06em;padding:4px 10px;border-radius:20px;border:1px solid var(--border2);background:var(--bg);color:var(--muted);text-transform:uppercase}
-.chip .dot{width:6px;height:6px;border-radius:50%;background:var(--border2);flex-shrink:0}
-.chip.alive .dot{background:var(--accent);box-shadow:0 0 5px var(--accent)}.chip.alive{border-color:rgba(0,232,162,.3);color:var(--accent);background:rgba(0,232,162,.06)}
-.chip.dead .dot{background:var(--danger)}.chip.dead{border-color:rgba(255,77,106,.3);color:var(--danger);background:rgba(255,77,106,.06)}
-.header-right{margin-left:auto;display:flex;align-items:center;gap:8px}
-.hdr-btn{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 12px;cursor:pointer;font-family:'Space Mono',monospace;font-size:11px;transition:all .15s;text-decoration:none;white-space:nowrap}
-.hdr-btn:hover{border-color:var(--accent);color:var(--accent)}
-.hdr-btn svg{width:12px;height:12px}
-
-/* LAYOUT */
-.page{max-width:1100px;margin:0 auto;padding:24px;display:flex;flex-direction:column;gap:20px}
-
-/* DATE BAR */
-.date-bar{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 20px}
-.date-bar-label{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
-.date-input{background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:7px 12px;font-family:'Space Mono',monospace;font-size:11px;width:120px;outline:none;transition:border-color .15s}
-.date-input:focus{border-color:var(--accent)}
-.date-sep{color:var(--muted);font-size:11px}
-
-/* TWO COL */
-.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
-@media(max-width:820px){.two-col{grid-template-columns:1fr}}
-
-/* CARD */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
-.card-header{padding:14px 20px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;gap:10px}
-.card-title{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--accent);text-transform:uppercase}
-.card-body{padding:20px;display:flex;flex-direction:column;gap:20px}
-.card-section{display:flex;flex-direction:column;gap:8px}
-.section-label{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}
-.section-desc{font-size:11px;color:var(--muted);line-height:1.5}
-.divider{height:1px;background:var(--border)}
-
-/* BUTTONS */
-.btn{position:relative;overflow:hidden;background:var(--accent);color:var(--bg);border:none;border-radius:6px;padding:9px 18px;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.06em;cursor:pointer;transition:opacity .15s;text-transform:uppercase;white-space:nowrap;width:100%}
-.btn::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:rgba(255,255,255,.25)}
-.btn:hover{opacity:.85}.btn:disabled{opacity:.4;cursor:not-allowed}
-.btn.outline{background:none;border:1px solid var(--border2);color:var(--muted)}.btn.outline::after{display:none}
-.btn.outline:hover{border-color:rgba(0,232,162,.35);color:var(--accent);background:rgba(0,232,162,.04)}
-
-/* PROGRESS */
-.progress-wrap{width:100%;height:3px;background:var(--border);border-radius:2px;overflow:hidden;display:none}
-.progress-wrap.active{display:block}
-.progress-bar{height:100%;background:var(--accent);border-radius:2px;transition:width .3s;width:0%}
-.progress-bar.indeterminate{width:100%;background:repeating-linear-gradient(-45deg,var(--accent),var(--accent) 8px,var(--accent2) 8px,var(--accent2) 16px);background-size:22px 100%;animation:stripe .8s linear infinite}
-@keyframes stripe{to{background-position:22px 0}}
-.status{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);min-height:13px;letter-spacing:.04em;line-height:1.4}
-.status.ok{color:var(--accent)}.status.err{color:var(--danger)}
-
-/* INPUTS */
-.text-input{background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:7px 12px;font-family:'Space Mono',monospace;font-size:11px;width:100%;outline:none;transition:border-color .15s}
-.text-input:focus{border-color:var(--accent)}
-.file-label{background:var(--bg);border:1px solid var(--border2);border-radius:6px;padding:7px 14px;font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);cursor:pointer;transition:all .15s;display:inline-block}
-.file-label:hover{border-color:var(--accent);color:var(--accent)}
-select.sel{background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:7px 12px;font-family:'Space Mono',monospace;font-size:11px;outline:none;cursor:pointer;width:100%}
-
-/* USER LIST */
-.user-item{display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px}
-.user-name{font-family:'Space Mono',monospace;font-size:11px;color:var(--text)}
-.user-role{font-family:'Space Mono',monospace;font-size:10px;margin-left:6px}
-.role-admin{color:var(--accent)}.role-guest{color:var(--muted)}
-.btn-sm{background:rgba(255,77,106,.08);border:1px solid rgba(255,77,106,.25);color:var(--danger);border-radius:4px;padding:3px 10px;font-family:'Space Mono',monospace;font-size:10px;cursor:pointer;white-space:nowrap}
-.btn-sm:hover{background:rgba(255,77,106,.16)}
-
-/* TOAST */
-.toast{position:fixed;bottom:28px;right:28px;z-index:9999;display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px 18px;font-family:'Space Mono',monospace;font-size:11px;box-shadow:0 4px 24px rgba(0,0,0,.6);transform:translateY(20px);opacity:0;transition:transform .25s,opacity .25s;pointer-events:none}
-.toast.visible{transform:translateY(0);opacity:1}
-.toast.ok{border-color:rgba(0,232,162,.4);color:var(--accent)}.toast.err{border-color:rgba(255,77,106,.4);color:var(--danger)}
+html, body { height: 100%; }
+body.sidebar-layout { overflow: hidden; }
+.main-content { overflow: hidden; display: flex; flex-direction: column; }
+/* Admin-specific */
+.a-section {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+}
+.a-section-head {
+  padding: 12px 18px; border-bottom: 1px solid var(--border);
+  background: var(--surface2); border-radius: 12px 12px 0 0;
+}
+.a-section-title {
+  font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim);
+}
+.a-section-sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.a-section-body { padding: 16px 18px; }
+.status-badge {
+  display: flex; align-items: center; gap: 6px; padding: 4px 10px;
+  border-radius: 99px; font-size: 11.5px;
+}
+.status-badge.alive { background: var(--up-soft); border: 1px solid rgba(58,107,88,.2); }
+.status-badge.idle  { background: var(--surface2); border: 1px solid var(--border); }
+.status-dot { width: 6px; height: 6px; border-radius: 99px; flex-shrink: 0; }
+.status-dot.alive { background: var(--up); animation: pulseDot 2s ease infinite; }
+.status-dot.idle  { background: var(--muted); }
+.status-text { font-family: var(--font-mono); font-size: 11px; font-weight: 600; }
+.status-badge.alive .status-text { color: var(--up); }
+.status-badge.idle  .status-text { color: var(--muted); }
+@keyframes pulseDot { 0%,100%{opacity:1} 50%{opacity:.4} }
+/* Coverage table */
+.cov-table { width: 100%; border-collapse: collapse; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+.cov-th { padding: 8px 14px; background: var(--surface2); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; color: var(--text-dim); letter-spacing: .04em; text-transform: uppercase; text-align: right; }
+.cov-th:first-child { text-align: left; }
+.cov-td { padding: 10px 14px; font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); text-align: right; }
+.cov-td:first-child { text-align: left; }
+.cov-tr + .cov-tr td { border-top: 1px solid var(--border); }
+/* Admin buttons */
+.a-btn {
+  padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: var(--font-sans); white-space: nowrap;
+  letter-spacing: .02em; border: 1px solid var(--border2); background: var(--surface);
+  color: var(--text); transition: all .15s; display: inline-flex; align-items: center; gap: 6px;
+}
+.a-btn:hover { background: var(--surface2); }
+.a-btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.a-btn.primary:hover { opacity: .85; }
+.a-btn.danger { background: var(--down); color: #fff; border-color: var(--down); }
+.a-btn.danger:hover { opacity: .85; }
+.a-btn.small { padding: 5px 12px; font-size: 11.5px; }
+.a-btn:disabled { opacity: .5; cursor: not-allowed; }
+/* Form inputs */
+.a-input {
+  padding: 8px 12px; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; font-size: 13px; font-family: var(--font-sans); color: var(--ink);
+  outline: none; transition: border-color .15s; width: 100%;
+}
+.a-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.a-select {
+  padding: 7px 10px; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; font-size: 13px; font-family: var(--font-sans); color: var(--ink);
+  outline: none; cursor: pointer; appearance: none; -webkit-appearance: none;
+}
+/* Progress bar */
+.a-progress { height: 4px; background: var(--surface2); border-radius: 99px; overflow: hidden; margin-top: 10px; }
+.a-progress-fill { height: 100%; background: var(--accent); border-radius: 99px; width: 0; transition: width .3s; }
+.a-progress-fill.anim { animation: aProgress 2s ease-in-out forwards; }
+@keyframes aProgress { from{width:0} to{width:90%} }
+/* Toast */
+.a-toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+  padding: 10px 18px; border-radius: 10px; display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 500; box-shadow: 0 4px 20px rgba(0,0,0,.12);
+  animation: toastIn .2s ease; pointer-events: none;
+}
+@keyframes toastIn { from{transform:translateY(8px);opacity:0} to{transform:translateY(0);opacity:1} }
+.a-toast.success { background: var(--up-soft); border: 1px solid rgba(58,107,88,.3); color: var(--up); }
+.a-toast.error   { background: var(--down-soft); border: 1px solid rgba(200,99,58,.3); color: var(--down); }
+/* User avatar */
+.user-av { width: 26px; height: 26px; border-radius: 99px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; flex-shrink: 0; }
+@keyframes adminSpin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body class="sidebar-layout">
-{% include 'sidebar.html' %}<div class="main-content">
-<a href="#main" class="skip-link">Skip to main content</a>
+{% include 'sidebar.html' %}
 
-<div class="hub-mobile-bar">
-  <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg></button>
-  <span style="font-family:var(--font-display);font-weight:600;font-size:15px;color:var(--ink)">Admin</span>
-</div>
-<div class="page-header" id="main">
-  <div>
-    <div class="page-subtitle">System</div>
-    <h1 class="page-title">Admin</h1>
-  </div>
-  <div class="page-header-actions">
-    <div class="chip" id="scraperChip"><span class="dot"></span><span id="scraperChipLabel">—</span></div>
-    <button class="hdr-btn" onclick="refreshScraperStatus()">↻ Refresh</button>
-  </div>
-</div>
-
-<div class="page">
-
-  <!-- DATE RANGE -->
-  <div class="date-bar">
-    <span class="date-bar-label">Date Range</span>
-    <input type="text" class="date-input" id="dateFrom" placeholder="DD-MM-YYYY"/>
-    <span class="date-sep">s/d</span>
-    <input type="text" class="date-input" id="dateTo" placeholder="DD-MM-YYYY"/>
-    <span style="font-size:11px;color:var(--muted);margin-left:4px">— berlaku untuk semua operasi di bawah</span>
-  </div>
-
-  <!-- ALGO CARDS -->
-  <div class="two-col">
-
-    <!-- WYCKOFF -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">Wyckoff</div>
-      </div>
-      <div class="card-body">
-
-        <div class="card-section">
-          <div class="section-label">Fetch OHLCV Daily</div>
-          <div class="section-desc">Ambil data harga harian (OHLCV) semua saham aktif dari Yahoo Finance dan simpan ke <code style="font-family:Space Mono,monospace;color:var(--accent2)">price_history</code>.</div>
-          <button class="btn outline" id="wOhlcvBtn" onclick="triggerWyckoffOhlcv()">Fetch OHLCV Daily</button>
-          <div class="progress-wrap" id="wOhlcvProg"><div class="progress-bar" id="wOhlcvBar" style="transition:width .5s"></div></div>
-          <div class="status" id="wOhlcvStatus"></div>
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="card-section">
-          <div class="section-label">Recompute</div>
-          <div class="section-desc">Rebuild <code style="font-family:Space Mono,monospace;color:var(--accent2)">eod_summary</code> dari data Telegram, lalu hitung semua indikator analytics (MA, BB, RSI, phase, dsb) per tanggal.</div>
-          <button class="btn" id="wRecomputeBtn" onclick="triggerWyckoffRecompute()">Recompute</button>
-          <div class="progress-wrap" id="wRecomputeProg"><div class="progress-bar" id="wRecomputeBar" style="transition:width .5s"></div></div>
-          <div class="status" id="wRecomputeStatus"></div>
-        </div>
-
+<div class="main-content">
+  <div class="page-header">
+    <div>
+      <div class="page-subtitle">Data enrichment · Algo controls</div>
+      <h1 class="page-title">Admin</h1>
+    </div>
+    <div class="page-header-actions">
+      <!-- Tab toggle -->
+      <div class="seg-ctrl" id="tabToggle">
+        <div class="seg-btn active" data-tab="data" onclick="switchTab('data')">Data &amp; Algo</div>
+        <div class="seg-btn" data-tab="users" onclick="switchTab('users')">Users</div>
       </div>
     </div>
+  </div>
 
-    <!-- BSJP -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">BSJP</div>
-      </div>
-      <div class="card-body">
+  <div class="page-body">
 
-        <div class="card-section">
-          <div class="section-label">Fetch 15m</div>
-          <div class="section-desc">Ambil data intraday 15 menit semua saham dari Yahoo Finance dan simpan ke <code style="font-family:Space Mono,monospace;color:var(--accent2)">price_history_15m</code>. Max 60 hari kebelakang.</div>
-          <button class="btn outline" id="bFetch15mBtn" onclick="triggerFetch15m()">Fetch 15m</button>
-          <div class="progress-wrap active" id="bFetch15mProg" style="display:none"><div class="progress-bar indeterminate"></div></div>
-          <div class="status" id="bFetch15mStatus"></div>
+    <!-- ══════════════ DATA TAB ══════════════ -->
+    <div id="tabData">
+
+      <!-- Scraper Control -->
+      <div class="a-section" style="margin-bottom:14px">
+        <div class="a-section-head">
+          <div class="a-section-title">Scraper Control</div>
+          <div class="a-section-sub">Realtime Telegram listener · session management</div>
         </div>
+        <div class="a-section-body">
+          <div style="display:flex;gap:20px;flex-wrap:wrap">
 
-        <div class="divider"></div>
+            <!-- Status badges -->
+            <div style="flex:1;min-width:240px">
+              <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Status</div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px" id="scraperBadges">
+                <div class="status-badge idle"><div class="status-dot idle"></div><span class="status-text">Loading...</span></div>
+              </div>
+            </div>
 
-        <div class="card-section">
-          <div class="section-label">Recompute</div>
-          <div class="section-desc">Enrich kolom BSJP di <code style="font-family:Space Mono,monospace;color:var(--accent2)">price_history</code>, lalu generate sinyal BSJP ke <code style="font-family:Space Mono,monospace;color:var(--accent2)">bsjp_signals</code> secara otomatis.</div>
-          <button class="btn" id="bRecomputeBtn" onclick="triggerBsjpRecompute()">Recompute</button>
-          <div class="progress-wrap" id="bRecomputeProg"><div class="progress-bar" id="bRecomputeBar" style="transition:width .5s"></div></div>
-          <div class="status" id="bRecomputeStatus"></div>
-        </div>
+            <!-- Session upload -->
+            <div style="min-width:220px">
+              <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Telegram Session</div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <input type="file" id="sessionFile" accept=".session" style="display:none" onchange="onSessionFile(this)"/>
+                <button class="a-btn" onclick="document.getElementById('sessionFile').click()" style="font-family:var(--font-mono);font-size:12px">
+                  <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M7 2v8M3 6l4-4 4 4"/><path d="M2 10v2h10v-2"/></svg>
+                  <span id="sessionFileName">Pilih .session</span>
+                </button>
+                <button class="a-btn primary" id="uploadBtn" onclick="uploadSession()" disabled>Upload</button>
+              </div>
+              <div id="sessionOk" style="display:none;font-size:11px;color:var(--up);margin-top:4px;font-family:var(--font-mono)"></div>
+            </div>
 
-      </div>
-    </div>
-
-  </div><!-- end two-col algo -->
-
-  <!-- UTILITIES -->
-  <div class="two-col">
-
-    <!-- SESSION UPLOAD -->
-    <div class="card">
-      <div class="card-header"><div class="card-title">Telegram Session</div></div>
-      <div class="card-body">
-        <div class="card-section">
-          <div class="section-label">Upload Session File</div>
-          <label class="file-label" for="sessFile">Pilih .session</label>
-          <input type="file" id="sessFile" style="display:none" accept=".session" onchange="showFileName()"/>
-          <span style="font-family:Space Mono,monospace;font-size:10px;color:var(--muted)" id="sessFileName"></span>
-          <button class="btn outline" onclick="uploadSession()" style="margin-top:4px">Upload</button>
-          <div class="progress-wrap" id="sessProgress" style="margin-top:6px"><div class="progress-bar" id="sessBar"></div></div>
-          <div class="status" id="sessStatus" style="margin-top:4px"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- USER MANAGEMENT -->
-    <div class="card">
-      <div class="card-header"><div class="card-title">User Management</div></div>
-      <div class="card-body">
-        <div class="card-section">
-          <div class="section-label">Tambah User</div>
-          <input type="text"     class="text-input" id="newUsername" placeholder="username" style="margin-bottom:6px"/>
-          <input type="password" class="text-input" id="newPassword" placeholder="password" style="margin-bottom:6px"/>
-          <div style="display:flex;gap:8px">
-            <select id="newRole" class="sel"><option value="guest">guest</option><option value="admin">admin</option></select>
-            <button class="btn" style="width:auto;padding:7px 16px" onclick="addUser()">Add</button>
           </div>
-          <div class="status" id="addUserStatus" style="margin-top:6px"></div>
-        </div>
-        <div class="divider"></div>
-        <div class="card-section">
-          <div class="section-label">Daftar User</div>
-          <div id="userList" style="display:flex;flex-direction:column;gap:6px;margin-top:2px"></div>
+
+          <!-- Data Coverage -->
+          <div style="margin-top:18px">
+            <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Data Coverage</div>
+            <table class="cov-table">
+              <thead><tr>
+                <th class="cov-th" style="text-align:left">Channel</th>
+                <th class="cov-th">First Data</th>
+                <th class="cov-th">Latest Data</th>
+                <th class="cov-th">Total Rows</th>
+              </tr></thead>
+              <tbody id="covTableBody">
+                <tr><td colspan="4" style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
+
+      <!-- Algo Settings -->
+      <div class="a-section">
+        <div class="a-section-head">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div>
+              <div class="a-section-title">Algo Settings</div>
+              <div class="a-section-sub">Backfill data dan recompute analytics</div>
+            </div>
+            <div class="seg-ctrl" id="algoToggle">
+              <div class="seg-btn active" data-algo="wyckoff" onclick="switchAlgo('wyckoff')">Wyckoff</div>
+              <div class="seg-btn" data-algo="bsjp" onclick="switchAlgo('bsjp')">BSJP</div>
+            </div>
+          </div>
+        </div>
+        <div class="a-section-body">
+
+          <!-- Wyckoff panel -->
+          <div id="algoWyckoff">
+            <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Date Range (OHLCV Daily)</div>
+            <div id="wyckoffDP"></div>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:12px">
+              <button class="a-btn primary" id="btnFetchDaily" onclick="runAction('fetch_daily')">Fetch OHLCV Daily</button>
+              <button class="a-btn" id="btnRecomputeW" onclick="runAction('recompute_w')">Recompute Analytics</button>
+              <button class="a-btn" id="btnRebuild" onclick="runAction('rebuild')">Rebuild Summary</button>
+            </div>
+            <div id="progWyckoff" style="display:none" class="a-progress"><div class="a-progress-fill anim" id="progWyckoffFill"></div></div>
+          </div>
+
+          <!-- BSJP panel -->
+          <div id="algoBSJP" style="display:none">
+            <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Date Range (OHLCV 15M)</div>
+            <div id="bsjpDP"></div>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:12px">
+              <button class="a-btn primary" id="btnFetch15m" onclick="runAction('fetch_15m')">Fetch OHLCV 15M</button>
+              <button class="a-btn" id="btnRecomputeB" onclick="runAction('recompute_b')">Recompute BSJP</button>
+            </div>
+            <div id="progBSJP" style="display:none" class="a-progress"><div class="a-progress-fill anim" id="progBSJPFill"></div></div>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /tabData -->
+
+    <!-- ══════════════ USERS TAB ══════════════ -->
+    <div id="tabUsers" style="display:none">
+
+      <!-- Add user -->
+      <div class="a-section" style="margin-bottom:14px">
+        <div class="a-section-head"><div class="a-section-title">Tambah User</div></div>
+        <div class="a-section-body">
+          <div style="display:flex;flex-direction:column;gap:8px;max-width:340px">
+            <input type="text" class="a-input" id="newUsername" placeholder="username" autocomplete="off"/>
+            <input type="password" class="a-input" id="newPassword" placeholder="password" autocomplete="new-password"/>
+            <div style="display:flex;gap:8px">
+              <select class="a-select" id="newRole" style="flex:1">
+                <option value="guest">guest</option>
+                <option value="admin">admin</option>
+              </select>
+              <button class="a-btn primary" id="addUserBtn" onclick="addUser()">Add User</button>
+            </div>
+            <div id="addUserMsg" style="font-size:12px;min-height:16px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- User list -->
+      <div class="a-section">
+        <div class="a-section-head"><div class="a-section-title">Daftar User</div></div>
+        <div class="a-section-body">
+          <div id="userList" style="display:flex;flex-direction:column;gap:6px">
+            <div style="color:var(--muted);font-size:13px">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /tabUsers -->
+
+  </div><!-- /page-body -->
+</div><!-- /main-content -->
+
+<!-- Confirm modal -->
+<div id="confirmModal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;padding:24px">
+  <div onclick="event.stopPropagation()" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;width:min(90vw,380px);padding:24px 24px 20px;box-shadow:0 16px 48px rgba(0,0,0,.15)">
+    <div style="font-size:16px;font-weight:600;color:var(--ink);margin-bottom:6px" id="confirmTitle">Konfirmasi</div>
+    <div style="font-size:13px;color:var(--text-dim);line-height:1.6;margin-bottom:20px" id="confirmDesc"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="a-btn" onclick="closeConfirm()">Batal</button>
+      <button class="a-btn danger" id="confirmOkBtn">Ya, lanjutkan</button>
     </div>
-
-  </div><!-- end utilities -->
-
-</div><!-- end page -->
-
-<div class="toast" id="toast"><span id="toastIcon"></span><span id="toastMsg" style="margin-left:4px"></span></div>
-
-<script>
-/* ── Helpers ── */
-function getDateRange() {
-  const from = document.getElementById('dateFrom').value.trim();
-  const to   = document.getElementById('dateTo').value.trim();
-  if (!from || !to) { showToast('Isi date range dulu!', 'err'); return null; }
-  return { from, to };
-}
-
-let _toastTimer = null;
-function showToast(msg, type = 'ok') {
-  const el = document.getElementById('toast');
-  document.getElementById('toastIcon').textContent = type === 'ok' ? '✓' : '✗';
-  document.getElementById('toastMsg').textContent  = msg;
-  el.className = 'toast ' + type + ' visible';
-  if (_toastTimer) clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => el.classList.remove('visible'), 4500);
-}
-
-function setStatus(id, text, cls) {
-  const el = document.getElementById(id);
-  el.className = 'status' + (cls ? ' ' + cls : '');
-  el.textContent = text;
-}
-
-function setProgress(progId, barId, pct, indeterminate) {
-  const pw  = document.getElementById(progId);
-  const bar = barId ? document.getElementById(barId) : null;
-  if (indeterminate) {
-    pw.style.display = 'block'; pw.classList.add('active');
-    if (bar) { bar.className = 'progress-bar indeterminate'; bar.style.width = '100%'; }
-  } else if (pct === null) {
-    pw.style.display = 'none'; pw.classList.remove('active');
-    if (bar) { bar.className = 'progress-bar'; bar.style.width = '0%'; }
-  } else {
-    pw.style.display = 'block'; pw.classList.add('active');
-    if (bar) { bar.className = 'progress-bar'; bar.style.width = pct + '%'; }
-  }
-}
-
-function pollStatus(endpoint, onUpdate, interval = 2000) {
-  const id = setInterval(async () => {
-    try {
-      const d = await (await fetch(endpoint)).json();
-      const done = onUpdate(d);
-      if (done) clearInterval(id);
-    } catch (_) {}
-  }, interval);
-  return id;
-}
-
-/* ── Scraper status ── */
-async function refreshScraperStatus() {
-  try {
-    const d = await (await fetch('/admin/scraper-status')).json();
-    const chip  = document.getElementById('scraperChip');
-    const label = document.getElementById('scraperChipLabel');
-    const alive = d.thread_alive;
-    chip.className  = 'chip ' + (alive ? 'alive' : 'dead');
-    label.textContent = alive ? 'SCRAPER ALIVE' : 'SCRAPER DEAD';
-  } catch (_) {}
-}
-
-/* ── Wyckoff: Fetch OHLCV Daily ── */
-let _wOhlcvPoll = null;
-async function triggerWyckoffOhlcv() {
-  const range = getDateRange(); if (!range) return;
-  const btn = document.getElementById('wOhlcvBtn');
-  btn.disabled = true;
-  setProgress('wOhlcvProg', 'wOhlcvBar', 0, false);
-  setStatus('wOhlcvStatus', 'Memulai fetch OHLCV…');
-
-  try {
-    const d = await (await fetch(
-      `/admin/backfill-ohlcv-daily?date_from=${encodeURIComponent(range.from)}&date_to=${encodeURIComponent(range.to)}`
-    )).json();
-    if (!d.ok) { setStatus('wOhlcvStatus', d.error || 'Gagal', 'err'); btn.disabled = false; return; }
-    setStatus('wOhlcvStatus', 'Berjalan di background…');
-    if (_wOhlcvPoll) clearInterval(_wOhlcvPoll);
-    _wOhlcvPoll = pollStatus('/admin/ohlcv-daily-status', s => {
-      if (s.status === 'idle') return false;
-      const pct = s.total > 0 ? Math.round(s.done / s.total * 100) : 0;
-      setProgress('wOhlcvProg', 'wOhlcvBar', pct, false);
-      if (s.status === 'running') {
-        setStatus('wOhlcvStatus', `${s.done}/${s.total} ticker — ${s.current_ticker || '…'}`);
-        return false;
-      }
-      if (s.status === 'done') {
-        setProgress('wOhlcvProg', 'wOhlcvBar', null, false);
-        setStatus('wOhlcvStatus', `Selesai — ${s.total} ticker, ${(s.rows_total||0).toLocaleString()} rows`, 'ok');
-        showToast('Fetch OHLCV Daily selesai!', 'ok');
-        btn.disabled = false; return true;
-      }
-      if (s.status === 'error') {
-        setProgress('wOhlcvProg', 'wOhlcvBar', null, false);
-        setStatus('wOhlcvStatus', 'Error: ' + (s.error || '?'), 'err');
-        btn.disabled = false; return true;
-      }
-      return false;
-    });
-  } catch(e) {
-    setStatus('wOhlcvStatus', 'Error: ' + e.message, 'err');
-    btn.disabled = false;
-  }
-}
-
-/* ── Wyckoff: Recompute ── */
-let _wRecomputePoll = null;
-async function triggerWyckoffRecompute() {
-  const range = getDateRange(); if (!range) return;
-  const btn = document.getElementById('wRecomputeBtn');
-  btn.disabled = true;
-  setProgress('wRecomputeProg', 'wRecomputeBar', 0, true);
-  setStatus('wRecomputeStatus', 'Memulai recompute…');
-
-  try {
-    const d = await (await fetch(
-      `/admin/wyckoff-recompute?date_from=${encodeURIComponent(range.from)}&date_to=${encodeURIComponent(range.to)}`
-    )).json();
-    if (!d.ok) { setProgress('wRecomputeProg', 'wRecomputeBar', null); setStatus('wRecomputeStatus', d.error || 'Gagal', 'err'); btn.disabled = false; return; }
-    if (_wRecomputePoll) clearInterval(_wRecomputePoll);
-    _wRecomputePoll = pollStatus('/admin/wyckoff-recompute-status', s => {
-      if (s.status === 'idle') return false;
-      const pct = s.total > 0 ? Math.round(s.done / s.total * 100) : 0;
-      setProgress('wRecomputeProg', 'wRecomputeBar', pct, false);
-      if (s.status === 'running') {
-        setStatus('wRecomputeStatus', `${s.done}/${s.total} tanggal — ${s.current_date || '…'}`);
-        return false;
-      }
-      if (s.status === 'done') {
-        setProgress('wRecomputeProg', 'wRecomputeBar', null);
-        setStatus('wRecomputeStatus', `Selesai — ${s.total} tanggal`, 'ok');
-        showToast('Wyckoff recompute selesai!', 'ok');
-        btn.disabled = false; return true;
-      }
-      if (s.status === 'error') {
-        setProgress('wRecomputeProg', 'wRecomputeBar', null);
-        setStatus('wRecomputeStatus', 'Error: ' + (s.error || '?'), 'err');
-        btn.disabled = false; return true;
-      }
-      return false;
-    });
-  } catch(e) {
-    setProgress('wRecomputeProg', 'wRecomputeBar', null);
-    setStatus('wRecomputeStatus', 'Error: ' + e.message, 'err');
-    btn.disabled = false;
-  }
-}
-
-/* ── BSJP: Fetch 15m ── */
-async function triggerFetch15m() {
-  const range = getDateRange(); if (!range) return;
-  const btn = document.getElementById('bFetch15mBtn');
-  btn.disabled = true;
-  const pw = document.getElementById('bFetch15mProg');
-  pw.style.display = 'block'; pw.classList.add('active');
-  setStatus('bFetch15mStatus', 'Memulai fetch 15m…');
-
-  try {
-    const d = await (await fetch(
-      `/admin/backfill-intraday?date_from=${encodeURIComponent(range.from)}&date_to=${encodeURIComponent(range.to)}`
-    )).json();
-    pw.style.display = 'none'; pw.classList.remove('active');
-    btn.disabled = false;
-    if (d.ok) {
-      setStatus('bFetch15mStatus', 'Berjalan di background — cek server log untuk progress', 'ok');
-      showToast('Fetch 15m dimulai!', 'ok');
-    } else {
-      setStatus('bFetch15mStatus', d.error || 'Gagal', 'err');
-    }
-  } catch(e) {
-    pw.style.display = 'none'; pw.classList.remove('active');
-    btn.disabled = false;
-    setStatus('bFetch15mStatus', 'Error: ' + e.message, 'err');
-  }
-}
-
-/* ── BSJP: Recompute ── */
-let _bRecomputePoll = null;
-async function triggerBsjpRecompute() {
-  const range = getDateRange(); if (!range) return;
-  const btn = document.getElementById('bRecomputeBtn');
-  btn.disabled = true;
-  setProgress('bRecomputeProg', 'bRecomputeBar', 0, true);
-  setStatus('bRecomputeStatus', 'Memulai recompute…');
-
-  try {
-    const d = await (await fetch(
-      `/admin/bsjp-recompute?date_from=${encodeURIComponent(range.from)}&date_to=${encodeURIComponent(range.to)}`
-    )).json();
-    if (!d.ok) { setProgress('bRecomputeProg', 'bRecomputeBar', null); setStatus('bRecomputeStatus', d.error || 'Gagal', 'err'); btn.disabled = false; return; }
-    if (_bRecomputePoll) clearInterval(_bRecomputePoll);
-    _bRecomputePoll = pollStatus('/admin/bsjp-recompute-status', s => {
-      if (s.status === 'idle') return false;
-      const pct = s.total > 0 ? Math.round(s.done / s.total * 100) : 0;
-      setProgress('bRecomputeProg', 'bRecomputeBar', pct, false);
-      if (s.status === 'running') {
-        setStatus('bRecomputeStatus', `${s.done}/${s.total} tanggal — ${s.current_date || '…'} | ${s.signals} sinyal`);
-        return false;
-      }
-      if (s.status === 'done') {
-        setProgress('bRecomputeProg', 'bRecomputeBar', null);
-        setStatus('bRecomputeStatus', `Selesai — ${s.total} tanggal, ${s.signals} sinyal total`, 'ok');
-        showToast(`BSJP recompute selesai! (${s.signals} sinyal)`, 'ok');
-        btn.disabled = false; return true;
-      }
-      if (s.status === 'error') {
-        setProgress('bRecomputeProg', 'bRecomputeBar', null);
-        setStatus('bRecomputeStatus', 'Error: ' + (s.error || '?'), 'err');
-        btn.disabled = false; return true;
-      }
-      return false;
-    });
-  } catch(e) {
-    setProgress('bRecomputeProg', 'bRecomputeBar', null);
-    setStatus('bRecomputeStatus', 'Error: ' + e.message, 'err');
-    btn.disabled = false;
-  }
-}
-
-/* ── Auto-resume polling on load ── */
-function checkResumeOnLoad() {
-  fetch('/admin/ohlcv-daily-status').then(r => r.json()).then(s => {
-    if (s.status === 'running') triggerWyckoffOhlcv();
-  }).catch(() => {});
-  fetch('/admin/wyckoff-recompute-status').then(r => r.json()).then(s => {
-    if (s.status === 'running') {
-      const btn = document.getElementById('wRecomputeBtn'); btn.disabled = true;
-      setProgress('wRecomputeProg', 'wRecomputeBar', 0, true);
-      if (_wRecomputePoll) clearInterval(_wRecomputePoll);
-      _wRecomputePoll = pollStatus('/admin/wyckoff-recompute-status', s => {
-        const pct = s.total > 0 ? Math.round(s.done / s.total * 100) : 0;
-        setProgress('wRecomputeProg', 'wRecomputeBar', pct, false);
-        if (s.status === 'running') { setStatus('wRecomputeStatus', `${s.done}/${s.total} — ${s.current_date || '…'}`); return false; }
-        setProgress('wRecomputeProg', 'wRecomputeBar', null);
-        setStatus('wRecomputeStatus', s.status === 'done' ? `Selesai — ${s.total} tanggal` : 'Error', s.status === 'done' ? 'ok' : 'err');
-        btn.disabled = false; return true;
-      });
-    }
-  }).catch(() => {});
-  fetch('/admin/bsjp-recompute-status').then(r => r.json()).then(s => {
-    if (s.status === 'running') {
-      const btn = document.getElementById('bRecomputeBtn'); btn.disabled = true;
-      setProgress('bRecomputeProg', 'bRecomputeBar', 0, true);
-      if (_bRecomputePoll) clearInterval(_bRecomputePoll);
-      _bRecomputePoll = pollStatus('/admin/bsjp-recompute-status', s => {
-        const pct = s.total > 0 ? Math.round(s.done / s.total * 100) : 0;
-        setProgress('bRecomputeProg', 'bRecomputeBar', pct, false);
-        if (s.status === 'running') { setStatus('bRecomputeStatus', `${s.done}/${s.total} — ${s.current_date || '…'} | ${s.signals} sinyal`); return false; }
-        setProgress('bRecomputeProg', 'bRecomputeBar', null);
-        setStatus('bRecomputeStatus', s.status === 'done' ? `Selesai — ${s.signals} sinyal` : 'Error', s.status === 'done' ? 'ok' : 'err');
-        btn.disabled = false; return true;
-      });
-    }
-  }).catch(() => {});
-}
-
-/* ── Session upload ── */
-function showFileName() {
-  const f = document.getElementById('sessFile').files[0];
-  document.getElementById('sessFileName').textContent = f ? f.name : '';
-}
-function uploadSession() {
-  const file = document.getElementById('sessFile').files[0];
-  if (!file) { setStatus('sessStatus', 'Pilih file dulu!', 'err'); return; }
-  const xhr = new XMLHttpRequest();
-  document.getElementById('sessProgress').classList.add('active');
-  document.getElementById('sessBar').style.width = '0%';
-  setStatus('sessStatus', 'Uploading…');
-  xhr.upload.onprogress = e => {
-    if (e.lengthComputable) document.getElementById('sessBar').style.width = Math.round(e.loaded/e.total*100)+'%';
-  };
-  xhr.onload = () => {
-    document.getElementById('sessProgress').classList.remove('active');
-    if (xhr.status === 200) { setStatus('sessStatus', xhr.responseText, 'ok'); showToast('Session uploaded!', 'ok'); }
-    else { setStatus('sessStatus', 'Error: ' + xhr.responseText, 'err'); }
-  };
-  xhr.onerror = () => { document.getElementById('sessProgress').classList.remove('active'); setStatus('sessStatus', 'Upload gagal', 'err'); };
-  xhr.open('POST', '/admin/upload-session');
-  xhr.send(file);
-}
-
-/* ── User management ── */
-async function loadUsers() {
-  try {
-    const users = await (await fetch('/admin/users')).json();
-    const list = document.getElementById('userList');
-    if (!users.length) { list.innerHTML = '<span style="font-family:Space Mono,monospace;font-size:10px;color:var(--muted)">Belum ada user</span>'; return; }
-    list.innerHTML = users.map(u => `
-      <div class="user-item">
-        <div><span class="user-name">${u.username}</span><span class="user-role ${u.role==='admin'?'role-admin':'role-guest'}">${u.role}</span></div>
-        <button class="btn-sm" onclick="deleteUser(${u.id},'${u.username}')">Hapus</button>
-      </div>`).join('');
-  } catch (_) {}
-}
-async function addUser() {
-  const username = document.getElementById('newUsername').value.trim();
-  const password = document.getElementById('newPassword').value.trim();
-  const role     = document.getElementById('newRole').value;
-  if (!username || !password) { setStatus('addUserStatus', 'Username dan password wajib!', 'err'); return; }
-  setStatus('addUserStatus', 'Adding…');
-  try {
-    const d = await (await fetch('/admin/users/add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username,password,role}) })).json();
-    if (d.ok) { setStatus('addUserStatus', `"${username}" ditambahkan`, 'ok'); document.getElementById('newUsername').value=''; document.getElementById('newPassword').value=''; loadUsers(); }
-    else { setStatus('addUserStatus', d.error || 'Gagal', 'err'); }
-  } catch(e) { setStatus('addUserStatus', 'Error: ' + e.message, 'err'); }
-}
-async function deleteUser(id, username) {
-  if (!confirm(`Hapus user "${username}"?`)) return;
-  try { await fetch(`/admin/users/delete/${id}`, {method:'POST'}); loadUsers(); } catch(_) {}
-}
-
-/* ── Init ── */
-document.addEventListener('DOMContentLoaded', () => {
-  refreshScraperStatus();
-  loadUsers();
-  checkResumeOnLoad();
-  setInterval(() => { if (!document.hidden) refreshScraperStatus(); }, 10000);
-});
-</script>
-<script src="/static/shortcuts.js" defer></script>
+  </div>
 </div>
+
+<!-- Toast -->
+<div id="toast" class="a-toast success" style="display:none"></div>
+
+<script src="/static/zenith-utils.js"></script>
+<script>
+(function(){
+var currentTab  = 'data';
+var currentAlgo = 'wyckoff';
+var loadingAction = null;
+
+/* Date pickers */
+var today = window.todayLocal();
+var wyckoffDates = { from: today, to: today };
+var bsjpDates    = { from: today, to: today };
+
+new window.StockbitDatePicker('wyckoffDP', {
+  from: today, to: today,
+  onChange: function(f, t) { wyckoffDates.from = f; wyckoffDates.to = t || f; }
+});
+new window.StockbitDatePicker('bsjpDP', {
+  from: today, to: today,
+  onChange: function(f, t) { bsjpDates.from = f; bsjpDates.to = t || f; }
+});
+
+/* Tab switching */
+window.switchTab = function(tab) {
+  currentTab = tab;
+  document.getElementById('tabData').style.display  = tab === 'data'  ? '' : 'none';
+  document.getElementById('tabUsers').style.display = tab === 'users' ? '' : 'none';
+  document.querySelectorAll('#tabToggle .seg-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  if (tab === 'users') loadUsers();
+};
+
+/* Algo switching */
+window.switchAlgo = function(algo) {
+  currentAlgo = algo;
+  document.getElementById('algoWyckoff').style.display = algo === 'wyckoff' ? '' : 'none';
+  document.getElementById('algoBSJP').style.display    = algo === 'bsjp'    ? '' : 'none';
+  document.querySelectorAll('#algoToggle .seg-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.algo === algo);
+  });
+};
+
+/* Toast */
+function toast(msg, type) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'a-toast ' + (type || 'success');
+  el.style.display = 'flex';
+  setTimeout(function() { el.style.display = 'none'; }, 2800);
+}
+
+/* Action buttons */
+window.runAction = function(action) {
+  if (loadingAction) return;
+  loadingAction = action;
+  var btnMap = { fetch_daily:'btnFetchDaily', recompute_w:'btnRecomputeW', rebuild:'btnRebuild', fetch_15m:'btnFetch15m', recompute_b:'btnRecomputeB' };
+  var progId  = (action === 'fetch_15m' || action === 'recompute_b') ? 'progBSJP' : 'progWyckoff';
+  var btn = document.getElementById(btnMap[action]);
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span style="display:inline-block;width:11px;height:11px;border:2px solid rgba(0,0,0,.3);border-top-color:currentColor;border-radius:99px;animation:adminSpin .6s linear infinite"></span> Processing...'; }
+  document.getElementById(progId).style.display = '';
+  /* Reset animation */
+  var fill = document.getElementById(progId+'Fill');
+  fill.className = 'a-progress-fill'; fill.offsetHeight; fill.className = 'a-progress-fill anim';
+
+  var dates = (action === 'fetch_15m' || action === 'recompute_b') ? bsjpDates : wyckoffDates;
+  var from = window.isoToDD_MM_YYYY(dates.from), to = window.isoToDD_MM_YYYY(dates.to);
+  var url;
+  if (action === 'fetch_daily')  url = '/admin/backfill-prices?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to);
+  else if (action === 'recompute_w') url = '/admin/recompute-analytics';
+  else if (action === 'rebuild') url = '/admin/rebuild-summary';
+  else if (action === 'fetch_15m') url = '/admin/backfill-intraday?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to);
+  else if (action === 'recompute_b') url = '/admin/rebuild-summary';
+
+  fetch(url)
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      loadingAction = null;
+      document.getElementById(progId).style.display = 'none';
+      if (btn) { btn.disabled = false; btn.textContent = btn.textContent.replace('Processing...', btn.getAttribute('data-label') || btn.textContent); }
+      resetBtn(btnMap[action]);
+      toast(d.message || (d.ok ? 'Selesai ✓' : 'Error: '+(d.error||'?')), d.ok===false?'error':'success');
+    }).catch(function(e) {
+      loadingAction = null;
+      document.getElementById(progId).style.display = 'none';
+      resetBtn(btnMap[action]);
+      toast('Gagal: '+e.message, 'error');
+    });
+};
+
+var BTN_LABELS = {
+  btnFetchDaily: 'Fetch OHLCV Daily', btnRecomputeW: 'Recompute Analytics', btnRebuild: 'Rebuild Summary',
+  btnFetch15m: 'Fetch OHLCV 15M', btnRecomputeB: 'Recompute BSJP'
+};
+function resetBtn(id) {
+  var btn = document.getElementById(id);
+  if (!btn) return;
+  btn.disabled = false;
+  btn.textContent = BTN_LABELS[id] || id;
+}
+
+/* Load scraper status */
+function loadScraperStatus() {
+  fetch('/admin/scraper-status')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      /* Status badges */
+      var alive   = d.thread_alive;
+      var backfill= d.backfill_running;
+      var rebuild = d.rebuild_running;
+      var recomp  = d.recompute_running;
+      var badges = [
+        ['SCRAPER',   alive,   alive],
+        ['BACKFILL',  backfill, backfill],
+        ['REBUILD',   rebuild,  rebuild],
+        ['RECOMPUTE', recomp,   recomp],
+      ];
+      document.getElementById('scraperBadges').innerHTML = badges.map(function(b) {
+        var isAlive = !!b[1];
+        return '<div class="status-badge '+(isAlive?'alive':'idle')+'">'+
+          '<div class="status-dot '+(isAlive?'alive':'idle')+'"></div>'+
+          '<span class="status-text">'+b[0]+(isAlive?': ALIVE':': IDLE')+'</span>'+
+          '</div>';
+      }).join('');
+
+      /* Coverage table */
+      var first = d.first_data || {}, latest = d.latest_data || {}, counts = d.row_counts || {};
+      var chLabels = [
+        { label: 'SM',  color: '#4a7fdb' },
+        { label: 'BM',  color: '#c87d3a' },
+        { label: 'MF+', color: '#3a6b58' },
+        { label: 'MF-', color: '#c8633a' },
+        { label: 'EOD Summary', color: '#9a9080', key: 'summary' },
+      ];
+      document.getElementById('covTableBody').innerHTML = chLabels.map(function(ch) {
+        var k = ch.key || ch.label;
+        var cnt = counts[k] || counts[ch.label] || 0;
+        return '<tr class="cov-tr">'+
+          '<td class="cov-td" style="text-align:left">'+
+            '<div style="display:flex;align-items:center;gap:8px">'+
+              '<div style="width:22px;height:22px;border-radius:5px;background:'+ch.color+';flex-shrink:0"></div>'+
+              '<span style="font-size:12px;color:var(--text-dim)">'+ch.label+'</span>'+
+            '</div>'+
+          '</td>'+
+          '<td class="cov-td">'+(first[ch.label]||'—')+'</td>'+
+          '<td class="cov-td">'+(latest[ch.label]||'—')+'</td>'+
+          '<td class="cov-td" style="font-weight:700;color:var(--ink)">'+(cnt?cnt.toLocaleString('id-ID'):'—')+'</td>'+
+        '</tr>';
+      }).join('');
+    }).catch(function() {
+      document.getElementById('scraperBadges').innerHTML = '<div class="status-badge idle"><div class="status-dot idle"></div><span class="status-text">Gagal memuat</span></div>';
+    });
+}
+
+/* Session file upload */
+window.onSessionFile = function(input) {
+  if (!input.files[0]) return;
+  document.getElementById('sessionFileName').textContent = input.files[0].name;
+  document.getElementById('uploadBtn').disabled = false;
+};
+window.uploadSession = function() {
+  var file = document.getElementById('sessionFile').files[0];
+  if (!file) return;
+  var fd = new FormData();
+  fd.append('session', file);
+  document.getElementById('uploadBtn').disabled = true;
+  document.getElementById('uploadBtn').textContent = 'Uploading...';
+  fetch('/admin/upload-session', { method:'POST', body: fd })
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      document.getElementById('uploadBtn').disabled = false;
+      document.getElementById('uploadBtn').textContent = 'Upload';
+      if (d.ok) {
+        document.getElementById('sessionOk').style.display = '';
+        document.getElementById('sessionOk').textContent = '✓ ' + file.name + ' uploaded';
+        toast('Session file uploaded ✓', 'success');
+      } else {
+        toast('Upload gagal: '+(d.error||'?'), 'error');
+      }
+    }).catch(function(e) {
+      document.getElementById('uploadBtn').disabled = false;
+      document.getElementById('uploadBtn').textContent = 'Upload';
+      toast('Gagal: '+e.message, 'error');
+    });
+};
+
+/* Users */
+function loadUsers() {
+  fetch('/admin/users')
+    .then(function(r){ return r.json(); })
+    .then(function(users) {
+      if (!users.length) {
+        document.getElementById('userList').innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Belum ada user.</div>';
+        return;
+      }
+      document.getElementById('userList').innerHTML = users.map(function(u) {
+        var isAdmin = u.role === 'admin';
+        var avBg    = isAdmin ? 'var(--accent)' : 'var(--surface)';
+        var avCol   = isAdmin ? '#fff' : 'var(--muted)';
+        return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface2);border-radius:9px;border:1px solid var(--border)">'+
+          '<div style="display:flex;align-items:center;gap:10px">'+
+            '<div class="user-av" style="background:'+avBg+';border:1px solid var(--border);color:'+avCol+'">'+u.username[0].toUpperCase()+'</div>'+
+            '<span style="font-size:13px;font-weight:500;color:var(--ink);font-family:var(--font-mono)">'+u.username+'</span>'+
+            '<span style="padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600;background:'+(isAdmin?'var(--accent-soft)':'var(--surface)')+';border:1px solid var(--border);color:'+(isAdmin?'var(--accent)':'var(--text-dim)')+'">'+u.role+'</span>'+
+          '</div>'+
+          '<button class="a-btn danger small" onclick="deleteUser('+u.id+',\''+u.username+'\')">Hapus</button>'+
+        '</div>';
+      }).join('');
+    }).catch(function() {
+      document.getElementById('userList').innerHTML = '<div style="color:var(--down);font-size:13px">Gagal memuat daftar user.</div>';
+    });
+}
+
+window.addUser = function() {
+  var username = document.getElementById('newUsername').value.trim();
+  var password = document.getElementById('newPassword').value.trim();
+  var role     = document.getElementById('newRole').value;
+  var msgEl    = document.getElementById('addUserMsg');
+  if (!username || !password) { msgEl.style.color='var(--down)'; msgEl.textContent='Username dan password wajib diisi.'; return; }
+  var btn = document.getElementById('addUserBtn');
+  btn.disabled = true;
+  fetch('/admin/users/add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: username, password: password, role: role })
+  }).then(function(r){ return r.json(); })
+    .then(function(d) {
+      btn.disabled = false;
+      if (d.ok) {
+        msgEl.style.color = 'var(--up)'; msgEl.textContent = '✓ User "'+username+'" ditambahkan.';
+        document.getElementById('newUsername').value = '';
+        document.getElementById('newPassword').value = '';
+        loadUsers();
+      } else {
+        msgEl.style.color = 'var(--down)'; msgEl.textContent = d.error || 'Gagal menambahkan user.';
+      }
+    }).catch(function() { btn.disabled=false; msgEl.style.color='var(--down)'; msgEl.textContent='Network error.'; });
+};
+
+/* Confirm modal */
+var pendingConfirm = null;
+window.deleteUser = function(id, username) {
+  pendingConfirm = { id: id, username: username };
+  document.getElementById('confirmTitle').textContent = 'Hapus user "'+username+'"?';
+  document.getElementById('confirmDesc').textContent  = 'User ini akan dihapus secara permanen dan tidak bisa dikembalikan.';
+  document.getElementById('confirmOkBtn').onclick = function() {
+    closeConfirm();
+    fetch('/admin/users/delete/'+id, {method:'POST'})
+      .then(function(){ loadUsers(); toast('User "'+username+'" dihapus ✓', 'success'); })
+      .catch(function(){ toast('Gagal menghapus user', 'error'); });
+  };
+  document.getElementById('confirmModal').style.display = 'flex';
+};
+window.closeConfirm = function() {
+  document.getElementById('confirmModal').style.display = 'none';
+  pendingConfirm = null;
+};
+document.getElementById('confirmModal').addEventListener('click', function(e) {
+  if (e.target === this) closeConfirm();
+});
+
+/* Init */
+loadScraperStatus();
+})();
+</script>
 </body>
 </html>
