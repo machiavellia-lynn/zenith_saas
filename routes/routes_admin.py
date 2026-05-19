@@ -501,6 +501,196 @@ def admin_seed_eod():
     return jsonify({"ok": True, "message": f"Seed EOD Summary dimulai ({label}). Cek server log untuk result."})
 
 
+# Module-level state for BSJP historical backfill
+_bsjp_backfill = {
+    "status":       "idle",   # idle | running | done | error
+    "current_date": None,
+    "done":         0,
+    "total":        0,
+    "inserted":     0,
+    "error":        None,
+}
+
+
+def _run_bsjp_scan_for_date(conn, date_str: str) -> int:
+    """Sync version of bsjp scan for a specific date (no live yfinance). Returns signal count."""
+    import logging
+    from algo.algo_bsjp import BSJPAlgo
+    from scraper.scraper_daily import _compute_bsjp_score, TOP_N_BSJP, BSJP_BLACKLIST
+    from datetime import datetime, timezone, timedelta
+    log = logging.getLogger("zenith.admin")
+    WIB_TZ = timezone(timedelta(hours=7))
+
+    algo = BSJPAlgo()
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT e.*, p.ma5, p.bb_mid, p.bb_lower, p.ma5_price_streak,
+                   p.prev_high_break, p.is_sideways, p.daily_value,
+                   p.prev_close_below_ma5, p.prev_close_below_bb_lower,
+                   p.days_since_near_bb_mid, p.close_pos,
+                   p.close AS ph_close
+            FROM eod_summary e
+            LEFT JOIN price_history p
+                ON p.ticker = e.ticker
+                AND p.date = TO_CHAR(TO_DATE(e.date,'DD-MM-YYYY'),'YYYY-MM-DD')
+            WHERE e.date = %s AND e.sri IS NOT NULL AND e.sm_val > 0
+        """, (date_str,))
+        eod_rows = [dict(r) for r in cur.fetchall()]
+
+    scored = []
+    for row in eod_rows:
+        t = row.get("ticker", "")
+        if t in BSJP_BLACKLIST:
+            continue
+        row["price_close"] = row.get("ph_close") or row.get("price_close")
+        if not row.get("price_close"):
+            continue
+        sig = algo.signal_detail(t, row)
+        if not sig:
+            continue
+        score = _compute_bsjp_score(row, sig)
+        lot   = int(10_000_000 / float(row["price_close"]))
+        scored.append((score, t, sig, row, lot))
+
+    scored.sort(key=lambda x: -x[0])
+    top = scored[:TOP_N_BSJP]
+    now_str = datetime.now(WIB_TZ).isoformat()
+
+    for rank, (score, ticker, sig, row, lot) in enumerate(top, 1):
+        entry = round(float(row["price_close"]))
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO bsjp_signals
+                    (date, ticker, setup, entry_est, entry_final, tp1, tp2, sl, sl_type,
+                     score, day_rank, lot_size, status, computed_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'CONFIRMED',%s)
+                ON CONFLICT (date, ticker) DO UPDATE SET
+                    setup=EXCLUDED.setup, entry_est=EXCLUDED.entry_est,
+                    entry_final=EXCLUDED.entry_final,
+                    tp1=EXCLUDED.tp1, tp2=EXCLUDED.tp2, sl=EXCLUDED.sl,
+                    sl_type=EXCLUDED.sl_type, score=EXCLUDED.score,
+                    day_rank=EXCLUDED.day_rank, lot_size=EXCLUDED.lot_size,
+                    status='CONFIRMED', computed_at=EXCLUDED.computed_at
+            """, (date_str, ticker, sig["setup"], entry, entry,
+                  sig["tp1"], sig["tp2"], sig["sl"], sig["sl_type"],
+                  score, rank, lot, now_str))
+    conn.commit()
+    log.info("[BSJP backfill] %s → %d signals", date_str, len(top))
+    return len(top)
+
+
+@bp_admin.route("/admin/bsjp-scan")
+def admin_bsjp_scan():
+    """Manual BSJP scan for a specific date (sync, uses historical eod_summary)."""
+    if not is_authed():
+        return redirect("/")
+    date_str = request.args.get("date", "").strip()
+    if not date_str:
+        return jsonify({"ok": False, "error": "Parameter date wajib (DD-MM-YYYY)"}), 400
+
+    from core.db import get_scraper_db
+    conn = get_scraper_db()
+    try:
+        count = _run_bsjp_scan_for_date(conn, date_str)
+        return jsonify({"ok": True, "date": date_str, "signals": count})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@bp_admin.route("/admin/bsjp-finalize")
+def admin_bsjp_finalize():
+    """Manual BSJP finalize pass for a specific date."""
+    if not is_authed():
+        return redirect("/")
+    date_str = request.args.get("date", "").strip()
+    if not date_str:
+        return jsonify({"ok": False, "error": "Parameter date wajib (DD-MM-YYYY)"}), 400
+
+    from scraper.scraper_daily import run_bsjp_finalize_pass
+    from core.db import get_scraper_db
+    conn = get_scraper_db()
+    try:
+        run_bsjp_finalize_pass(conn)
+        return jsonify({"ok": True, "date": date_str})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@bp_admin.route("/admin/bsjp-backfill")
+def admin_bsjp_backfill():
+    """Historical BSJP backfill for a date range (background thread)."""
+    if not is_authed():
+        return redirect("/")
+    if _bsjp_backfill["status"] == "running":
+        return jsonify({"ok": False, "error": "Sudah berjalan, tunggu selesai dulu."})
+
+    date_from = request.args.get("date_from", "").strip()
+    date_to   = request.args.get("date_to",   "").strip()
+    if not date_from or not date_to:
+        return jsonify({"ok": False, "error": "date_from dan date_to wajib (DD-MM-YYYY)"}), 400
+
+    import threading
+    import logging
+    from core.db import get_scraper_db, fetchall
+    _log = logging.getLogger("zenith.admin")
+
+    def _run():
+        conn = get_scraper_db()
+        try:
+            rows = fetchall(conn, """
+                SELECT DISTINCT date FROM eod_summary
+                WHERE SUBSTR(date,7,4)||SUBSTR(date,4,2)||SUBSTR(date,1,2)
+                      BETWEEN SUBSTR(%s,7,4)||SUBSTR(%s,4,2)||SUBSTR(%s,1,2)
+                          AND SUBSTR(%s,7,4)||SUBSTR(%s,4,2)||SUBSTR(%s,1,2)
+                ORDER BY date
+            """, [date_from, date_from, date_from, date_to, date_to, date_to])
+        except Exception as e:
+            _bsjp_backfill.update({"status": "error", "error": str(e)})
+            conn.close()
+            return
+        finally:
+            conn.close()
+
+        dates = [r["date"] for r in rows]
+        _bsjp_backfill.update({
+            "status": "running", "total": len(dates),
+            "done": 0, "inserted": 0, "error": None, "current_date": None,
+        })
+        _log.info("BSJP backfill: %d tanggal, %s → %s", len(dates), date_from, date_to)
+
+        for i, d in enumerate(dates):
+            _bsjp_backfill["current_date"] = d
+            conn = get_scraper_db()
+            try:
+                n = _run_bsjp_scan_for_date(conn, d)
+                _bsjp_backfill["inserted"] += n
+            except Exception as e:
+                conn.rollback()
+                _log.error("BSJP backfill failed %s: %s", d, e)
+            finally:
+                conn.close()
+            _bsjp_backfill["done"] = i + 1
+
+        _bsjp_backfill.update({"status": "done", "current_date": None})
+        _log.info("BSJP backfill done: %d signals dari %d tanggal", _bsjp_backfill["inserted"], len(dates))
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"ok": True, "message": f"BSJP backfill dimulai ({date_from} → {date_to}). Cek status."})
+
+
+@bp_admin.route("/admin/bsjp-status")
+def admin_bsjp_status():
+    if not is_authed():
+        return redirect("/")
+    return jsonify(_bsjp_backfill)
+
+
 @bp_admin.route("/admin/trigger-backtest")
 def trigger_backtest():
     if not is_authed():

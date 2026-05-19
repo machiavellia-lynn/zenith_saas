@@ -311,6 +311,87 @@ td.left { text-align: left; }
 .badge.estimasi  { background: rgba(77,159,255,.12); border: 1px solid rgba(77,159,255,.3); color: var(--accent2); }
 .badge.invalid   { background: rgba(255,77,106,.09); border: 1px solid rgba(255,77,106,.25); color: var(--danger); }
 
+/* ── MODAL ───────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,.82);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s;
+}
+.modal-backdrop.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  width: 100%; max-width: 560px;
+  transform: scale(.97); transition: transform .2s;
+  overflow: hidden;
+}
+.modal-backdrop.open .modal { transform: scale(1); }
+.modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+}
+.modal-ticker-name {
+  font-family: 'Space Mono', monospace;
+  font-size: 18px; font-weight: 700; color: var(--text);
+  letter-spacing: .08em;
+}
+.modal-setup-name {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px; color: var(--muted);
+  letter-spacing: .06em; margin-top: 3px;
+}
+.close-btn {
+  background: none; border: none; color: var(--muted);
+  font-size: 18px; cursor: pointer; padding: 2px 6px;
+  transition: color .15s;
+}
+.close-btn:hover { color: var(--text); }
+.modal-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.modal-metrics {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+}
+.mm-item { display: flex; flex-direction: column; gap: 2px; }
+.mm-label {
+  font-family: 'Space Mono', monospace; font-size: 9px;
+  letter-spacing: .1em; color: var(--muted); text-transform: uppercase;
+}
+.mm-value {
+  font-family: 'Space Mono', monospace; font-size: 13px;
+  font-weight: 700; color: var(--text);
+}
+.mm-value.up  { color: var(--up); }
+.mm-value.dn  { color: var(--down); }
+.mm-value.bl  { color: var(--accent2); }
+.mm-sub { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--muted); }
+.modal-divider { height: 1px; background: var(--border); }
+.modal-score-row {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 16px;
+}
+.score-big {
+  font-family: 'Space Mono', monospace; font-size: 28px;
+  font-weight: 700; color: var(--accent2); flex-shrink: 0; width: 90px;
+}
+.score-breakdown {
+  display: flex; flex-direction: column; gap: 4px; flex: 1;
+}
+.sb-item {
+  display: flex; justify-content: space-between;
+  font-family: 'Space Mono', monospace; font-size: 10px;
+}
+.sb-key { color: var(--muted); }
+.sb-val { color: var(--text); font-weight: 700; }
+.modal-keterangan {
+  font-size: 12px; color: var(--danger);
+  background: rgba(255,77,106,.06); border: 1px solid rgba(255,77,106,.2);
+  border-radius: 6px; padding: 10px 14px;
+}
+
 /* Loading / empty */
 .state-row td {
   text-align: center; padding: 60px;
@@ -417,23 +498,51 @@ td.left { text-align: left; }
         <th class="left" onclick="sortBy('ticker')" data-col="ticker">TICKER <span class="sort-icon"></span></th>
         <th class="left" onclick="sortBy('setup')" data-col="setup">SETUP <span class="sort-icon"></span></th>
         <th onclick="sortBy('entry')" data-col="entry">ENTRY <span class="sort-icon"></span></th>
-        <th>TP1</th>
-        <th>TP2</th>
-        <th>SL</th>
         <th onclick="sortBy('score')" data-col="score">SCORE <span class="sort-icon"></span></th>
-        <th onclick="sortBy('lot_size')" data-col="lot_size">LOT <span class="sort-icon"></span></th>
-        <th onclick="sortBy('status')" data-col="status">STATUS <span class="sort-icon"></span></th>
-        <th class="left">KETERANGAN</th>
       </tr>
     </thead>
     <tbody id="bsjpBody">
-      <tr class="state-row"><td colspan="11"><span class="spinner-inline"></span>Memuat sinyal…</td></tr>
+      <tr class="state-row"><td colspan="5"><span class="spinner-inline"></span>Memuat sinyal…</td></tr>
     </tbody>
   </table>
 </div>
 
 </main>
 </div><!-- .main-content -->
+
+<!-- MODAL -->
+<div class="modal-backdrop" id="modalBackdrop" onclick="handleBackdropClick(event)">
+  <div class="modal" id="modalBox">
+    <div class="modal-head">
+      <div>
+        <div class="modal-ticker-name" id="mTicker">—</div>
+        <div class="modal-setup-name" id="mSetup">—</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="mBadge" class="badge estimasi">ESTIMASI</span>
+        <button class="close-btn" onclick="closeModal()">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+
+      <!-- Score -->
+      <div class="modal-score-row">
+        <div class="score-big" id="mScore">—</div>
+        <div class="score-breakdown" id="mBreakdown"></div>
+      </div>
+
+      <!-- Entry / TP / SL -->
+      <div class="modal-metrics" id="mMetrics"></div>
+
+      <!-- Lot / Capital -->
+      <div class="modal-metrics" style="grid-template-columns:repeat(2,1fr)" id="mLot"></div>
+
+      <!-- Keterangan (invalid only) -->
+      <div class="modal-keterangan" id="mKet" style="display:none"></div>
+
+    </div>
+  </div>
+</div>
 
 <script>
 const WIB_OFFSET = 7 * 60;
@@ -536,7 +645,6 @@ function renderTable() {
     return true;
   });
 
-  /* Sort */
   rows.sort((a, b) => {
     let va, vb;
     if (sortCol === 'entry')  { va = entryVal(a) ?? 0; vb = entryVal(b) ?? 0; }
@@ -551,7 +659,7 @@ function renderTable() {
   document.getElementById('rowCount').textContent = rows.length ? `${rows.length} sinyal` : '';
 
   if (rows.length === 0) {
-    tbody.innerHTML = '<tr class="state-row"><td colspan="11">Tidak ada sinyal untuk filter ini</td></tr>';
+    tbody.innerHTML = '<tr class="state-row"><td colspan="5">Tidak ada sinyal untuk filter ini</td></tr>';
     return;
   }
 
@@ -560,26 +668,93 @@ function renderTable() {
     const tr = document.createElement('tr');
     const statusCls = { CONFIRMED: 'status-confirmed', ESTIMASI: 'status-estimasi', INVALID: 'status-invalid' }[s.status] || '';
     tr.className = statusCls;
+    tr.style.cursor = 'pointer';
     const ev = entryVal(s);
     const entryHtml = ev != null
       ? fmtPrice(ev) + (s.status !== 'CONFIRMED' ? '<span style="font-size:9px;color:var(--muted);margin-left:2px">est</span>' : '')
       : '—';
     tr.innerHTML = `
       <td class="td-rank left">${s.day_rank ?? '—'}</td>
-      <td class="td-ticker left">${s.ticker}</td>
+      <td class="td-ticker left">${s.ticker}<br><span style="font-size:9px;font-family:'Space Mono',monospace;opacity:.6">${s.status}</span></td>
       <td class="td-setup left">${s.setup ?? '—'}</td>
       <td class="td-price est">${entryHtml}</td>
-      <td class="td-price tp">${fmtPrice(s.tp1)}</td>
-      <td class="td-price tp">${fmtPrice(s.tp2)}</td>
-      <td class="td-price sl">${fmtPrice(s.sl)}</td>
       <td class="td-score">${fmtScore(s.score)}</td>
-      <td class="td-lot">${fmtLot(s.lot_size)}</td>
-      <td>${statusBadge(s.status)}</td>
-      <td class="td-keterangan left">${s.invalid_reason ?? ''}</td>
     `;
+    tr.addEventListener('click', () => openModal(s));
     tbody.appendChild(tr);
   });
 }
+
+/* ── Modal ── */
+function pct(entry, target) {
+  if (!entry || !target) return '';
+  return ' <span style="font-size:9px;color:var(--muted)">(' + (((target - entry) / entry) * 100).toFixed(1) + '%)</span>';
+}
+
+function mm(label, value, cls) {
+  return `<div class="mm-item"><div class="mm-label">${label}</div><div class="mm-value ${cls||''}">${value}</div></div>`;
+}
+
+function openModal(s) {
+  const entry = entryVal(s);
+  document.getElementById('mTicker').textContent = s.ticker;
+  document.getElementById('mSetup').textContent  = s.setup ?? '—';
+
+  const badge = document.getElementById('mBadge');
+  badge.className = 'badge ' + (s.status || '').toLowerCase();
+  badge.textContent = s.status;
+
+  // Score + breakdown
+  document.getElementById('mScore').textContent = fmtScore(s.score);
+  document.getElementById('mBreakdown').innerHTML = `
+    <div class="sb-item"><span class="sb-key">RSM × 0.30</span><span class="sb-val">${s.rsm != null ? Number(s.rsm).toFixed(1)+'%' : '—'}</span></div>
+    <div class="sb-item"><span class="sb-key">SRI × 0.25</span><span class="sb-val">${s.sri != null ? Number(s.sri).toFixed(2) : '—'}</span></div>
+    <div class="sb-item"><span class="sb-key">Setup WR × 0.25</span><span class="sb-val">${s.setup ?? '—'}</span></div>
+    <div class="sb-item"><span class="sb-key">MF Ratio × 0.10</span><span class="sb-val">${s.mf_ratio != null ? Number(s.mf_ratio).toFixed(1)+'%' : '—'}</span></div>
+    <div class="sb-item"><span class="sb-key">Close Pos × 0.10</span><span class="sb-val">${s.rpr != null ? Number(s.rpr).toFixed(2) : '—'}</span></div>
+  `;
+
+  // Entry / TP / SL
+  document.getElementById('mMetrics').innerHTML =
+    mm('ENTRY', entry != null ? fmtPrice(entry) + (s.status !== 'CONFIRMED' ? '<span style="font-size:9px;color:var(--muted)"> est</span>' : '') : '—', '') +
+    mm('TP1', fmtPrice(s.tp1) + pct(entry, s.tp1), 'up') +
+    mm('TP2', fmtPrice(s.tp2) + pct(entry, s.tp2), 'up') +
+    mm('SL',  fmtPrice(s.sl)  + pct(entry, s.sl),  'dn') +
+    mm('SL TYPE', s.sl_type ?? '—', 'bl') +
+    mm('RPR', s.rpr != null ? Number(s.rpr).toFixed(2) : '—', '');
+
+  // Lot / Capital
+  const lot = s.lot_size;
+  const cap = lot ? (lot * (entry || 0)).toLocaleString('id-ID', {maximumFractionDigits:0}) : '—';
+  document.getElementById('mLot').innerHTML =
+    mm('LOT SIZE', fmtLot(lot), '') +
+    mm('MODAL (est)', lot && entry ? 'Rp ' + cap : '—', '');
+
+  // Keterangan
+  const ket = document.getElementById('mKet');
+  if (s.invalid_reason) {
+    ket.style.display = '';
+    ket.textContent   = s.invalid_reason;
+  } else {
+    ket.style.display = 'none';
+  }
+
+  document.getElementById('modalBackdrop').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('modalBackdrop').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function handleBackdropClick(e) {
+  if (e.target === document.getElementById('modalBackdrop')) closeModal();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
 
 /* ── Load signals ── */
 async function loadSignals() {
@@ -587,7 +762,7 @@ async function loadSignals() {
 
   document.getElementById('sDate').textContent = dmy;
   document.getElementById('bsjpBody').innerHTML =
-    '<tr class="state-row"><td colspan="11"><span class="spinner-inline"></span>Memuat sinyal…</td></tr>';
+    '<tr class="state-row"><td colspan="5"><span class="spinner-inline"></span>Memuat sinyal…</td></tr>';
   document.getElementById('marketWarn').classList.remove('visible');
 
   let data;
@@ -596,7 +771,7 @@ async function loadSignals() {
     data = await res.json();
   } catch(e) {
     document.getElementById('bsjpBody').innerHTML =
-      '<tr class="state-row"><td colspan="11" style="color:var(--danger)">Gagal memuat data — coba refresh</td></tr>';
+      '<tr class="state-row"><td colspan="5" style="color:var(--danger)">Gagal memuat data — coba refresh</td></tr>';
     return;
   }
 

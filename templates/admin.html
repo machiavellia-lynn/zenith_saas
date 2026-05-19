@@ -317,6 +317,73 @@ select.sel{background:var(--bg);border:1px solid var(--border2);color:var(--text
     </div>
   </div>
 
+  <!-- BSJP SIGNAL -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">BSJP Signal</div>
+        <div class="card-sub">Manual scan, finalize, dan historical backfill sinyal Beli Sore Jual Pagi</div>
+      </div>
+    </div>
+    <div class="card-body">
+
+      <div style="font-size:11px;color:var(--muted)">
+        <strong style="color:var(--text)">Kenapa signal kosong?</strong> Scan 15:48 membaca
+        <code style="font-family:Space Mono,monospace;font-size:10px;color:var(--accent2)">eod_summary</code>
+        untuk hari ini — jika data SM/BM belum ada atau server baru deploy, query return kosong.
+        Gunakan <em>Historical Backfill</em> untuk mengisi sinyal hari-hari sebelumnya.
+      </div>
+
+      <div class="two-col" style="gap:16px">
+
+        <!-- Manual Scan -->
+        <div>
+          <div class="section-label">Manual Scan (Estimasi)</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
+            Jalankan scan BSJP untuk tanggal tertentu menggunakan data historis. Signal disimpan sebagai CONFIRMED.
+          </div>
+          <div class="btn-row" style="flex-wrap:wrap;gap:6px">
+            <input type="text" class="num-input" id="bsjpScanDate" placeholder="DD-MM-YYYY" style="width:110px"/>
+            <button class="btn outline" id="bsjpScanBtn" onclick="triggerBsjpScan()">Run Scan</button>
+          </div>
+          <div class="status" id="bsjpScanStatus" style="margin-top:8px"></div>
+        </div>
+
+        <!-- Manual Finalize -->
+        <div>
+          <div class="section-label">Manual Finalize (Confirmed/Invalid)</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
+            Update status ESTIMASI → CONFIRMED/INVALID untuk tanggal tertentu (gunakan tanggal hari ini).
+          </div>
+          <div class="btn-row" style="flex-wrap:wrap;gap:6px">
+            <input type="text" class="num-input" id="bsjpFinalDate" placeholder="DD-MM-YYYY" style="width:110px"/>
+            <button class="btn outline" id="bsjpFinalBtn" onclick="triggerBsjpFinalize()">Run Finalize</button>
+          </div>
+          <div class="status" id="bsjpFinalStatus" style="margin-top:8px"></div>
+        </div>
+
+      </div>
+
+      <!-- Historical Backfill -->
+      <div style="border-top:1px solid var(--border);padding-top:16px">
+        <div class="section-label">Historical Backfill</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
+          Loop semua tanggal di range, jalankan scan BSJP per hari dari data EOD historis.
+          Berjalan di background. Signal disimpan sebagai CONFIRMED.
+        </div>
+        <div class="btn-row" style="flex-wrap:wrap;gap:6px">
+          <input type="text" class="num-input" id="bsjpBfFrom" placeholder="DD-MM-YYYY" style="width:110px"/>
+          <span style="font-size:11px;color:var(--muted)">s/d</span>
+          <input type="text" class="num-input" id="bsjpBfTo"   placeholder="DD-MM-YYYY" style="width:110px"/>
+          <button class="btn" id="bsjpBfBtn" onclick="triggerBsjpBackfill()">Start Backfill</button>
+        </div>
+        <div class="progress-wrap" id="bsjpBfProgress" style="margin-top:10px"><div class="progress-bar" id="bsjpBfBar" style="transition:width .5s"></div></div>
+        <div class="status" id="bsjpBfStatus" style="margin-top:6px"></div>
+      </div>
+
+    </div>
+  </div>
+
   <!-- BOTTOM TWO-COLUMN -->
   <div class="two-col">
 
@@ -981,6 +1048,82 @@ async function deleteUser(id, username) {
     const d = await r.json();
     if (d.ok) loadUsers();
   } catch(e) {}
+}
+
+// ── BSJP Admin ────────────────────────────────────────────────────────────────
+async function triggerBsjpScan() {
+  const date = document.getElementById('bsjpScanDate').value.trim();
+  const st   = document.getElementById('bsjpScanStatus');
+  const btn  = document.getElementById('bsjpScanBtn');
+  if (!date) { st.className = 'status err'; st.textContent = 'Isi tanggal dulu (DD-MM-YYYY)'; return; }
+  btn.disabled = true;
+  st.className = 'status'; st.textContent = 'Menjalankan scan…';
+  try {
+    const r = await fetch(`/admin/bsjp-scan?date=${encodeURIComponent(date)}`);
+    const d = await r.json();
+    if (d.ok) {
+      st.className = 'status ok';
+      st.textContent = `✓ ${d.signals} sinyal ditemukan untuk ${d.date}`;
+    } else {
+      st.className = 'status err'; st.textContent = d.error || 'Gagal';
+    }
+  } catch(e) { st.className = 'status err'; st.textContent = 'Error: ' + e.message; }
+  btn.disabled = false;
+}
+
+async function triggerBsjpFinalize() {
+  const date = document.getElementById('bsjpFinalDate').value.trim();
+  const st   = document.getElementById('bsjpFinalStatus');
+  const btn  = document.getElementById('bsjpFinalBtn');
+  if (!date) { st.className = 'status err'; st.textContent = 'Isi tanggal dulu (DD-MM-YYYY)'; return; }
+  btn.disabled = true;
+  st.className = 'status'; st.textContent = 'Menjalankan finalize…';
+  try {
+    const r = await fetch(`/admin/bsjp-finalize?date=${encodeURIComponent(date)}`);
+    const d = await r.json();
+    if (d.ok) { st.className = 'status ok'; st.textContent = `✓ Finalize selesai untuk ${d.date}`; }
+    else       { st.className = 'status err'; st.textContent = d.error || 'Gagal'; }
+  } catch(e)  { st.className = 'status err'; st.textContent = 'Error: ' + e.message; }
+  btn.disabled = false;
+}
+
+let _bsjpBfPoll = null;
+async function triggerBsjpBackfill() {
+  const from = document.getElementById('bsjpBfFrom').value.trim();
+  const to   = document.getElementById('bsjpBfTo').value.trim();
+  const st   = document.getElementById('bsjpBfStatus');
+  const btn  = document.getElementById('bsjpBfBtn');
+  const prog = document.getElementById('bsjpBfProgress');
+  const bar  = document.getElementById('bsjpBfBar');
+  if (!from || !to) { st.className = 'status err'; st.textContent = 'Isi date_from dan date_to'; return; }
+  btn.disabled = true;
+  st.className = 'status'; st.textContent = 'Memulai backfill…';
+  prog.classList.add('active'); bar.style.width = '0%';
+  try {
+    const r = await fetch(`/admin/bsjp-backfill?date_from=${encodeURIComponent(from)}&date_to=${encodeURIComponent(to)}`);
+    const d = await r.json();
+    if (!d.ok) { st.className = 'status err'; st.textContent = d.error || 'Gagal memulai'; btn.disabled = false; return; }
+    st.textContent = 'Berjalan di background…';
+    if (_bsjpBfPoll) clearInterval(_bsjpBfPoll);
+    _bsjpBfPoll = setInterval(async () => {
+      const s = await (await fetch('/admin/bsjp-status')).json();
+      if (s.total > 0) bar.style.width = Math.round(s.done / s.total * 100) + '%';
+      if (s.status === 'done') {
+        clearInterval(_bsjpBfPoll);
+        st.className = 'status ok';
+        st.textContent = `✓ Selesai — ${s.inserted} sinyal dari ${s.total} hari`;
+        prog.classList.remove('active');
+        btn.disabled = false;
+      } else if (s.status === 'error') {
+        clearInterval(_bsjpBfPoll);
+        st.className = 'status err'; st.textContent = 'Error: ' + (s.error || '?');
+        prog.classList.remove('active');
+        btn.disabled = false;
+      } else {
+        st.textContent = `${s.done}/${s.total} hari (${s.current_date || '…'}) — ${s.inserted} sinyal`;
+      }
+    }, 2000);
+  } catch(e) { st.className = 'status err'; st.textContent = 'Error: ' + e.message; btn.disabled = false; }
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
