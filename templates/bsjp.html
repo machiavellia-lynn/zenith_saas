@@ -8,266 +8,586 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/tokens.css">
 <style>
-:root{--bg:#080c10;--surface:#0e1318;--surface2:#121920;--border:#1a2230;--border2:#243040;--accent:#00e8a2;--accent2:#4d9fff;--danger:#ff4d6a;--text:#c8d8e8;--muted:#bfcbd4;--up:#00e8a2;--down:#ff4d6a}
-*{box-sizing:border-box;margin:0;padding:0;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
-::-webkit-scrollbar{width:5px;height:5px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px}
-::-webkit-scrollbar-thumb:hover{background:var(--muted)}
-html{scrollbar-gutter:stable}
-html,body{height:100%}
-body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px}
+:root {
+  --bg:       #080c10;
+  --surface:  #0e1318;
+  --surface2: #121920;
+  --border:   #1a2230;
+  --border2:  #243040;
+  --accent:   #00e8a2;
+  --accent2:  #4d9fff;
+  --danger:   #ff4d6a;
+  --text:     #c8d8e8;
+  --muted:    #bfcbd4;
+  --up:       #00e8a2;
+  --down:     #ff4d6a;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+html { scrollbar-gutter: stable; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+}
 
-/* ── PAGE LAYOUT ── */
-.page-wrap{max-width:1300px;margin:0 auto;padding:24px 20px 40px}
+/* ── HEADER ─────────────────────────────────────── */
+header {
+  position: sticky; top: 0; z-index: 200;
+  display: flex; align-items: center; gap: 16px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(8,12,16,.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+header::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,232,162,.3), transparent);
+}
+.logo {
+  display: flex; align-items: center;
+  font-family: 'Space Mono', monospace;
+  font-size: 12px; font-weight: 700;
+  letter-spacing: .18em; color: var(--accent);
+  text-transform: uppercase; white-space: nowrap;
+  text-decoration: none;
+}
+.logo-dot {
+  display: inline-block; width: 7px; height: 7px;
+  border-radius: 50%; background: var(--accent);
+  margin-right: 8px; flex-shrink: 0;
+  animation: dotPulse 2.4s ease-in-out infinite;
+}
+@keyframes dotPulse{0%,100%{box-shadow:0 0 6px var(--accent),0 0 0 0 rgba(0,232,162,.5)}50%{box-shadow:0 0 14px var(--accent),0 0 0 5px rgba(0,232,162,0)}}
+.nav-group {
+  display: flex; align-items: center;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 3px; gap: 2px;
+}
+.nav-btn {
+  background: none; border: 1px solid transparent;
+  color: var(--muted); border-radius: 4px;
+  padding: 4px 12px; cursor: pointer;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px; letter-spacing: .06em;
+  text-decoration: none; transition: all .15s;
+}
+.nav-btn:hover { color: var(--accent); }
+.nav-btn.active { background: var(--surface); border-color: rgba(0,232,162,.25); color: var(--accent); }
+.ihsg-wrap {
+  margin-left: auto; display: flex; align-items: center; gap: 8px;
+  font-family: 'Space Mono', monospace;
+}
+.ihsg-label { font-size:10px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+.ihsg-price { font-size: 13px; font-weight: 700; color: var(--text); }
+.ihsg-gain  { font-size: 11px; font-weight: 700; }
+.info-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px;
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 6px; color: var(--muted);
+  font-family: 'Space Mono', monospace; font-size: 12px;
+  cursor: pointer; transition: all .15s; text-decoration: none;
+  flex-shrink: 0;
+}
+.info-btn:hover { border-color: var(--accent); color: var(--accent); }
+.info-btn svg { width: 12px; height: 12px; }
 
-/* ── PAGE HEADER ── */
-.page-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:20px;flex-wrap:wrap}
-.page-title-block{flex:1}
-.page-eyebrow{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--muted);text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:8px}
-.page-eyebrow::before{content:'';width:16px;height:1px;background:var(--border2)}
-.page-title{font-family:'Space Mono',monospace;font-size:22px;font-weight:700;color:var(--accent);letter-spacing:.12em;line-height:1}
-.page-sub{font-size:11px;color:var(--muted);margin-top:6px;font-family:'Space Mono',monospace;letter-spacing:.05em}
-.page-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+/* ── STATS BAR ───────────────────────────────────── */
+.stats-bar {
+  display: flex; align-items: stretch;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border2);
+  overflow-x: auto; flex-shrink: 0;
+}
+.stat-item {
+  display: flex; flex-direction: column;
+  justify-content: center; gap: 3px;
+  padding: 10px 18px;
+  border-right: 1px solid var(--border);
+  white-space: nowrap;
+  flex: 1; min-width: 80px;
+}
+.stat-item.highlight { background: rgba(0,232,162,.025); }
+.stat-item .s-label {
+  font-family: 'Space Mono', monospace;
+  font-size:10px; letter-spacing: .1em;
+  color: var(--muted); text-transform: uppercase;
+}
+.stat-item .s-val {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px; font-weight: 700;
+  color: var(--text);
+}
+.stat-item .s-val.up      { color: var(--up); }
+.stat-item .s-val.down    { color: var(--down); }
+.stat-item .s-val.neutral { color: var(--accent2); }
+.stat-item .s-val.muted   { color: var(--muted); }
 
-/* ── DATE PICKER ── */
-.date-input{background:var(--surface);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:7px 12px;font-family:'Space Mono',monospace;font-size:11px;outline:none;transition:border-color .15s;cursor:pointer}
-.date-input:focus{border-color:var(--accent)}
+/* ── MARKET WARNING ──────────────────────────────── */
+.market-warn {
+  display: none; align-items: center; gap: 12px;
+  background: rgba(255,77,106,.07);
+  border-bottom: 1px solid rgba(255,77,106,.28);
+  padding: 10px 24px; flex-shrink: 0;
+}
+.market-warn.visible { display: flex; }
+.warn-icon { font-size: 16px; flex-shrink: 0; }
+.warn-text { font-size: 12px; color: var(--danger); }
+.warn-text strong {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px; margin-right: 6px;
+}
 
-/* ── BUTTONS ── */
-.btn{background:var(--accent);color:var(--bg);border:none;border-radius:6px;padding:7px 16px;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.08em;cursor:pointer;transition:opacity .15s;text-transform:uppercase}
-.btn:hover{opacity:.82}
-.btn:disabled{opacity:.4;cursor:not-allowed}
-.btn.outline{background:none;border:1px solid var(--border2);color:var(--muted)}
-.btn.outline:hover{border-color:rgba(0,232,162,.35);color:var(--accent);background:rgba(0,232,162,.04)}
+/* ── TOOLBAR ─────────────────────────────────────── */
+.toolbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2); flex-shrink: 0;
+}
+.date-input {
+  background: var(--bg); border: 1px solid var(--border2);
+  color: var(--text); border-radius: 6px;
+  padding: 8px 12px; font-family: 'Space Mono', monospace;
+  font-size: 11px; outline: none; width: 130px;
+  letter-spacing: .04em; transition: border-color .15s;
+}
+.date-input:focus { border-color: rgba(0,232,162,.35); }
 
-/* ── STATUS BADGES ── */
-.badge{display:inline-flex;align-items:center;gap:5px;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;padding:3px 9px;border-radius:99px;text-transform:uppercase}
-.badge.estimasi{background:rgba(77,159,255,.12);border:1px solid rgba(77,159,255,.3);color:var(--accent2)}
-.badge.confirmed{background:rgba(0,232,162,.10);border:1px solid rgba(0,232,162,.28);color:var(--accent)}
-.badge.invalid{background:rgba(255,77,106,.09);border:1px solid rgba(255,77,106,.25);color:var(--danger)}
+/* Status filter buttons */
+.status-filter-group {
+  display: flex; align-items: center;
+  background: var(--bg); border: 1px solid var(--border2);
+  border-radius: 6px; padding: 3px; gap: 2px;
+}
+.status-filter-btn {
+  background: none; border: 1px solid transparent;
+  color: var(--muted); border-radius: 4px;
+  padding: 4px 10px; cursor: pointer;
+  font-family: 'Space Mono', monospace;
+  font-size: 10px; letter-spacing: .06em;
+  transition: all .15s; text-transform: uppercase;
+}
+.status-filter-btn:hover { color: var(--text); }
+.status-filter-btn.active { background: var(--surface); border-color: var(--border2); color: var(--text); }
+.status-filter-btn.confirmed.active { border-color: rgba(0,232,162,.35); color: var(--accent); background: rgba(0,232,162,.06); }
+.status-filter-btn.estimasi.active  { border-color: rgba(77,159,255,.35); color: var(--accent2); background: rgba(77,159,255,.06); }
+.status-filter-btn.invalid.active   { border-color: rgba(255,77,106,.35); color: var(--danger); background: rgba(255,77,106,.06); }
 
-/* ── MARKET WARNING ── */
-.market-warn{display:none;align-items:center;gap:12px;background:rgba(255,77,106,.07);border:1px solid rgba(255,77,106,.28);border-radius:8px;padding:12px 16px;margin-bottom:16px}
-.market-warn.visible{display:flex}
-.warn-icon{font-size:18px;flex-shrink:0}
-.warn-text{font-size:12px;color:var(--danger);line-height:1.5}
-.warn-text strong{font-family:'Space Mono',monospace;font-size:11px;display:block;margin-bottom:2px}
+/* Ticker search */
+.ticker-search-wrap {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 12px;
+  margin-left: auto; transition: border-color .2s;
+}
+.ticker-search-wrap:focus-within { border-color: var(--border2); }
+.ticker-search-wrap input {
+  background: none; border: none; outline: none;
+  color: var(--text); font-family: 'DM Sans', sans-serif;
+  font-size: 12px; width: 140px;
+}
+.ticker-search-wrap input::placeholder { color: var(--muted); }
 
-/* ── SUMMARY STRIP ── */
-.summary-strip{display:flex;align-items:stretch;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:20px}
-.ss-item{display:flex;flex-direction:column;gap:3px;padding:10px 20px;align-items:center;flex:1}
-.ss-sep{width:1px;background:var(--border);flex-shrink:0}
-.ss-label{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
-.ss-val{font-family:'Space Mono',monospace;font-size:14px;font-weight:700;color:var(--text)}
-.ss-val.accent{color:var(--accent)}
-.ss-val.muted{color:var(--muted)}
+.row-count {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px; color: var(--muted);
+  letter-spacing: .06em; white-space: nowrap;
+}
 
-/* ── TABLE ── */
-.table-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--border)}
-table{width:100%;border-collapse:collapse;min-width:800px}
-thead tr{background:var(--surface);border-bottom:1px solid var(--border2)}
-th{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;padding:10px 12px;text-align:right;white-space:nowrap}
-th:first-child,th.left{text-align:left}
-tbody tr{border-bottom:1px solid var(--border);transition:background .12s}
-tbody tr:last-child{border-bottom:none}
-tbody tr:hover{background:rgba(255,255,255,.025)}
-td{padding:9px 12px;text-align:right;font-size:12px;color:var(--text);vertical-align:middle}
-td:first-child,td.left{text-align:left}
-td.rank{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;color:var(--muted);width:40px}
-td.ticker{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.06em}
-td.setup{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.04em}
-td.price{font-family:'Space Mono',monospace;font-size:12px}
-td.score{font-family:'Space Mono',monospace;font-size:11px;color:var(--accent2)}
-td.lot{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted)}
-td.keterangan{font-size:11px;color:var(--danger);max-width:180px;word-break:break-word}
+/* ── MAIN ────────────────────────────────────────── */
+body.sidebar-layout main#main {
+  flex: 1; display: flex; flex-direction: column; min-height: 0;
+}
+body.sidebar-layout .stats-bar,
+body.sidebar-layout .toolbar { flex-shrink: 0; }
 
-/* ── LOADING / EMPTY STATES ── */
-.state-box{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 24px;gap:12px;color:var(--muted);font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.06em}
-.state-box .spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.state-box svg{width:32px;height:32px;opacity:.35}
+/* ── TABLE ───────────────────────────────────────── */
+.table-wrap {
+  flex: 1; min-height: 0; overflow: auto;
+  padding: 0 24px 24px;
+}
+table {
+  width: 100%; border-collapse: separate; border-spacing: 0;
+  margin-top: 12px;
+}
+thead th {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--bg);
+  box-shadow: 0 2px 0 var(--border2);
+  padding: 13px 10px;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .12em; color: var(--muted);
+  text-align: right; text-transform: uppercase;
+  white-space: nowrap; cursor: pointer; user-select: none;
+  transition: color .15s;
+}
+thead th:first-child,
+thead th.left { text-align: left; }
+thead th:hover { color: var(--text); }
+thead th.sorted { color: var(--accent); }
+thead th .sort-icon { margin-left: 4px; font-size:10px; }
 
-/* ── RESPONSIVE ── */
-@media(max-width:768px){
-  .page-wrap{padding:16px 12px 32px}
-  .page-title{font-size:17px}
-  .summary-strip{flex-wrap:wrap}
-  .ss-sep{display:none}
-  .ss-item{padding:8px 14px;flex:0 0 50%}
-  th,td{padding:8px 8px;font-size:11px}
-  .page-actions{gap:6px}
+tbody tr {
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  border-left: 2px solid var(--border2);
+  transition: background .1s;
+  animation: rowIn .3s ease both;
+}
+tbody tr.status-confirmed { border-left-color: var(--up); }
+tbody tr.status-estimasi  { border-left-color: var(--accent2); }
+tbody tr.status-invalid   { border-left-color: var(--danger); opacity: .65; }
+tbody tr:hover { background: rgba(0,232,162,.025); }
+@keyframes rowIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+td {
+  padding: 11px 8px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+td:first-child,
+td.left { text-align: left; }
+
+.td-rank {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px; color: var(--muted);
+  font-weight: 700; width: 36px;
+}
+.td-ticker {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px; font-weight: 700;
+  color: var(--text); letter-spacing: .04em;
+}
+.td-setup {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px; color: var(--muted);
+  letter-spacing: .03em; max-width: 160px;
+}
+.td-price {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+}
+.td-price.tp  { color: var(--up); }
+.td-price.sl  { color: var(--down); }
+.td-price.est { color: var(--text); }
+.td-score {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px; color: var(--accent2); font-weight: 700;
+}
+.td-lot {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px; color: var(--muted);
+}
+.td-keterangan {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px; color: var(--danger);
+  max-width: 180px; white-space: normal;
+}
+
+/* Status badges */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: 'Space Mono', monospace;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: .06em; padding: 2px 8px;
+  border-radius: 99px; text-transform: uppercase;
+}
+.badge.confirmed { background: rgba(0,232,162,.10); border: 1px solid rgba(0,232,162,.28); color: var(--accent); }
+.badge.estimasi  { background: rgba(77,159,255,.12); border: 1px solid rgba(77,159,255,.3); color: var(--accent2); }
+.badge.invalid   { background: rgba(255,77,106,.09); border: 1px solid rgba(255,77,106,.25); color: var(--danger); }
+
+/* Loading / empty */
+.state-row td {
+  text-align: center; padding: 60px;
+  color: var(--muted); font-size: 13px;
+}
+.spinner-inline {
+  display: inline-block; width: 16px; height: 16px;
+  border: 2px solid var(--border); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin .7s linear infinite;
+  vertical-align: middle; margin-right: 8px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── RESPONSIVE ──────────────────────────────────── */
+@media (max-width: 768px) {
+  header { padding: 10px 14px; gap: 10px; }
+  .stats-bar { display: grid; grid-template-columns: repeat(3,1fr); }
+  .stat-item { padding: 8px 10px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .toolbar { flex-wrap: wrap; gap: 6px; padding: 8px 12px; }
+  .date-input { width: 108px; font-size: 10px; padding: 5px 6px; }
+  .table-wrap { padding: 0 12px 16px; }
 }
 </style>
 <link rel="stylesheet" href="/static/sidebar.css">
 </head>
 <body class="sidebar-layout" data-page="bsjp">
 {% include 'sidebar.html' %}<div class="main-content">
+<a href="#main" class="skip-link">Skip to main content</a>
 
-<div class="page-wrap">
-  <!-- Header -->
-  <div class="page-header">
-    <div class="page-title-block">
-      <div class="page-eyebrow">BSJP · Beli Sore Jual Pagi</div>
-      <div class="page-title">SINYAL BSJP</div>
-      <div class="page-sub" id="subLine">Overnight swing · Entry EOD · Exit N+1 via TP/SL</div>
-    </div>
-    <div class="page-actions">
-      <input type="date" class="date-input" id="datePicker" title="Pilih tanggal">
-      <button class="btn outline" id="btnRefresh" onclick="loadSignals()">Refresh</button>
-    </div>
+<!-- HEADER -->
+<header>
+  <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg></button>
+  <a href="/hub" class="logo"><span class="logo-dot"></span>ZENITH</a>
+  <div class="nav-group">
+    <a href="/wyckoff" class="nav-btn">⊞ Wyckoff</a>
+    <a href="/bsjp" class="nav-btn active">⏳ BSJP</a>
   </div>
-
-  <!-- Market warning (IHSG < -1.5%) -->
-  <div class="market-warn" id="marketWarn">
-    <div class="warn-icon">⚠</div>
-    <div class="warn-text">
-      <strong>Pasar Melemah</strong>
-      IHSG turun lebih dari 1.5% hari ini — pertimbangkan untuk skip atau kurangi ukuran posisi.
-    </div>
+  <div class="ihsg-wrap">
+    <span class="ihsg-label">IHSG</span>
+    <span id="sIHSG" class="ihsg-price" style="color:var(--text)">—</span>
+    <span id="sIHSGGain" class="ihsg-gain" style="display:none"></span>
   </div>
+  <a href="/hub" class="info-btn" title="Kembali ke Hub" aria-label="Kembali ke Hub"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 5.5L6 1.5L10.5 5.5V10.5H7.5V7.5H4.5V10.5H1.5V5.5Z"/></svg></a>
+</header>
 
-  <!-- Summary strip -->
-  <div class="summary-strip" id="summaryStrip" style="display:none">
-    <div class="ss-item">
-      <span class="ss-label">Tanggal</span>
-      <span class="ss-val accent" id="ssDate">—</span>
-    </div>
-    <div class="ss-sep"></div>
-    <div class="ss-item">
-      <span class="ss-label">Total Sinyal</span>
-      <span class="ss-val" id="ssCount">—</span>
-    </div>
-    <div class="ss-sep"></div>
-    <div class="ss-item">
-      <span class="ss-label">Confirmed</span>
-      <span class="ss-val accent" id="ssConfirmed">—</span>
-    </div>
-    <div class="ss-sep"></div>
-    <div class="ss-item">
-      <span class="ss-label">Estimasi</span>
-      <span class="ss-val muted" id="ssEstimasi">—</span>
-    </div>
-    <div class="ss-sep"></div>
-    <div class="ss-item">
-      <span class="ss-label">Invalid</span>
-      <span class="ss-val muted" id="ssInvalid">—</span>
-    </div>
-    <div class="ss-sep"></div>
-    <div class="ss-item">
-      <span class="ss-label">Modal / Hari</span>
-      <span class="ss-val muted" id="ssCapital">—</span>
-    </div>
+<main id="main">
+
+<!-- STATS BAR -->
+<div class="stats-bar" id="statsBar">
+  <div class="stat-item highlight">
+    <span class="s-label">Tanggal</span>
+    <span class="s-val neutral" id="sDate">—</span>
   </div>
-
-  <!-- Table container -->
-  <div id="tableContainer">
-    <div class="state-box" id="stateLoading">
-      <div class="spinner"></div>
-      <span>Memuat sinyal…</span>
-    </div>
-    <div class="state-box" id="stateEmpty" style="display:none">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>
-      </svg>
-      <span>Belum ada sinyal untuk tanggal ini</span>
-    </div>
-    <div class="table-wrap" id="tableWrap" style="display:none">
-      <table id="signalTable">
-        <thead>
-          <tr>
-            <th class="left" style="width:40px">Rank</th>
-            <th class="left">Ticker</th>
-            <th class="left">Setup</th>
-            <th>Entry</th>
-            <th>TP1</th>
-            <th>TP2</th>
-            <th>SL</th>
-            <th>Score</th>
-            <th>Lot<br><span style="font-weight:400;color:var(--muted);font-size:9px">(10M/entry)</span></th>
-            <th>Status</th>
-            <th class="left">Keterangan</th>
-          </tr>
-        </thead>
-        <tbody id="signalBody"></tbody>
-      </table>
-    </div>
+  <div class="stat-item">
+    <span class="s-label">Total Sinyal</span>
+    <span class="s-val" id="sTotal">—</span>
+  </div>
+  <div class="stat-item">
+    <span class="s-label">Confirmed</span>
+    <span class="s-val up" id="sConfirmed">—</span>
+  </div>
+  <div class="stat-item">
+    <span class="s-label">Estimasi</span>
+    <span class="s-val neutral" id="sEstimasi">—</span>
+  </div>
+  <div class="stat-item">
+    <span class="s-label">Invalid</span>
+    <span class="s-val muted" id="sInvalid">—</span>
+  </div>
+  <div class="stat-item">
+    <span class="s-label">Modal / Hari</span>
+    <span class="s-val muted" id="sCapital">—</span>
   </div>
 </div>
 
+<!-- MARKET WARNING -->
+<div class="market-warn" id="marketWarn">
+  <span class="warn-icon">⚠</span>
+  <span class="warn-text"><strong>Pasar Melemah</strong> IHSG turun lebih dari 1.5% — pertimbangkan skip atau kurangi ukuran posisi.</span>
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <input type="date" class="date-input" id="datePicker" title="Pilih tanggal">
+  <div class="status-filter-group" id="statusFilterGroup">
+    <button class="status-filter-btn active" data-status="ALL"       onclick="setStatusFilter('ALL')">All</button>
+    <button class="status-filter-btn confirmed" data-status="CONFIRMED" onclick="setStatusFilter('CONFIRMED')">Confirmed</button>
+    <button class="status-filter-btn estimasi"  data-status="ESTIMASI"  onclick="setStatusFilter('ESTIMASI')">Estimasi</button>
+    <button class="status-filter-btn invalid"   data-status="INVALID"   onclick="setStatusFilter('INVALID')">Invalid</button>
+  </div>
+  <div class="ticker-search-wrap">
+    <span style="color:var(--muted);font-size:12px">⌕</span>
+    <input type="text" id="tickerFilter" placeholder="Filter ticker..." oninput="renderTable()"/>
+  </div>
+  <span class="row-count" id="rowCount"></span>
+</div>
+
+<!-- TABLE -->
+<div class="table-wrap">
+  <table id="bsjpTable">
+    <thead>
+      <tr>
+        <th class="left" onclick="sortBy('day_rank')" data-col="day_rank">RANK <span class="sort-icon">▲</span></th>
+        <th class="left" onclick="sortBy('ticker')" data-col="ticker">TICKER <span class="sort-icon"></span></th>
+        <th class="left" onclick="sortBy('setup')" data-col="setup">SETUP <span class="sort-icon"></span></th>
+        <th onclick="sortBy('entry')" data-col="entry">ENTRY <span class="sort-icon"></span></th>
+        <th>TP1</th>
+        <th>TP2</th>
+        <th>SL</th>
+        <th onclick="sortBy('score')" data-col="score">SCORE <span class="sort-icon"></span></th>
+        <th onclick="sortBy('lot_size')" data-col="lot_size">LOT <span class="sort-icon"></span></th>
+        <th onclick="sortBy('status')" data-col="status">STATUS <span class="sort-icon"></span></th>
+        <th class="left">KETERANGAN</th>
+      </tr>
+    </thead>
+    <tbody id="bsjpBody">
+      <tr class="state-row"><td colspan="11"><span class="spinner-inline"></span>Memuat sinyal…</td></tr>
+    </tbody>
+  </table>
+</div>
+
+</main>
 </div><!-- .main-content -->
 
 <script>
-const WIB_OFFSET = 7 * 60; // minutes
+const WIB_OFFSET = 7 * 60;
 
+let allSignals  = [];
+let statusFilter = 'ALL';
+let sortCol     = 'day_rank';
+let sortAsc     = true;
+
+/* ── Date helpers ── */
 function todayDMY() {
   const now = new Date(Date.now() + (WIB_OFFSET - new Date().getTimezoneOffset()) * 60000);
-  const d = String(now.getUTCDate()).padStart(2,'0');
-  const m = String(now.getUTCMonth()+1).padStart(2,'0');
-  const y = now.getUTCFullYear();
-  return `${d}-${m}-${y}`;
+  return `${String(now.getUTCDate()).padStart(2,'0')}-${String(now.getUTCMonth()+1).padStart(2,'0')}-${now.getUTCFullYear()}`;
 }
-
 function dateToDMY(val) {
-  // val is YYYY-MM-DD from date input
   if (!val) return todayDMY();
   const [y,m,d] = val.split('-');
   return `${d}-${m}-${y}`;
 }
-
 function dmyToInputVal(dmy) {
   if (!dmy) return '';
   const [d,m,y] = dmy.split('-');
   return `${y}-${m}-${d}`;
 }
 
+/* ── Formatters ── */
 function fmtPrice(v) {
   if (v == null) return '—';
   return Number(v).toLocaleString('id-ID');
 }
-
 function fmtScore(v) {
   if (v == null) return '—';
   return Number(v).toFixed(4);
 }
-
 function fmtLot(v) {
   if (v == null) return '—';
   return Number(v).toLocaleString('id-ID');
 }
-
 function fmtCapital(n) {
   const total = n * 10_000_000;
-  if (total >= 1_000_000_000) return (total/1_000_000_000).toFixed(0)+'M';
-  return (total/1_000_000).toFixed(0)+'jt';
+  if (total >= 1_000_000_000) return (total/1_000_000_000).toFixed(0) + 'M';
+  return (total/1_000_000).toFixed(0) + 'jt';
 }
 
+/* ── Badge ── */
 function statusBadge(status) {
   const map = {
-    'ESTIMASI':  ['estimasi', '⏳ ESTIMASI'],
-    'CONFIRMED': ['confirmed', '✓ CONFIRMED'],
-    'INVALID':   ['invalid',  '✕ INVALID'],
+    'ESTIMASI':  ['estimasi',  '⏳ Estimasi'],
+    'CONFIRMED': ['confirmed', '✓ Confirmed'],
+    'INVALID':   ['invalid',   '✕ Invalid'],
   };
-  const [cls, label] = map[status] || ['muted', status];
+  const [cls, label] = map[status] || ['estimasi', status];
   return `<span class="badge ${cls}">${label}</span>`;
 }
 
-function entryDisplay(sig) {
-  if (sig.status === 'CONFIRMED' && sig.entry_final != null) return fmtPrice(sig.entry_final);
-  if (sig.entry_est != null) return fmtPrice(sig.entry_est) + '<span style="font-size:9px;color:var(--muted)"> est</span>';
-  return '—';
+/* ── Entry display (est vs confirmed) ── */
+function entryVal(s) {
+  if (s.status === 'CONFIRMED' && s.entry_final != null) return s.entry_final;
+  return s.entry_est;
 }
 
-async function loadSignals() {
-  const picker = document.getElementById('datePicker');
-  const dmy    = picker.value ? dateToDMY(picker.value) : todayDMY();
+/* ── Sort ── */
+function sortBy(col) {
+  if (sortCol === col) { sortAsc = !sortAsc; }
+  else { sortCol = col; sortAsc = (col === 'day_rank' || col === 'ticker' || col === 'setup'); }
+  updateSortIcons();
+  renderTable();
+}
+function updateSortIcons() {
+  document.querySelectorAll('thead th[data-col]').forEach(th => {
+    const icon = th.querySelector('.sort-icon');
+    if (!icon) return;
+    if (th.dataset.col === sortCol) {
+      icon.textContent = sortAsc ? '▲' : '▼';
+      th.classList.add('sorted');
+    } else {
+      icon.textContent = '';
+      th.classList.remove('sorted');
+    }
+  });
+}
 
-  // Update sub line
-  document.getElementById('subLine').textContent = `Tanggal: ${dmy}`;
-  document.getElementById('stateLoading').style.display = 'flex';
-  document.getElementById('stateEmpty').style.display   = 'none';
-  document.getElementById('tableWrap').style.display    = 'none';
-  document.getElementById('summaryStrip').style.display = 'none';
+/* ── Status filter ── */
+function setStatusFilter(status) {
+  statusFilter = status;
+  document.querySelectorAll('.status-filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.status === status);
+  });
+  renderTable();
+}
+
+/* ── Render table ── */
+function renderTable() {
+  const tickerQ = (document.getElementById('tickerFilter').value || '').toUpperCase().trim();
+  const tbody   = document.getElementById('bsjpBody');
+
+  let rows = allSignals.filter(s => {
+    if (statusFilter !== 'ALL' && s.status !== statusFilter) return false;
+    if (tickerQ && !s.ticker.includes(tickerQ)) return false;
+    return true;
+  });
+
+  /* Sort */
+  rows.sort((a, b) => {
+    let va, vb;
+    if (sortCol === 'entry')  { va = entryVal(a) ?? 0; vb = entryVal(b) ?? 0; }
+    else                      { va = a[sortCol] ?? 0;   vb = b[sortCol] ?? 0; }
+    if (typeof va === 'string') va = va.toLowerCase();
+    if (typeof vb === 'string') vb = vb.toLowerCase();
+    if (va < vb) return sortAsc ? -1 : 1;
+    if (va > vb) return sortAsc ?  1 : -1;
+    return 0;
+  });
+
+  document.getElementById('rowCount').textContent = rows.length ? `${rows.length} sinyal` : '';
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr class="state-row"><td colspan="11">Tidak ada sinyal untuk filter ini</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = '';
+  rows.forEach(s => {
+    const tr = document.createElement('tr');
+    const statusCls = { CONFIRMED: 'status-confirmed', ESTIMASI: 'status-estimasi', INVALID: 'status-invalid' }[s.status] || '';
+    tr.className = statusCls;
+    const ev = entryVal(s);
+    const entryHtml = ev != null
+      ? fmtPrice(ev) + (s.status !== 'CONFIRMED' ? '<span style="font-size:9px;color:var(--muted);margin-left:2px">est</span>' : '')
+      : '—';
+    tr.innerHTML = `
+      <td class="td-rank left">${s.day_rank ?? '—'}</td>
+      <td class="td-ticker left">${s.ticker}</td>
+      <td class="td-setup left">${s.setup ?? '—'}</td>
+      <td class="td-price est">${entryHtml}</td>
+      <td class="td-price tp">${fmtPrice(s.tp1)}</td>
+      <td class="td-price tp">${fmtPrice(s.tp2)}</td>
+      <td class="td-price sl">${fmtPrice(s.sl)}</td>
+      <td class="td-score">${fmtScore(s.score)}</td>
+      <td class="td-lot">${fmtLot(s.lot_size)}</td>
+      <td>${statusBadge(s.status)}</td>
+      <td class="td-keterangan left">${s.invalid_reason ?? ''}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ── Load signals ── */
+async function loadSignals() {
+  const dmy = dateToDMY(document.getElementById('datePicker').value);
+
+  document.getElementById('sDate').textContent = dmy;
+  document.getElementById('bsjpBody').innerHTML =
+    '<tr class="state-row"><td colspan="11"><span class="spinner-inline"></span>Memuat sinyal…</td></tr>';
   document.getElementById('marketWarn').classList.remove('visible');
 
   let data;
@@ -275,61 +595,29 @@ async function loadSignals() {
     const res = await fetch(`/api/bsjp/signals?date=${dmy}&status=ALL`);
     data = await res.json();
   } catch(e) {
-    document.getElementById('stateLoading').innerHTML =
-      '<span style="color:var(--danger)">Gagal memuat data — coba refresh</span>';
+    document.getElementById('bsjpBody').innerHTML =
+      '<tr class="state-row"><td colspan="11" style="color:var(--danger)">Gagal memuat data — coba refresh</td></tr>';
     return;
   }
 
-  document.getElementById('stateLoading').style.display = 'none';
+  allSignals = data.signals || [];
 
-  const signals = data.signals || [];
-
-  // Summary strip
-  const confirmed = signals.filter(s => s.status === 'CONFIRMED').length;
-  const estimasi  = signals.filter(s => s.status === 'ESTIMASI').length;
-  const invalid   = signals.filter(s => s.status === 'INVALID').length;
+  const confirmed = allSignals.filter(s => s.status === 'CONFIRMED').length;
+  const estimasi  = allSignals.filter(s => s.status === 'ESTIMASI').length;
+  const invalid   = allSignals.filter(s => s.status === 'INVALID').length;
   const active    = confirmed + estimasi;
 
-  document.getElementById('ssDate').textContent      = dmy;
-  document.getElementById('ssCount').textContent     = signals.length;
-  document.getElementById('ssConfirmed').textContent = confirmed;
-  document.getElementById('ssEstimasi').textContent  = estimasi;
-  document.getElementById('ssInvalid').textContent   = invalid;
-  document.getElementById('ssCapital').textContent   = active > 0 ? fmtCapital(active) : '—';
-  document.getElementById('summaryStrip').style.display = 'flex';
+  document.getElementById('sTotal').textContent     = allSignals.length || '—';
+  document.getElementById('sConfirmed').textContent = confirmed || '—';
+  document.getElementById('sEstimasi').textContent  = estimasi  || '—';
+  document.getElementById('sInvalid').textContent   = invalid   || '—';
+  document.getElementById('sCapital').textContent   = active > 0 ? fmtCapital(active) : '—';
 
-  if (signals.length === 0) {
-    document.getElementById('stateEmpty').style.display = 'flex';
-    return;
-  }
-
-  // Render table
-  const tbody = document.getElementById('signalBody');
-  tbody.innerHTML = '';
-  for (const s of signals) {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="rank left">${s.day_rank ?? '—'}</td>
-      <td class="ticker left">${s.ticker}</td>
-      <td class="setup left">${s.setup ?? '—'}</td>
-      <td class="price">${entryDisplay(s)}</td>
-      <td class="price" style="color:var(--up)">${fmtPrice(s.tp1)}</td>
-      <td class="price" style="color:var(--up)">${fmtPrice(s.tp2)}</td>
-      <td class="price" style="color:var(--down)">${fmtPrice(s.sl)}</td>
-      <td class="score">${fmtScore(s.score)}</td>
-      <td class="lot">${fmtLot(s.lot_size)}</td>
-      <td>${statusBadge(s.status)}</td>
-      <td class="keterangan left">${s.invalid_reason ?? ''}</td>
-    `;
-    tbody.appendChild(tr);
-  }
-
-  document.getElementById('tableWrap').style.display = 'block';
-
-  // Market warning — check IHSG from eod_summary if available
+  renderTable();
   checkMarketWarning(dmy);
 }
 
+/* ── Market warning ── */
 async function checkMarketWarning(dmy) {
   try {
     const res  = await fetch(`/api/flow?date_from=${dmy}&date_to=${dmy}`);
@@ -341,12 +629,31 @@ async function checkMarketWarning(dmy) {
   } catch (_) {}
 }
 
-// Init
+/* ── IHSG strip ── */
+async function loadIHSG() {
+  try {
+    const res  = await fetch('/api/ihsg');
+    const data = await res.json();
+    if (data.price) {
+      document.getElementById('sIHSG').textContent = Number(data.price).toLocaleString('id-ID', {maximumFractionDigits:2});
+    }
+    if (data.gain_pct != null) {
+      const el = document.getElementById('sIHSGGain');
+      el.style.display = '';
+      const sign = data.gain_pct >= 0 ? '+' : '';
+      el.textContent = `${sign}${data.gain_pct.toFixed(2)}%`;
+      el.style.color = data.gain_pct >= 0 ? 'var(--up)' : 'var(--down)';
+    }
+  } catch (_) {}
+}
+
+/* ── Init ── */
 (function init() {
-  const picker = document.getElementById('datePicker');
-  picker.value = dmyToInputVal(todayDMY());
-  picker.addEventListener('change', loadSignals);
+  document.getElementById('datePicker').value = dmyToInputVal(todayDMY());
+  document.getElementById('datePicker').addEventListener('change', loadSignals);
+  updateSortIcons();
   loadSignals();
+  loadIHSG();
 })();
 </script>
 </body>
