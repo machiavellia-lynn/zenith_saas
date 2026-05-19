@@ -671,3 +671,153 @@ def delete_user(user_id):
     with transaction(conn):
         execute(conn, "DELETE FROM users WHERE id = %s", [user_id])
     return jsonify({"ok": True})
+
+
+# ── Wyckoff Recompute (rebuild summary + analytics per date range) ─────────────
+
+_wyckoff_recompute = {
+    "status": "idle", "current_date": None,
+    "done": 0, "total": 0, "error": None,
+}
+
+
+@bp_admin.route("/admin/wyckoff-recompute")
+def admin_wyckoff_recompute():
+    if not is_authed():
+        return redirect("/")
+    if _wyckoff_recompute["status"] == "running":
+        return jsonify({"ok": False, "error": "Sudah berjalan, tunggu selesai dulu."})
+    date_from = request.args.get("date_from", "").strip()
+    date_to   = request.args.get("date_to",   "").strip()
+    if not date_from or not date_to:
+        return jsonify({"ok": False, "error": "date_from dan date_to wajib (DD-MM-YYYY)"}), 400
+
+    import threading
+    from algo.summary_rebuild import rebuild_summary_for_date
+    from algo.analytics_daily import compute_analytics_for_date
+    from core.db import get_scraper_db, fetchall, transaction
+    import logging as _logging
+    _log = _logging.getLogger("zenith.admin")
+
+    def _run():
+        conn = get_scraper_db()
+        try:
+            rows = fetchall(conn, """
+                SELECT DISTINCT date FROM eod_summary
+                WHERE SUBSTR(date,7,4)||SUBSTR(date,4,2)||SUBSTR(date,1,2)
+                      BETWEEN SUBSTR(%s,7,4)||SUBSTR(%s,4,2)||SUBSTR(%s,1,2)
+                          AND SUBSTR(%s,7,4)||SUBSTR(%s,4,2)||SUBSTR(%s,1,2)
+                ORDER BY date
+            """, [date_from, date_from, date_from, date_to, date_to, date_to])
+        except Exception as e:
+            _wyckoff_recompute.update({"status": "error", "error": str(e)})
+            conn.close()
+            return
+
+        dates = [r["date"] for r in rows]
+        _wyckoff_recompute.update({
+            "status": "running", "total": len(dates),
+            "done": 0, "error": None, "current_date": None,
+        })
+        _log.info("wyckoff_recompute: %d dates %s → %s", len(dates), date_from, date_to)
+
+        for i, d in enumerate(dates):
+            _wyckoff_recompute["current_date"] = d
+            try:
+                with transaction(conn):
+                    rebuild_summary_for_date(conn, d)
+                with transaction(conn):
+                    compute_analytics_for_date(conn, d)
+            except Exception as e:
+                _log.error("wyckoff_recompute failed %s: %s", d, e)
+                conn.rollback()
+            _wyckoff_recompute["done"] = i + 1
+
+        _wyckoff_recompute.update({"status": "done", "current_date": None})
+        _log.info("wyckoff_recompute done: %d dates", len(dates))
+        conn.close()
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"ok": True, "message": "Wyckoff recompute dimulai di background."})
+
+
+@bp_admin.route("/admin/wyckoff-recompute-status")
+def admin_wyckoff_recompute_status():
+    if not is_authed():
+        return redirect("/")
+    return jsonify(_wyckoff_recompute)
+
+
+# ── BSJP Recompute (enrich analytics + generate signals per date range) ────────
+
+_bsjp_recompute = {
+    "status": "idle", "current_date": None,
+    "done": 0, "total": 0, "signals": 0, "error": None,
+}
+
+
+@bp_admin.route("/admin/bsjp-recompute")
+def admin_bsjp_recompute():
+    if not is_authed():
+        return redirect("/")
+    if _bsjp_recompute["status"] == "running":
+        return jsonify({"ok": False, "error": "Sudah berjalan, tunggu selesai dulu."})
+    date_from = request.args.get("date_from", "").strip()
+    date_to   = request.args.get("date_to",   "").strip()
+    if not date_from or not date_to:
+        return jsonify({"ok": False, "error": "date_from dan date_to wajib (DD-MM-YYYY)"}), 400
+
+    import threading
+    from algo.analytics_bsjp import compute_bsjp_for_date
+    from scraper.scraper_daily import run_bsjp_scan
+    from core.db import get_scraper_db, fetchall, transaction
+    import logging as _logging
+    _log = _logging.getLogger("zenith.admin")
+
+    def _run():
+        conn = get_scraper_db()
+        try:
+            rows = fetchall(conn, """
+                SELECT DISTINCT date FROM eod_summary
+                WHERE SUBSTR(date,7,4)||SUBSTR(date,4,2)||SUBSTR(date,1,2)
+                      BETWEEN SUBSTR(%s,7,4)||SUBSTR(%s,4,2)||SUBSTR(%s,1,2)
+                          AND SUBSTR(%s,7,4)||SUBSTR(%s,4,2)||SUBSTR(%s,1,2)
+                ORDER BY date
+            """, [date_from, date_from, date_from, date_to, date_to, date_to])
+        except Exception as e:
+            _bsjp_recompute.update({"status": "error", "error": str(e)})
+            conn.close()
+            return
+
+        dates = [r["date"] for r in rows]
+        _bsjp_recompute.update({
+            "status": "running", "total": len(dates),
+            "done": 0, "signals": 0, "error": None, "current_date": None,
+        })
+        _log.info("bsjp_recompute: %d dates %s → %s", len(dates), date_from, date_to)
+
+        for i, d in enumerate(dates):
+            _bsjp_recompute["current_date"] = d
+            try:
+                with transaction(conn):
+                    compute_bsjp_for_date(conn, d)
+                n = run_bsjp_scan(conn, d)
+                _bsjp_recompute["signals"] += n
+            except Exception as e:
+                _log.error("bsjp_recompute failed %s: %s", d, e)
+                conn.rollback()
+            _bsjp_recompute["done"] = i + 1
+
+        _bsjp_recompute.update({"status": "done", "current_date": None})
+        _log.info("bsjp_recompute done: %d dates, %d signals", len(dates), _bsjp_recompute["signals"])
+        conn.close()
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"ok": True, "message": "BSJP recompute dimulai di background."})
+
+
+@bp_admin.route("/admin/bsjp-recompute-status")
+def admin_bsjp_recompute_status():
+    if not is_authed():
+        return redirect("/")
+    return jsonify(_bsjp_recompute)
