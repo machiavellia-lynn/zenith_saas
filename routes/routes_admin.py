@@ -799,6 +799,9 @@ def admin_bsjp_recompute():
         for i, d in enumerate(dates):
             _bsjp_recompute["current_date"] = d
             try:
+                from algo.summary_rebuild import rebuild_summary_for_date
+                with transaction(conn):
+                    rebuild_summary_for_date(conn, d)
                 with transaction(conn):
                     compute_bsjp_for_date(conn, d)
                 n = run_bsjp_scan(conn, d)

@@ -186,24 +186,33 @@ body.sidebar-layout { overflow: hidden; }
 
           <!-- Wyckoff panel -->
           <div id="algoWyckoff">
-            <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Date Range (OHLCV Daily)</div>
+            <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Date Range</div>
             <div id="wyckoffDP"></div>
-            <div style="display:flex;gap:8px;align-items:center;margin-top:12px">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px">
+              <button class="a-btn" style="background:var(--accent);color:#fff;border-color:var(--accent)" id="btnEnrichW" onclick="runEnrich('wyckoff')">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M13.9 2.1a1 1 0 0 0-1-.3L1.6 5.6a1 1 0 0 0 .1 1.9l3.8 1 1 3.8a1 1 0 0 0 1.9.1l3.8-11.3a1 1 0 0 0-.3-1z"/></svg>
+                Enrich Telegram
+              </button>
               <button class="a-btn primary" id="btnFetchDaily" onclick="runAction('fetch_daily')">Fetch OHLCV Daily</button>
               <button class="a-btn" id="btnRecomputeW" onclick="runAction('recompute_w')">Recompute Analytics</button>
-              <button class="a-btn" id="btnRebuild" onclick="runAction('rebuild')">Rebuild Summary</button>
             </div>
+            <div id="enrichWStatus" style="margin-top:8px;font-family:var(--font-mono);font-size:11px;color:var(--muted);min-height:16px"></div>
             <div id="progWyckoff" style="display:none" class="a-progress"><div class="a-progress-fill anim" id="progWyckoffFill"></div></div>
           </div>
 
           <!-- BSJP panel -->
           <div id="algoBSJP" style="display:none">
-            <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Date Range (OHLCV 15M)</div>
+            <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Date Range</div>
             <div id="bsjpDP"></div>
-            <div style="display:flex;gap:8px;align-items:center;margin-top:12px">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px">
+              <button class="a-btn" style="background:var(--accent);color:#fff;border-color:var(--accent)" id="btnEnrichB" onclick="runEnrich('bsjp')">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M13.9 2.1a1 1 0 0 0-1-.3L1.6 5.6a1 1 0 0 0 .1 1.9l3.8 1 1 3.8a1 1 0 0 0 1.9.1l3.8-11.3a1 1 0 0 0-.3-1z"/></svg>
+                Enrich Telegram
+              </button>
               <button class="a-btn primary" id="btnFetch15m" onclick="runAction('fetch_15m')">Fetch OHLCV 15M</button>
               <button class="a-btn" id="btnRecomputeB" onclick="runAction('recompute_b')">Recompute BSJP</button>
             </div>
+            <div id="enrichBStatus" style="margin-top:8px;font-family:var(--font-mono);font-size:11px;color:var(--muted);min-height:16px"></div>
             <div id="progBSJP" style="display:none" class="a-progress"><div class="a-progress-fill anim" id="progBSJPFill"></div></div>
           </div>
 
@@ -335,7 +344,7 @@ window.runAction = function(action) {
   else if (action === 'recompute_w') url = '/admin/recompute-analytics';
   else if (action === 'rebuild') url = '/admin/rebuild-summary';
   else if (action === 'fetch_15m') url = '/admin/backfill-intraday?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to);
-  else if (action === 'recompute_b') url = '/admin/rebuild-summary';
+  else if (action === 'recompute_b') url = '/admin/bsjp-recompute?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to);
 
   fetch(url)
     .then(function(r){ return r.json(); })
@@ -354,7 +363,7 @@ window.runAction = function(action) {
 };
 
 var BTN_LABELS = {
-  btnFetchDaily: 'Fetch OHLCV Daily', btnRecomputeW: 'Recompute Analytics', btnRebuild: 'Rebuild Summary',
+  btnFetchDaily: 'Fetch OHLCV Daily', btnRecomputeW: 'Recompute Analytics',
   btnFetch15m: 'Fetch OHLCV 15M', btnRecomputeB: 'Recompute BSJP'
 };
 function resetBtn(id) {
@@ -363,6 +372,69 @@ function resetBtn(id) {
   btn.disabled = false;
   btn.textContent = BTN_LABELS[id] || id;
 }
+
+/* ── Enrich Telegram (wyckoff-recompute / bsjp-recompute) ── */
+var _enrichPolls = { wyckoff: null, bsjp: null };
+
+window.runEnrich = function(algo) {
+  var btnId    = algo === 'wyckoff' ? 'btnEnrichW' : 'btnEnrichB';
+  var statusId = algo === 'wyckoff' ? 'enrichWStatus' : 'enrichBStatus';
+  var statusUrl= algo === 'wyckoff' ? '/admin/wyckoff-recompute-status' : '/admin/bsjp-recompute-status';
+  var dates    = algo === 'wyckoff' ? wyckoffDates : bsjpDates;
+  var from     = window.isoToDD_MM_YYYY(dates.from);
+  var to       = window.isoToDD_MM_YYYY(dates.to);
+  var startUrl = '/admin/' + algo + '-recompute?date_from=' + encodeURIComponent(from) + '&date_to=' + encodeURIComponent(to);
+
+  var btn    = document.getElementById(btnId);
+  var statEl = document.getElementById(statusId);
+
+  if (_enrichPolls[algo]) return; /* already running */
+
+  btn.disabled = true;
+  btn.innerHTML = '<span style="display:inline-block;width:11px;height:11px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:99px;animation:adminSpin .6s linear infinite"></span> Starting...';
+
+  fetch(startUrl)
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (!d.ok) {
+        btn.disabled = false;
+        btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M13.9 2.1a1 1 0 0 0-1-.3L1.6 5.6a1 1 0 0 0 .1 1.9l3.8 1 1 3.8a1 1 0 0 0 1.9.1l3.8-11.3a1 1 0 0 0-.3-1z"/></svg> Enrich Telegram';
+        toast('Error: ' + (d.error || '?'), 'error');
+        return;
+      }
+      statEl.textContent = 'Dimulai...';
+      _enrichPolls[algo] = setInterval(function() {
+        fetch(statusUrl)
+          .then(function(r){ return r.json(); })
+          .then(function(s) {
+            if (s.status === 'running') {
+              var pct = s.total > 0 ? Math.round(s.done / s.total * 100) : 0;
+              statEl.textContent = s.done + '/' + s.total + ' tanggal · ' + (s.current_date || '—') + ' · ' + pct + '%';
+            } else if (s.status === 'done') {
+              clearInterval(_enrichPolls[algo]);
+              _enrichPolls[algo] = null;
+              btn.disabled = false;
+              btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M13.9 2.1a1 1 0 0 0-1-.3L1.6 5.6a1 1 0 0 0 .1 1.9l3.8 1 1 3.8a1 1 0 0 0 1.9.1l3.8-11.3a1 1 0 0 0-.3-1z"/></svg> Enrich Telegram';
+              var extra = s.signals != null ? ' · ' + s.signals + ' signals' : '';
+              statEl.textContent = '✓ Selesai ' + s.total + ' tanggal' + extra;
+              toast('Enrich Telegram selesai ✓' + extra, 'success');
+            } else if (s.status === 'error') {
+              clearInterval(_enrichPolls[algo]);
+              _enrichPolls[algo] = null;
+              btn.disabled = false;
+              btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M13.9 2.1a1 1 0 0 0-1-.3L1.6 5.6a1 1 0 0 0 .1 1.9l3.8 1 1 3.8a1 1 0 0 0 1.9.1l3.8-11.3a1 1 0 0 0-.3-1z"/></svg> Enrich Telegram';
+              statEl.textContent = 'Error: ' + (s.error || '?');
+              toast('Enrich gagal: ' + (s.error || '?'), 'error');
+            }
+          }).catch(function(){});
+      }, 2000);
+    })
+    .catch(function(e) {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M13.9 2.1a1 1 0 0 0-1-.3L1.6 5.6a1 1 0 0 0 .1 1.9l3.8 1 1 3.8a1 1 0 0 0 1.9.1l3.8-11.3a1 1 0 0 0-.3-1z"/></svg> Enrich Telegram';
+      toast('Gagal: ' + e.message, 'error');
+    });
+};
 
 /* Load scraper status */
 function loadScraperStatus() {
