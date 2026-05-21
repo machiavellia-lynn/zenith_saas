@@ -429,11 +429,9 @@ async def scraper_main():
             nonlocal conn
             try:
                 conn = _ensure_conn(conn)
-                topic_id = get_message_topic_id(event.message)
-                log.info(f"📨 raw msg={event.message.id} topic={topic_id} known={topic_id in ALL_TOPICS}")
                 n = process_message(conn, event.message)
                 if n > 0:
-                    label = TOPIC_LABELS.get(topic_id, "?")
+                    label = TOPIC_LABELS.get(get_message_topic_id(event.message), "?")
                     log.info(f"📩 {label} msg={event.message.id} → {n} row(s)")
             except Exception as e:
                 log.error(f"❌ Listener error: {e}")
