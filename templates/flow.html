@@ -126,6 +126,7 @@ body.sidebar-layout { overflow: hidden; }
 var S={rows:[],filtered:[],dateFrom:'',dateTo:'',sortCol:'net_mf',sortAsc:false,q:'',filters:{netPos:false,cmPos:false,tx10:false}};
 var today=window.todayLocal();S.dateFrom=today;S.dateTo=today;
 var sdp=new window.StockbitDatePicker('datePicker',{from:today,to:today,onChange:function(f,t){S.dateFrom=f;S.dateTo=t;load();}});
+fetch('/api/last-date').then(function(r){return r.json();}).then(function(d){if(d.date){var iso=window.DD_MM_YYYYtoISO(d.date.replace(/\//g,'-'));S.dateFrom=iso;S.dateTo=iso;sdp.setDates(iso,iso);load();}}).catch(function(){});
 window.loadIHSGBadge(document.getElementById('ihsgPrice'),document.getElementById('ihsgGain'));
 var sEl=document.getElementById('tickerSearch'),cBtn=document.getElementById('searchClear');
 sEl.addEventListener('input',function(){S.q=this.value.toUpperCase().trim();cBtn.style.display=S.q?'inline':'none';filter();});

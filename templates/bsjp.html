@@ -111,6 +111,7 @@ var sdp = new window.StockbitDatePicker('datePicker', {
   from: today, to: today,
   onChange: function(from) { S.date = from; load(); }
 });
+fetch('/api/last-date').then(function(r){return r.json();}).then(function(d){if(d.date){var iso=window.DD_MM_YYYYtoISO(d.date.replace(/\//g,'-'));S.date=iso;sdp.setDates(iso,iso);load();}}).catch(function(){});
 
 window.loadIHSGBadge(document.getElementById('ihsgPrice'), document.getElementById('ihsgGain'));
 

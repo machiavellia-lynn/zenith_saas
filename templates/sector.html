@@ -114,10 +114,11 @@ S.dateFrom = S.dateTo = today;
 
 window.loadIHSGBadge(document.getElementById('ihsgPrice'), document.getElementById('ihsgGain'));
 
-new window.StockbitDatePicker('sectorDatePicker', {
+var sdp = new window.StockbitDatePicker('sectorDatePicker', {
   from: today, to: today, alignRight: true,
   onChange: function(from, to) { S.dateFrom = from; S.dateTo = to || from; load(); }
 });
+fetch('/api/last-date').then(function(r){return r.json();}).then(function(d){if(d.date){var iso=window.DD_MM_YYYYtoISO(d.date.replace(/\//g,'-'));S.dateFrom=iso;S.dateTo=iso;sdp.setDates(iso,iso);load();}}).catch(function(){});
 
 /* Mini sparkline using SVG polyline */
 function sparklineSVG(data, w, h, isUp) {

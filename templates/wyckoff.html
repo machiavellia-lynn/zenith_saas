@@ -178,6 +178,7 @@ var sdp = new window.StockbitDatePicker('datePicker', {
     loadData();
   }
 });
+fetch('/api/last-date').then(function(r){return r.json();}).then(function(d){if(d.date){var iso=window.DD_MM_YYYYtoISO(d.date.replace(/\//g,'-'));state.dateFrom=iso;state.dateTo=iso;sdp.setDates(iso,iso);loadData();}}).catch(function(){});
 
 /* ── IHSG ── */
 window.loadIHSGBadge(
