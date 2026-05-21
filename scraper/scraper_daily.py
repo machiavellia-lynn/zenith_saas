@@ -159,11 +159,12 @@ def process_message(conn, message) -> int:
 
 
 # ── Backfill + request queue ───────────────────────────────────────────────────
-_backfill_request  = {"days": None, "status": "idle", "result": None}
-_rebuild_request   = {"status": "idle", "result": None}
-_recompute_request = {"status": "idle", "result": None}
-_backtest_request  = {"days": None, "status": "idle", "result": None}
-_fix_all_request   = {"status": "idle", "step": None, "date_from": None, "date_to": None, "result": None}
+_backfill_request      = {"days": None, "status": "idle", "result": None}
+_rebuild_request       = {"status": "idle", "result": None}
+_recompute_request     = {"status": "idle", "result": None}
+_backtest_request      = {"days": None, "status": "idle", "result": None}
+_fix_all_request       = {"status": "idle", "step": None, "date_from": None, "date_to": None, "result": None}
+_tele_dates_request    = {"dates": None, "status": "idle", "scanned": 0, "saved": 0, "error": None}
 _backfill_lock    = threading.Lock()
 _scraper_thread   = None
 # Signals the async loop to wake up immediately when a request is queued
@@ -247,6 +248,22 @@ def request_recompute_analytics() -> dict:
     log.info("📋 Recompute Analytics queued")
     _wake_loop()
     return {"ok": True, "message": "Analytics recompute queued"}
+
+
+def request_tele_dates_backfill(dates: list) -> dict:
+    with _backfill_lock:
+        if _tele_dates_request["status"] == "running":
+            return {"ok": False, "error": "Telegram backfill sedang berjalan"}
+        _tele_dates_request.update({"dates": dates, "status": "pending",
+                                    "scanned": 0, "saved": 0, "error": None})
+    log.info("📋 Tele dates backfill queued: %s", dates)
+    _wake_loop()
+    return {"ok": True, "message": f"Telegram backfill queued ({len(dates)} tanggal)"}
+
+
+def get_tele_dates_status() -> dict:
+    with _backfill_lock:
+        return dict(_tele_dates_request)
 
 
 def request_fix_all(date_from: str = None, date_to: str = None) -> dict:
@@ -699,6 +716,27 @@ async def scraper_main():
                     log.error(f"❌ Fix All: {e}")
                     with _backfill_lock:
                         _fix_all_request.update({"status": "error", "step": None, "result": str(e)})
+
+            with _backfill_lock:
+                do_tele_dates = _tele_dates_request["status"] == "pending"
+                if do_tele_dates:
+                    _tele_dates_request["status"] = "running"
+                    tele_dates_list = _tele_dates_request["dates"]
+
+            if do_tele_dates:
+                try:
+                    from scraper.scraper_weekly import run_weekly_backfill
+                    result = await run_weekly_backfill(client, conn, dates=tele_dates_list)
+                    with _backfill_lock:
+                        _tele_dates_request.update({"status": "done",
+                            "scanned": result.get("scanned", 0),
+                            "saved":   result.get("saved", 0)})
+                    log.info("✅ Tele dates backfill done: scanned=%d saved=%d",
+                             result.get("scanned", 0), result.get("saved", 0))
+                except Exception as e:
+                    log.error("❌ Tele dates backfill: %s", e)
+                    with _backfill_lock:
+                        _tele_dates_request.update({"status": "error", "error": str(e)})
 
             # Wait up to 5 s, but wake immediately if a request is queued
             try:

@@ -149,54 +149,30 @@ def trigger_weekly():
 
 # ── Telegram Backfill (fetch raw msgs from Telegram for a date range) ─────────
 
-_tele_backfill = {"status": "idle", "current": None, "done": 0, "total": 0,
-                  "scanned": 0, "saved": 0, "error": None}
-
-
 @bp_admin.route("/admin/tele-backfill")
 def admin_tele_backfill():
     if not is_authed():
         return redirect("/")
-    if _tele_backfill["status"] == "running":
-        return jsonify({"ok": False, "error": "Sudah berjalan, tunggu selesai dulu."})
 
     date_from = request.args.get("date_from", "").strip()
     date_to   = request.args.get("date_to",   "").strip()
     if not date_from or not date_to:
         return jsonify({"ok": False, "error": "date_from dan date_to wajib (DD-MM-YYYY)"}), 400
 
-    import threading, asyncio
     from core.utils import date_range as _date_range
-    import logging as _logging
-    _log = _logging.getLogger("zenith.admin")
+    from scraper.scraper_daily import request_tele_dates_backfill
 
     dates = _date_range(date_from, date_to)
-    _tele_backfill.update({"status": "running", "current": None,
-                           "done": 0, "total": len(dates),
-                           "scanned": 0, "saved": 0, "error": None})
-
-    def _run():
-        try:
-            from scraper.scraper_weekly import run_weekly_backfill
-            result = asyncio.run(run_weekly_backfill(dates=dates))
-            _tele_backfill.update({"status": "done", "current": None,
-                                   "scanned": result.get("scanned", 0),
-                                   "saved": result.get("saved", 0)})
-            _log.info("tele-backfill done: scanned=%d saved=%d",
-                      result.get("scanned", 0), result.get("saved", 0))
-        except Exception as e:
-            _tele_backfill.update({"status": "error", "error": str(e)})
-            _log.error("tele-backfill failed: %s", e)
-
-    threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"ok": True, "message": f"Telegram backfill dimulai ({date_from} → {date_to})"})
+    result = request_tele_dates_backfill(dates)
+    return jsonify(result)
 
 
 @bp_admin.route("/admin/tele-backfill-status")
 def admin_tele_backfill_status():
     if not is_authed():
         return redirect("/")
-    return jsonify(_tele_backfill)
+    from scraper.scraper_daily import get_tele_dates_status
+    return jsonify(get_tele_dates_status())
 
 
 @bp_admin.route("/admin/rebuild-summary")
