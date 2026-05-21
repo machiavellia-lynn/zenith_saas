@@ -59,12 +59,17 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK, dates=None
         date_range  = f"{(now_wib - timedelta(days=days-1)).strftime('%d-%m-%Y')} → {now_wib.strftime('%d-%m-%Y')}"
     log.info(f"🔄 WEEKLY BACKFILL: {len(valid_dates)} dates ({date_range})")
 
+    # Stop iterating once message date is older than the earliest target date.
+    # iter_messages goes newest→oldest, so any future date (today's messages)
+    # must be skipped — only break when we've gone past the window.
+    min_valid_dt = min(datetime.strptime(d, "%d-%m-%Y") for d in valid_dates)
+
     total_scanned = total_saved = 0
 
     for topic_id in ALL_TOPICS:
         label   = TOPIC_LABELS[topic_id]
         channel = TOPIC_CHANNELS[topic_id]
-        scanned = saved = consecutive_old = 0
+        scanned = saved = 0
 
         conn = _ensure_conn(conn)  # reconnect before each topic's DB work
 
@@ -80,7 +85,6 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK, dates=None
             scanned += 1
 
             if msg_date in valid_dates:
-                consecutive_old = 0
                 msg_id = message.id
                 try:
                     if topic_id in SM_BM_TOPICS:
@@ -98,9 +102,11 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK, dates=None
                 except Exception as e:
                     log.warning(f"  ⚠️ {label} msg={msg_id} save failed: {e}")
             else:
-                consecutive_old += 1
-                if consecutive_old > 100:
-                    break
+                try:
+                    if datetime.strptime(msg_date, "%d-%m-%Y") < min_valid_dt:
+                        break  # gone past our target window, no more useful messages
+                except ValueError:
+                    pass
 
             if scanned % 200 == 0:
                 log.info(f"  {label}: scanned={scanned}, new={saved}...")

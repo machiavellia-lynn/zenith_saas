@@ -252,7 +252,7 @@ def request_recompute_analytics() -> dict:
 
 def request_tele_dates_backfill(dates: list) -> dict:
     with _backfill_lock:
-        if _tele_dates_request["status"] == "running":
+        if _tele_dates_request["status"] in ("running", "pending"):
             return {"ok": False, "error": "Telegram backfill sedang berjalan"}
         _tele_dates_request.update({"dates": dates, "status": "pending",
                                     "scanned": 0, "saved": 0, "error": None})
