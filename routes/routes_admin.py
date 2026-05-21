@@ -695,26 +695,14 @@ def admin_wyckoff_recompute():
     import threading
     from algo.summary_rebuild import rebuild_summary_for_date
     from algo.analytics_daily import compute_analytics_for_date
-    from core.db import get_scraper_db, fetchall, transaction
+    from core.db import get_scraper_db, transaction
+    from core.utils import date_range
     import logging as _logging
     _log = _logging.getLogger("zenith.admin")
 
     def _run():
         conn = get_scraper_db()
-        try:
-            rows = fetchall(conn, """
-                SELECT DISTINCT date FROM eod_summary
-                WHERE SUBSTR(date,7,4)||SUBSTR(date,4,2)||SUBSTR(date,1,2)
-                      BETWEEN SUBSTR(%s,7,4)||SUBSTR(%s,4,2)||SUBSTR(%s,1,2)
-                          AND SUBSTR(%s,7,4)||SUBSTR(%s,4,2)||SUBSTR(%s,1,2)
-                ORDER BY date
-            """, [date_from, date_from, date_from, date_to, date_to, date_to])
-        except Exception as e:
-            _wyckoff_recompute.update({"status": "error", "error": str(e)})
-            conn.close()
-            return
-
-        dates = [r["date"] for r in rows]
+        dates = date_range(date_from, date_to)
         _wyckoff_recompute.update({
             "status": "running", "total": len(dates),
             "done": 0, "error": None, "current_date": None,
@@ -770,26 +758,14 @@ def admin_bsjp_recompute():
     import threading
     from algo.analytics_bsjp import compute_bsjp_for_date
     from scraper.scraper_daily import run_bsjp_scan
-    from core.db import get_scraper_db, fetchall, transaction
+    from core.db import get_scraper_db, transaction
+    from core.utils import date_range
     import logging as _logging
     _log = _logging.getLogger("zenith.admin")
 
     def _run():
         conn = get_scraper_db()
-        try:
-            rows = fetchall(conn, """
-                SELECT DISTINCT date FROM eod_summary
-                WHERE SUBSTR(date,7,4)||SUBSTR(date,4,2)||SUBSTR(date,1,2)
-                      BETWEEN SUBSTR(%s,7,4)||SUBSTR(%s,4,2)||SUBSTR(%s,1,2)
-                          AND SUBSTR(%s,7,4)||SUBSTR(%s,4,2)||SUBSTR(%s,1,2)
-                ORDER BY date
-            """, [date_from, date_from, date_from, date_to, date_to, date_to])
-        except Exception as e:
-            _bsjp_recompute.update({"status": "error", "error": str(e)})
-            conn.close()
-            return
-
-        dates = [r["date"] for r in rows]
+        dates = date_range(date_from, date_to)
         _bsjp_recompute.update({
             "status": "running", "total": len(dates),
             "done": 0, "signals": 0, "error": None, "current_date": None,
