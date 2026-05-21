@@ -89,6 +89,13 @@ def compute_analytics_for_date(conn, date_str: str):
                 ph_map.get(ticker, []),
                 prev_close_map.get(ticker),
             )
+        except Exception as e:
+            log.warning("analytics _compute_one failed ticker=%s date=%s: %s", ticker, date_str, e)
+            continue
+
+        cur = conn.cursor()
+        cur.execute("SAVEPOINT sp_analytics")
+        try:
             execute(conn, """
                 UPDATE eod_summary SET
                     sri = %s, mes = %s, volx_gap = %s, rpr = %s, atr_pct = %s,
@@ -115,8 +122,10 @@ def compute_analytics_for_date(conn, date_str: str):
                 analytics["close_pos"], analytics["prev_high_break"], analytics["mf_ratio"],
                 date_str, ticker,
             ])
+            cur.execute("RELEASE SAVEPOINT sp_analytics")
             updated += 1
         except Exception as e:
+            cur.execute("ROLLBACK TO SAVEPOINT sp_analytics")
             log.warning("analytics failed ticker=%s date=%s: %s", ticker, date_str, e)
 
     log.info("compute_analytics_for_date %s: %d tickers updated", date_str, updated)
