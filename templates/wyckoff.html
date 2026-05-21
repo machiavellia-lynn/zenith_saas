@@ -135,7 +135,10 @@ body.sidebar-layout { overflow: hidden; }
       </div>
       <div class="data-table-foot">
         <span id="rowCount">— emiten</span>
-        <span class="foot-sort" id="sortLabel">Sort: Clean Money ↓</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span id="liveTs" style="font-family:var(--font-mono);font-size:10.5px;color:var(--muted)"></span>
+          <span class="foot-sort" id="sortLabel">Sort: Clean Money ↓</span>
+        </div>
       </div>
     </div>
 
@@ -327,9 +330,9 @@ function renderTable() {
 }
 
 /* ── Load data ── */
-function loadData() {
+function fetchData(silent) {
   var body = document.getElementById('tableBody');
-  body.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Loading...</div>';
+  if (!silent) body.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Loading...</div>';
 
   var from = window.isoToDD_MM_YYYY(state.dateFrom);
   var to   = window.isoToDD_MM_YYYY(state.dateTo);
@@ -356,12 +359,16 @@ function loadData() {
       cmEl.textContent = (cmTotal >= 0 ? '+' : '') + window.fmtMoney(cmTotal);
       cmEl.className   = 'stat-card-value ' + (cmTotal >= 0 ? 'up' : 'down');
 
+      var liveEl = document.getElementById('liveTs');
+      if (liveEl) { var now = new Date(); liveEl.textContent = 'Update ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0') + ':' + String(now.getSeconds()).padStart(2,'0'); }
+
       applyFilter();
     })
     .catch(function(err) {
-      body.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Gagal memuat data.</div>';
+      if (!silent) body.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Gagal memuat data.</div>';
     });
 }
+function loadData() { fetchData(false); }
 
 /* ── Detail Modal ── */
 function openDetail(r) {
@@ -412,6 +419,7 @@ document.getElementById('detailModal').addEventListener('click', function(e) {
 });
 
 /* ── Init ── */
+setInterval(function(){ if(state.dateFrom===window.todayLocal()) fetchData(true); }, 60000);
 loadData();
 
 })();
