@@ -399,11 +399,11 @@ var _enrichPolls = { wyckoff: null, bsjp: null };
 window.runEnrich = function(algo) {
   var btnId    = algo === 'wyckoff' ? 'btnEnrichW' : 'btnEnrichB';
   var statusId = algo === 'wyckoff' ? 'enrichWStatus' : 'enrichBStatus';
-  var statusUrl= algo === 'wyckoff' ? '/admin/wyckoff-recompute-status' : '/admin/bsjp-recompute-status';
+  var statusUrl= '/admin/tele-backfill-status';
   var dates    = algo === 'wyckoff' ? wyckoffDates : bsjpDates;
   var from     = window.isoToDD_MM_YYYY(dates.from);
   var to       = window.isoToDD_MM_YYYY(dates.to);
-  var startUrl = '/admin/' + algo + '-recompute?date_from=' + encodeURIComponent(from) + '&date_to=' + encodeURIComponent(to);
+  var startUrl = '/admin/tele-backfill?date_from=' + encodeURIComponent(from) + '&date_to=' + encodeURIComponent(to);
 
   var btn    = document.getElementById(btnId);
   var statEl = document.getElementById(statusId);
@@ -428,15 +428,14 @@ window.runEnrich = function(algo) {
           .then(function(r){ return r.json(); })
           .then(function(s) {
             if (s.status === 'running') {
-              var pct = s.total > 0 ? Math.round(s.done / s.total * 100) : 0;
-              statEl.textContent = s.done + '/' + s.total + ' tanggal · ' + (s.current_date || '—') + ' · ' + pct + '%';
+              statEl.textContent = 'Fetching Telegram... scanned=' + (s.scanned||0) + ' saved=' + (s.saved||0);
             } else if (s.status === 'done') {
               clearInterval(_enrichPolls[algo]);
               _enrichPolls[algo] = null;
               btn.disabled = false;
               btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M13.9 2.1a1 1 0 0 0-1-.3L1.6 5.6a1 1 0 0 0 .1 1.9l3.8 1 1 3.8a1 1 0 0 0 1.9.1l3.8-11.3a1 1 0 0 0-.3-1z"/></svg> Enrich Telegram';
-              var extra = s.signals != null ? ' · ' + s.signals + ' signals' : '';
-              statEl.textContent = '✓ Selesai ' + s.total + ' tanggal' + extra;
+              var extra = ' · scanned=' + (s.scanned||0) + ' saved=' + (s.saved||0);
+              statEl.textContent = '✓ Selesai' + extra;
               toast('Enrich Telegram selesai ✓' + extra, 'success');
             } else if (s.status === 'error') {
               clearInterval(_enrichPolls[algo]);

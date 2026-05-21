@@ -33,8 +33,8 @@ log = logging.getLogger("zenith.weekly")  # inherits zenith parent handler
 DAYS_BACK = 7
 
 
-async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK):
-    """Scrape messages from past N days. Returns {scanned, saved}."""
+async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK, dates=None):
+    """Scrape messages from past N days (or explicit dates list). Returns {scanned, saved}."""
     own_client = client is None
     own_conn   = conn is None
 
@@ -50,10 +50,14 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK):
             return {"scanned": 0, "saved": 0}
         await client.get_dialogs()
 
-    now_wib     = datetime.now(WIB)
-    valid_dates = {(now_wib - timedelta(days=i)).strftime("%d-%m-%Y") for i in range(days)}
-    date_range  = f"{(now_wib - timedelta(days=days-1)).strftime('%d-%m-%Y')} → {now_wib.strftime('%d-%m-%Y')}"
-    log.info(f"🔄 WEEKLY BACKFILL: {days} days ({date_range})")
+    now_wib = datetime.now(WIB)
+    if dates is not None:
+        valid_dates = set(dates)
+        date_range  = f"{min(dates)} → {max(dates)}"
+    else:
+        valid_dates = {(now_wib - timedelta(days=i)).strftime("%d-%m-%Y") for i in range(days)}
+        date_range  = f"{(now_wib - timedelta(days=days-1)).strftime('%d-%m-%Y')} → {now_wib.strftime('%d-%m-%Y')}"
+    log.info(f"🔄 WEEKLY BACKFILL: {len(valid_dates)} dates ({date_range})")
 
     total_scanned = total_saved = 0
 
