@@ -114,7 +114,10 @@ body.sidebar-layout { overflow: hidden; }
       </div>
       <div class="data-table-foot">
         <span id="rowCount">—</span>
-        <span class="foot-sort" id="sortLabel">Sort: Net MF ↓</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span id="liveTs" style="font-family:var(--font-mono);font-size:10.5px;color:var(--muted)"></span>
+          <span class="foot-sort" id="sortLabel">Sort: Net MF ↓</span>
+        </div>
       </div>
     </div>
   </div>
@@ -123,10 +126,12 @@ body.sidebar-layout { overflow: hidden; }
 <script src="/static/zenith-utils.js"></script>
 <script>
 (function(){
-var S={rows:[],filtered:[],dateFrom:'',dateTo:'',sortCol:'net_mf',sortAsc:false,q:'',filters:{netPos:false,cmPos:false,tx10:false}};
+var S={rows:[],filtered:[],dateFrom:'',dateTo:'',sortCol:'net_mf',sortAsc:false,q:'',filters:{netPos:false,cmPos:false,tx10:false},liveDate:null};
 var today=window.todayLocal();S.dateFrom=today;S.dateTo=today;
 var sdp=new window.StockbitDatePicker('datePicker',{from:today,to:today,onChange:function(f,t){S.dateFrom=f;S.dateTo=t;load();}});
-fetch('/api/last-date').then(function(r){return r.json();}).then(function(d){if(d.date){var iso=window.DD_MM_YYYYtoISO(d.date.replace(/\//g,'-'));S.dateFrom=iso;S.dateTo=iso;sdp.setDates(iso,iso);load();}}).catch(function(){});
+function fetchLastDate(cb){fetch('/api/last-date',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){if(d.date){var iso=window.DD_MM_YYYYtoISO(d.date.replace(/\//g,'-'));cb(iso);}}).catch(function(){});}
+fetchLastDate(function(iso){S.liveDate=iso;S.dateFrom=iso;S.dateTo=iso;sdp.setDates(iso,iso);load();});
+setTimeout(function(){if(!S.liveDate){S.liveDate=today;load();}},1500);
 window.loadIHSGBadge(document.getElementById('ihsgPrice'),document.getElementById('ihsgGain'));
 var sEl=document.getElementById('tickerSearch'),cBtn=document.getElementById('searchClear');
 sEl.addEventListener('input',function(){S.q=this.value.toUpperCase().trim();cBtn.style.display=S.q?'inline':'none';filter();});
@@ -155,8 +160,9 @@ body.innerHTML=rows.map(function(r,i){var nmf=r.net_mf,rC=r.rsm>60?'var(--up)':'
 '<div class="price-cell"><div class="price-cell-price">'+(r.price?window.fmtPrice(r.price):'—')+'</div><div class="price-cell-chg '+(r.gain_pct>=0?'up':'down')+'">'+(r.gain_pct!=null?window.fmtPct(r.gain_pct):'—')+'</div></div>'+
 '</div>';}).join('');
 document.getElementById('rowCount').textContent=rows.length+' dari '+S.rows.length+' emiten';}
-function load(){document.getElementById('tableBody').innerHTML='<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Loading...</div>';var from=window.isoToDD_MM_YYYY(S.dateFrom),to=window.isoToDD_MM_YYYY(S.dateTo);fetch('/api/flow?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to)).then(function(r){return r.json();}).then(function(d){S.rows=(d.tickers||[]).map(function(r){return Object.assign({name:''},r);});var t=d.totals||{},smT=t.sm||0,bmT=t.bm||0,cmT=t.net_cm||0,mfpT=t.mf_plus||0,mfmT=t.mf_minus||0,nmfT=t.net_mf||0,smC=S.rows.filter(function(r){return(r.sm_val||0)>0;}).length,bmC=S.rows.filter(function(r){return(r.bm_val||0)>0;}).length;document.getElementById('statSM').textContent='+'+window.fmtMoney(smT);document.getElementById('statSMSub').textContent=smC+' emiten';document.getElementById('statBM').textContent=window.fmtMoney(bmT);document.getElementById('statBMSub').textContent=bmC+' emiten';var cmEl=document.getElementById('statCM');cmEl.textContent=(cmT>=0?'+':'')+window.fmtMoney(cmT);cmEl.className='stat-card-value '+(cmT>=0?'up':'down');document.getElementById('statMFP').textContent=mfpT!=null?'+'+window.fmtMoney(mfpT):'—';document.getElementById('statMFM').textContent=mfmT!=null?window.fmtMoney(mfmT):'—';var nmfEl=document.getElementById('statNetMF');nmfEl.textContent=nmfT!=null?(nmfT>=0?'+':'')+window.fmtMoney(nmfT):'—';nmfEl.className='stat-card-value '+(nmfT>=0?'up':'down');filter();}).catch(function(){document.getElementById('tableBody').innerHTML='<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Gagal memuat data.</div>';});}
-load();
+function fetchData(silent){if(!silent)document.getElementById('tableBody').innerHTML='<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Loading...</div>';var from=window.isoToDD_MM_YYYY(S.dateFrom),to=window.isoToDD_MM_YYYY(S.dateTo);fetch('/api/flow?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to)).then(function(r){return r.json();}).then(function(d){S.rows=(d.tickers||[]).map(function(r){return Object.assign({name:''},r);});var t=d.totals||{},smT=t.sm||0,bmT=t.bm||0,cmT=t.net_cm||0,mfpT=t.mf_plus||0,mfmT=t.mf_minus||0,nmfT=t.net_mf||0,smC=S.rows.filter(function(r){return(r.sm_val||0)>0;}).length,bmC=S.rows.filter(function(r){return(r.bm_val||0)>0;}).length;document.getElementById('statSM').textContent='+'+window.fmtMoney(smT);document.getElementById('statSMSub').textContent=smC+' emiten';document.getElementById('statBM').textContent=window.fmtMoney(bmT);document.getElementById('statBMSub').textContent=bmC+' emiten';var cmEl=document.getElementById('statCM');cmEl.textContent=(cmT>=0?'+':'')+window.fmtMoney(cmT);cmEl.className='stat-card-value '+(cmT>=0?'up':'down');document.getElementById('statMFP').textContent=mfpT!=null?'+'+window.fmtMoney(mfpT):'—';document.getElementById('statMFM').textContent=mfmT!=null?window.fmtMoney(mfmT):'—';var nmfEl=document.getElementById('statNetMF');nmfEl.textContent=nmfT!=null?(nmfT>=0?'+':'')+window.fmtMoney(nmfT):'—';nmfEl.className='stat-card-value '+(nmfT>=0?'up':'down');var liveEl=document.getElementById('liveTs');if(liveEl){var now=new Date();liveEl.textContent='Update '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0');}filter();}).catch(function(){if(!silent)document.getElementById('tableBody').innerHTML='<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Gagal memuat data.</div>';});}
+function load(){fetchData(false);}
+setInterval(function(){fetchLastDate(function(iso){var wasLive=(S.dateFrom===S.liveDate);if(iso!==S.liveDate&&wasLive){S.liveDate=iso;S.dateFrom=iso;S.dateTo=iso;sdp.setDates(iso,iso);}else{S.liveDate=iso;}if(S.dateFrom===S.liveDate)fetchData(true);});},60000);
 })();
 </script>
 </body>

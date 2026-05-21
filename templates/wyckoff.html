@@ -164,7 +164,8 @@ body.sidebar-layout { overflow: hidden; }
 var state = {
   rows: [], filtered: [], dateFrom: '', dateTo: '',
   sortCol: 'clean_money', sortAsc: false,
-  q: '', filters: { sm100:false, rsm60:false, tx10:false, cmPos:false }
+  q: '', filters: { sm100:false, rsm60:false, tx10:false, cmPos:false },
+  liveDate: null
 };
 
 /* ── Today ── */
@@ -181,7 +182,9 @@ var sdp = new window.StockbitDatePicker('datePicker', {
     loadData();
   }
 });
-fetch('/api/last-date').then(function(r){return r.json();}).then(function(d){if(d.date){var iso=window.DD_MM_YYYYtoISO(d.date.replace(/\//g,'-'));state.dateFrom=iso;state.dateTo=iso;sdp.setDates(iso,iso);loadData();}}).catch(function(){});
+function fetchLastDate(cb){fetch('/api/last-date',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){if(d.date){var iso=window.DD_MM_YYYYtoISO(d.date.replace(/\//g,'-'));cb(iso);}}).catch(function(){});}
+fetchLastDate(function(iso){state.liveDate=iso;state.dateFrom=iso;state.dateTo=iso;sdp.setDates(iso,iso);loadData();});
+setTimeout(function(){if(!state.liveDate){state.liveDate=today;loadData();}},1500);
 
 /* ── IHSG ── */
 window.loadIHSGBadge(
@@ -419,8 +422,20 @@ document.getElementById('detailModal').addEventListener('click', function(e) {
 });
 
 /* ── Init ── */
-setInterval(function(){ if(state.dateFrom===window.todayLocal()) fetchData(true); }, 60000);
-loadData();
+setInterval(function(){
+  fetchLastDate(function(iso){
+    var wasLive = (state.dateFrom === state.liveDate);
+    if (iso !== state.liveDate && wasLive) {
+      state.liveDate = iso;
+      state.dateFrom = iso;
+      state.dateTo   = iso;
+      sdp.setDates(iso, iso);
+    } else {
+      state.liveDate = iso;
+    }
+    if (state.dateFrom === state.liveDate) fetchData(true);
+  });
+}, 60000);
 
 })();
 </script>
