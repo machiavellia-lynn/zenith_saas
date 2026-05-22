@@ -802,12 +802,14 @@ def admin_bsjp_recompute():
 
         for i, d in enumerate(dates):
             _bsjp_recompute["current_date"] = d
+            # d is DD-MM-YYYY; price_history uses YYYY-MM-DD
+            d_ymd = f"{d[6:10]}-{d[3:5]}-{d[0:2]}"
             try:
                 from algo.summary_rebuild import rebuild_summary_for_date
                 with transaction(conn):
                     rebuild_summary_for_date(conn, d)
                 with transaction(conn):
-                    compute_bsjp_for_date(conn, d)
+                    compute_bsjp_for_date(conn, d_ymd)
                 n = run_bsjp_scan(conn, d)
                 _bsjp_recompute["signals"] += n
             except Exception as e:

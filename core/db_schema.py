@@ -317,37 +317,34 @@ def _create_inst_flow_cache(conn):
 
 def _create_bsjp_signals(conn):
     cur = conn.cursor()
-    # Migrate: recreate with new schema if entry_est column is missing
+    # Migrate: drop old schema that had entry_est/entry_final/invalid_reason
     cur.execute("""
         SELECT column_name FROM information_schema.columns
-        WHERE table_name = 'bsjp_signals' AND column_name = 'entry_est'
+        WHERE table_name = 'bsjp_signals' AND column_name = 'entry_final'
     """)
-    if not cur.fetchone():
+    if cur.fetchone():
         cur.execute("DROP TABLE IF EXISTS bsjp_signals CASCADE")
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS bsjp_signals (
-            id             SERIAL PRIMARY KEY,
-            date           TEXT NOT NULL,
-            ticker         TEXT NOT NULL,
-            setup          TEXT NOT NULL,
-            entry_est      INTEGER,
-            entry_final    INTEGER,
-            tp1            INTEGER,
-            tp2            INTEGER,
-            sl             INTEGER,
-            sl_type        TEXT,
-            score          REAL,
-            day_rank       INTEGER,
-            lot_size       INTEGER,
-            status         TEXT DEFAULT 'ESTIMASI',
-            invalid_reason TEXT,
-            computed_at    TIMESTAMP DEFAULT NOW(),
+            id          SERIAL PRIMARY KEY,
+            date        TEXT NOT NULL,
+            ticker      TEXT NOT NULL,
+            setup       TEXT NOT NULL,
+            entry       INTEGER,
+            tp1         INTEGER,
+            tp2         INTEGER,
+            sl          INTEGER,
+            sl_type     TEXT,
+            score       REAL,
+            day_rank    INTEGER,
+            lot_size    INTEGER,
+            computed_at TIMESTAMP DEFAULT NOW(),
             UNIQUE(date, ticker)
         )
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_bsjp_date   ON bsjp_signals(date)")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_bsjp_status ON bsjp_signals(status)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_bsjp_ticker ON bsjp_signals(ticker)")
 
 
 def _create_bsjp_results(conn):
