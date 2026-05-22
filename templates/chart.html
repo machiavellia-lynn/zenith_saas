@@ -95,19 +95,6 @@ body.sidebar-layout { overflow: hidden; }
 .trx-td:first-child { text-align: left; }
 .trx-row + .trx-row td { border-top: 1px solid var(--border); }
 
-/* Date inputs */
-.trx-date-wrap {
-  display: flex; align-items: center; gap: 6px;
-  padding: 7px 12px; background: var(--surface2);
-  border: 1px solid var(--border); border-radius: 8px;
-}
-.trx-date-inp {
-  background: none; border: none; outline: none;
-  font-family: var(--font-mono); font-size: 12px; color: var(--ink);
-  width: 92px; letter-spacing: .03em;
-}
-.trx-date-inp::placeholder { color: var(--muted); }
-.trx-date-sep { color: var(--border2); font-size: 11px; }
 /* Loading state */
 .chart-loading {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -160,11 +147,7 @@ body.sidebar-layout { overflow: hidden; }
       </div>
       <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
         <span style="font-size:11px;color:var(--muted)">Tanggal TX:</span>
-        <div class="trx-date-wrap">
-          <input type="text" class="trx-date-inp" id="trxDateFrom" placeholder="DD/MM/YYYY" maxlength="10" autocomplete="off"/>
-          <span class="trx-date-sep" id="trxDateToggle" title="Toggle range" style="cursor:pointer">·</span>
-          <input type="text" class="trx-date-inp" id="trxDateTo" placeholder="DD/MM/YYYY" maxlength="10" autocomplete="off" style="display:none"/>
-        </div>
+        <div id="chartDatePicker"></div>
       </div>
     </div>
 
@@ -268,11 +251,8 @@ var ovlSeriesCM = null, ovlSeriesSM = null, ovlSeriesBM = null;
 var ovlShowCM = true, ovlShowSM = false, ovlShowBM = false;
 var overlayDataCache = [];
 
-function todayDDMMYYYY() {
-  var now = new Date(Date.now() + 7*3600*1000);
-  return String(now.getUTCDate()).padStart(2,'0')+'/'+String(now.getUTCMonth()+1).padStart(2,'0')+'/'+now.getUTCFullYear();
-}
-function displayToApi(s){ return s.replace(/\//g,'-'); }
+var txDateFrom = '', txDateTo = '';
+function isoToAPI(iso){ if(!iso)return''; var p=iso.split('-'); return p[2]+'-'+p[1]+'-'+p[0]; }
 function fmtM(v){if(v==null)return'—';var a=Math.abs(v),s=v<0?'-':'';if(a>=1000)return s+(a/1000).toFixed(1)+'B';if(a>=1)return s+a.toFixed(1)+'M';if(a>0)return s+(a*1000).toFixed(0)+'K';return'0';}
 function fmtMsign(v){if(v==null)return'—';var a=Math.abs(v),s=v<0?'-':'';if(a>=1000)return (v>0?'+':s)+(a/1000).toFixed(1)+'B';if(a>=1)return (v>0?'+':s)+a.toFixed(1)+'M';return (v>0?'+':s)+(a*1000).toFixed(0)+'K';}
 
@@ -317,34 +297,11 @@ function toggleOverlay(which) {
 function applyAutoScale(on) { if(!chart) return; chart.priceScale('right').applyOptions({autoScale:on,scaleMargins:{top:0.1,bottom:0.2}}); }
 function setScale(mode) {
   if (mode==='auto') { isAutoScale=!isAutoScale; applyAutoScale(isAutoScale); document.getElementById('btnAuto').classList.toggle('active',isAutoScale); }
-  else { isLogScale=!isLogScale; if(chart) chart.priceScale('right').applyOptions({mode:isLogScale?1:0}); document.getElementById('btnLog').classList.toggle('active',isLogScale); }
+  else { isLogScale=!isLogScale; if(chart) chart.applyOptions({rightPriceScale:{mode:isLogScale?1:0}}); document.getElementById('btnLog').classList.toggle('active',isLogScale); }
 }
 
-/* Date input — simple manual date entry */
-var trxSingleMode = true;
-document.getElementById('trxDateToggle').addEventListener('click', function() {
-  trxSingleMode = !trxSingleMode;
-  var toInp = document.getElementById('trxDateTo');
-  if (trxSingleMode) { this.textContent = '·'; toInp.style.display = 'none'; }
-  else { this.textContent = '→'; toInp.style.display = ''; }
-  reloadChartData();
-});
-['trxDateFrom','trxDateTo'].forEach(function(id) {
-  var el = document.getElementById(id);
-  el.addEventListener('input', function() {
-    var v = this.value.replace(/\D/g,'');
-    if (v.length >= 3) v = v.slice(0,2)+'/'+v.slice(2);
-    if (v.length >= 6) v = v.slice(0,5)+'/'+v.slice(5);
-    this.value = v.slice(0,10);
-  });
-  el.addEventListener('change', function() { reloadChartData(); });
-});
-
-function getDateStr() { return displayToApi(document.getElementById('trxDateFrom').value); }
-function getDateToStr() {
-  if (trxSingleMode) return getDateStr();
-  return displayToApi(document.getElementById('trxDateTo').value) || getDateStr();
-}
+function getDateStr() { return isoToAPI(txDateFrom); }
+function getDateToStr() { return isoToAPI(txDateTo || txDateFrom); }
 function reloadChartData() { loadMetrics(); loadTransactions(); }
 
 /* Chart init */
@@ -357,8 +314,8 @@ function initChart() {
     width: container.offsetWidth,
     height: 340,
     layout: {
-      background: { type: 'solid', color: dark ? '#1c1a17' : '#fafaf7' },
-      textColor: dark ? '#9a9080' : '#7a7060',
+      background: { type: 'solid', color: dark ? '#0e1318' : '#fafaf7' },
+      textColor: dark ? '#6a8090' : '#7a7060',
       fontFamily: "'Geist Mono', monospace",
     },
     grid: {
@@ -366,9 +323,9 @@ function initChart() {
       horzLines: { color: dark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)' },
     },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-    rightPriceScale: { borderColor: dark ? '#2a2820' : '#e5e0d8' },
+    rightPriceScale: { borderColor: dark ? '#1a2230' : '#e5e0d8' },
     timeScale: {
-      borderColor: dark ? '#2a2820' : '#e5e0d8',
+      borderColor: dark ? '#1a2230' : '#e5e0d8',
       timeVisible: true,
       tickMarkFormatter: function(t) {
         var d = new Date(t*1000);
@@ -516,10 +473,10 @@ async function loadMetrics() {
 
 /* Transactions */
 async function loadTransactions() {
-  var df = document.getElementById('trxDateFrom').value.trim();
-  if (!df || df.length < 8) return;
-  var dt = trxSingleMode ? df : (document.getElementById('trxDateTo').value.trim() || df);
-  var url = '/api/transactions?ticker='+encodeURIComponent(currentTicker)+'&date_from='+encodeURIComponent(displayToApi(df))+'&date_to='+encodeURIComponent(displayToApi(dt));
+  var df = isoToAPI(txDateFrom);
+  if (!df) return;
+  var dt = isoToAPI(txDateTo || txDateFrom);
+  var url = '/api/transactions?ticker='+encodeURIComponent(currentTicker)+'&date_from='+encodeURIComponent(df)+'&date_to='+encodeURIComponent(dt);
   function buildRows(rows, col) {
     if (!rows.length) return '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);font-size:12px">Tidak ada data</td></tr>';
     return rows.map(function(r){
@@ -546,13 +503,45 @@ async function loadTransactions() {
   }
 }
 
+/* Scale and load button event listeners (setScale is inside IIFE, not global) */
+document.getElementById('btnAuto').addEventListener('click', function(){ setScale('auto'); });
+document.getElementById('btnLog').addEventListener('click',  function(){ setScale('log'); });
+document.getElementById('loadBtn').addEventListener('click', function(){ doLoad(); });
+
+/* Dark mode observer — update chart colors when theme toggles */
+new MutationObserver(function(mutations) {
+  mutations.forEach(function(m) {
+    if (m.attributeName !== 'data-theme' || !chart) return;
+    var dark = isDark();
+    chart.applyOptions({
+      layout: {
+        background: { type: 'solid', color: dark ? '#0e1318' : '#fafaf7' },
+        textColor:  dark ? '#6a8090' : '#7a7060',
+      },
+      grid: {
+        vertLines: { color: dark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)' },
+        horzLines: { color: dark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)' },
+      },
+      rightPriceScale: { borderColor: dark ? '#1a2230' : '#e5e0d8' },
+      timeScale:       { borderColor: dark ? '#1a2230' : '#e5e0d8' },
+    });
+  });
+}).observe(document.documentElement, { attributes: true });
+
 /* Init */
 document.getElementById('tickerInput').addEventListener('keydown', function(e){ if(e.key==='Enter') doLoad(); });
 window.addEventListener('DOMContentLoaded', async function() {
-  var initDate = todayDDMMYYYY();
-  try { var r = await fetch('/api/last-date'); var d = await r.json(); if(d.date) initDate = d.date.replace(/-/g,'/'); } catch(_) {}
-  document.getElementById('trxDateFrom').value = initDate;
-  // Check URL param
+  var initDate = window.todayLocal();
+  try { var r = await fetch('/api/last-date'); var d = await r.json(); if(d.date) initDate = window.DD_MM_YYYYtoISO(d.date.replace(/\//g,'-')); } catch(_) {}
+  txDateFrom = initDate; txDateTo = initDate;
+
+  /* Date picker */
+  var sdp = new window.StockbitDatePicker('chartDatePicker', {
+    from: initDate, to: initDate,
+    onChange: function(from, to) { txDateFrom = from; txDateTo = to || from; reloadChartData(); }
+  });
+
+  /* Check URL param */
   var params = new URLSearchParams(location.search);
   var pt = params.get('ticker');
   if (pt) document.getElementById('tickerInput').value = pt.toUpperCase();
