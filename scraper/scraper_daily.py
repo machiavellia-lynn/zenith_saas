@@ -289,19 +289,18 @@ def get_backfill_status() -> dict:
         }
 
 
-# ── BSJP scan function ────────────────────────────────────────────────────────
+# ── BSJP scan + finalize ─────────────────────────────────────────────────────
 
 def run_bsjp_scan(conn, date_dmy: str | None = None):
     """
-    Generate BSJP signals untuk tanggal tertentu.
-    Pakai harga 15:45 dari price_history_15m sebagai live price.
-    Fallback ke price_close dari eod_summary jika 15m tidak ada.
+    15:48 pass — generate BSJP ESTIMASI signals.
+    Uses yesterday's price_history for indicators (final/reliable data).
+    Uses 15m candle at 15:45 as live entry price; falls back to eod_summary.
     """
     from algo.algo_bsjp import BSJPAlgo, BLACKLIST, _is_ara, _compute_score
 
     WIB_TZ  = timezone(timedelta(hours=7))
     today   = date_dmy or datetime.now(WIB_TZ).strftime("%d-%m-%Y")
-    # YYYY-MM-DD format untuk query price_history_15m
     try:
         d, m, y = today.split("-")
         today_ymd = f"{y}-{m}-{d}"
@@ -310,28 +309,22 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
 
     algo = BSJPAlgo()
 
-    # Load eod_summary + price_history (same date join, COALESCE)
+    # Join eod_summary (today's SM data) with price_history (yesterday's indicators).
+    # Yesterday's OHLCV is final and reliable; today's may not be complete at 15:48.
     with conn.cursor() as cur:
         cur.execute("""
             SELECT
                 e.date, e.ticker,
                 e.sm_val, e.bm_val, e.sri, e.rpr, e.mf_ratio,
                 e.price_close, e.price_change_pct, e.phase,
-                COALESCE(e.ma5,           p.ma5)           AS ma5,
-                COALESCE(e.bb_mid,        p.bb_mid)        AS bb_mid,
-                COALESCE(e.bb_upper,      p.bb_upper)      AS bb_upper,
-                COALESCE(e.bb_lower,      p.bb_lower)      AS bb_lower,
-                COALESCE(e.is_sideways,   p.is_sideways)   AS is_sideways,
-                COALESCE(e.close_pos,     p.close_pos)     AS close_pos,
-                COALESCE(e.prev_high_break, p.prev_high_break) AS prev_high_break,
-                p.ma5_price_streak,
-                p.daily_value,
-                p.prev_close_below_ma5,
-                p.days_since_near_bb_mid
+                p.ma5, p.bb_mid, p.bb_upper, p.bb_lower,
+                p.is_sideways, p.close_pos, p.prev_high_break,
+                p.ma5_price_streak, p.daily_value,
+                p.prev_close_below_ma5, p.days_since_near_bb_mid
             FROM eod_summary e
             LEFT JOIN price_history p
                 ON p.ticker = e.ticker
-                AND p.date = TO_CHAR(TO_DATE(e.date, 'DD-MM-YYYY'), 'YYYY-MM-DD')
+                AND p.date = TO_CHAR(TO_DATE(e.date,'DD-MM-YYYY') - INTERVAL '1 day','YYYY-MM-DD')
             WHERE e.date = %s
               AND e.sm_val > 0
               AND e.sri IS NOT NULL
@@ -342,23 +335,17 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
         log.info(f"[BSJP] {today}: eod_summary kosong, tidak ada kandidat.")
         return 0
 
-    # Load harga 15:45 dari price_history_15m
+    # Live price dari 15m candle at 15:45 (pre-close auction estimate)
     with conn.cursor() as cur:
-        cur.execute("""
-            SELECT ticker, close FROM price_history_15m
-            WHERE datetime = %s
-        """, (today_ymd + " 15:45",))
+        cur.execute("SELECT ticker, close FROM price_history_15m WHERE datetime = %s",
+                    (today_ymd + " 15:45",))
         prices_1545 = {r["ticker"]: float(r["close"]) for r in cur.fetchall() if r["close"]}
 
-    # Load open 09:00 untuk hitung price_change_pct intraday
     with conn.cursor() as cur:
-        cur.execute("""
-            SELECT ticker, open FROM price_history_15m
-            WHERE datetime = %s
-        """, (today_ymd + " 09:00",))
+        cur.execute("SELECT ticker, open FROM price_history_15m WHERE datetime = %s",
+                    (today_ymd + " 09:00",))
         prices_open = {r["ticker"]: float(r["open"]) for r in cur.fetchall() if r["open"]}
 
-    # Scan semua ticker
     scored = []
     for row in eod_rows:
         ticker = row.get("ticker", "")
@@ -368,7 +355,6 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
         close_1545 = prices_1545.get(ticker)
         open_0900  = prices_open.get(ticker)
 
-        # Override price_close dengan harga 15:45 jika ada
         row_scan = dict(row)
         if close_1545:
             row_scan["price_close"] = close_1545
@@ -395,21 +381,128 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
         with conn.cursor() as cur:
             cur.execute("""
                 INSERT INTO bsjp_signals
-                    (date, ticker, setup, entry, tp1, tp2, sl,
+                    (date, ticker, setup, entry_est, tp1, tp2, sl, sl_type,
                      score, day_rank, lot_size, status)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'PENDING')
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'ESTIMASI')
                 ON CONFLICT (date, ticker) DO UPDATE SET
-                    setup=EXCLUDED.setup, entry=EXCLUDED.entry,
+                    setup=EXCLUDED.setup, entry_est=EXCLUDED.entry_est,
                     tp1=EXCLUDED.tp1, tp2=EXCLUDED.tp2, sl=EXCLUDED.sl,
-                    score=EXCLUDED.score, day_rank=EXCLUDED.day_rank,
-                    lot_size=EXCLUDED.lot_size, computed_at=NOW()
+                    sl_type=EXCLUDED.sl_type, score=EXCLUDED.score,
+                    day_rank=EXCLUDED.day_rank, lot_size=EXCLUDED.lot_size,
+                    status='ESTIMASI', computed_at=NOW()
             """, (today, ticker, sig["setup"], sig["entry"],
-                  sig["tp1"], sig["tp2"], sig["sl"],
+                  sig["tp1"], sig["tp2"], sig["sl"], sig["sl_type"],
                   score, rank, lot))
         conn.commit()
 
-    log.info(f"[BSJP] {today}: {len(top)} sinyal (dari {len(scored)} kandidat). 15m: {len(prices_1545)} ticker.")
+    log.info(f"[BSJP] {today}: {len(top)} sinyal ESTIMASI (dari {len(scored)} kandidat). 15m: {len(prices_1545)} ticker.")
     return len(top)
+
+
+def run_bsjp_finalize(conn, date_dmy: str | None = None):
+    """
+    16:30 pass — re-validate ESTIMASI signals with final close price.
+    ESTIMASI → CONFIRMED (signal masih valid) atau INVALID (kondisi tidak lagi terpenuhi).
+    """
+    from algo.algo_bsjp import BSJPAlgo, _compute_score
+
+    WIB_TZ = timezone(timedelta(hours=7))
+    today  = date_dmy or datetime.now(WIB_TZ).strftime("%d-%m-%Y")
+    algo   = BSJPAlgo()
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT ticker FROM bsjp_signals WHERE date=%s AND status='ESTIMASI'", (today,))
+        pending = [r["ticker"] for r in cur.fetchall()]
+
+    if not pending:
+        log.info(f"[BSJP finalize] {today}: no ESTIMASI signals to finalize.")
+        return 0
+
+    # Reload with today's final price_history (close now final after 16:00)
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT
+                e.date, e.ticker,
+                e.sm_val, e.bm_val, e.sri, e.rpr, e.mf_ratio,
+                e.price_close, e.price_change_pct, e.phase,
+                p.ma5, p.bb_mid, p.bb_upper, p.bb_lower,
+                p.is_sideways, p.close_pos, p.prev_high_break,
+                p.ma5_price_streak, p.daily_value,
+                p.prev_close_below_ma5, p.days_since_near_bb_mid
+            FROM eod_summary e
+            LEFT JOIN price_history p
+                ON p.ticker = e.ticker
+                AND p.date = TO_CHAR(TO_DATE(e.date,'DD-MM-YYYY'),'YYYY-MM-DD')
+            WHERE e.date = %s AND e.ticker = ANY(%s)
+        """, (today, pending))
+        eod_map = {r["ticker"]: dict(r) for r in cur.fetchall()}
+
+    confirmed = invalid = 0
+    for ticker in pending:
+        row = eod_map.get(ticker)
+        if not row:
+            _mark_invalid(conn, today, ticker, "data tidak ditemukan setelah close")
+            invalid += 1
+            continue
+
+        sig = algo.signal_detail(ticker, row)
+        if sig:
+            score = _compute_score(row, sig["setup"])
+            lot   = int(10_000_000 / float(row["price_close"])) if row.get("price_close") else 0
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE bsjp_signals SET
+                        entry_final=%s, tp1=%s, tp2=%s, sl=%s, sl_type=%s,
+                        score=%s, lot_size=%s, status='CONFIRMED', computed_at=NOW()
+                    WHERE date=%s AND ticker=%s
+                """, (round(float(row["price_close"])), sig["tp1"], sig["tp2"],
+                      sig["sl"], sig["sl_type"], score, lot, today, ticker))
+            conn.commit()
+            confirmed += 1
+        else:
+            _mark_invalid(conn, today, ticker, _detect_invalid_reason(row, algo))
+            invalid += 1
+
+    log.info(f"[BSJP finalize] {today}: {confirmed} CONFIRMED, {invalid} INVALID.")
+    return confirmed
+
+
+def _mark_invalid(conn, date, ticker, reason):
+    with conn.cursor() as cur:
+        cur.execute("""
+            UPDATE bsjp_signals SET status='INVALID', invalid_reason=%s, computed_at=NOW()
+            WHERE date=%s AND ticker=%s
+        """, (reason, date, ticker))
+    conn.commit()
+
+
+def _detect_invalid_reason(row: dict, algo) -> str:
+    def _fv(v, d=0.0):
+        try: return float(v) if v is not None else d
+        except: return d
+
+    phase = row.get("phase", "")
+    if phase in {"UPTHRUST", "DISTRI"}:
+        return f"phase berubah jadi {phase}"
+    if _fv(row.get("sri")) < algo.MIN_SRI:
+        return f"sri {_fv(row.get('sri')):.2f} < {algo.MIN_SRI}"
+    if _fv(row.get("rpr"), 1.0) > algo.MAX_RPR:
+        return f"rpr {_fv(row.get('rpr'),1):.2f} > {algo.MAX_RPR}"
+    if _fv(row.get("mf_ratio")) < algo.MIN_MF_RATIO:
+        return f"mf_ratio {_fv(row.get('mf_ratio')):.1f} < {algo.MIN_MF_RATIO}"
+    sm  = _fv(row.get("sm_val"))
+    bm  = abs(_fv(row.get("bm_val")))
+    rsm = sm / (sm + bm) * 100 if (sm + bm) > 0 else 0
+    if rsm < algo.MIN_RSM:
+        return f"rsm {rsm:.1f}% < {algo.MIN_RSM}%"
+    price  = _fv(row.get("price_close"))
+    ma5    = _fv(row.get("ma5"))
+    bb_mid = _fv(row.get("bb_mid"))
+    if ma5 and price < ma5:
+        return f"close {price:.0f} < ma5 {ma5:.0f}"
+    if bb_mid and price < bb_mid:
+        return f"close {price:.0f} < bb_mid {bb_mid:.0f}"
+    return "kondisi setup tidak terpenuhi setelah close final"
 
 
 # ── Main async loop ────────────────────────────────────────────────────────────
@@ -456,7 +549,7 @@ async def scraper_main():
         log.info(f"👂 Listening | midday {MIDDAY_HOUR:02d}:{MIDDAY_MINUTE:02d} / backfill {BACKFILL_HOUR:02d}:{BACKFILL_MINUTE:02d} / recompute {RECOMPUTE_HOUR:02d}:{RECOMPUTE_MINUTE:02d} WIB")
 
         midday_pass_done = first_pass_done = second_pass_done = backtest_done_today = False
-        bsjp_15m_done = bsjp_scan_done = False
+        bsjp_15m_done = bsjp_scan_done = bsjp_finalize_done = False
         last_check_date = None
 
         while True:
@@ -468,7 +561,7 @@ async def scraper_main():
 
             if today_str != last_check_date:
                 midday_pass_done = first_pass_done = second_pass_done = backtest_done_today = False
-                bsjp_15m_done = bsjp_scan_done = False
+                bsjp_15m_done = bsjp_scan_done = bsjp_finalize_done = False
                 last_check_date = today_str
 
             if not midday_pass_done and (now_wib.hour > MIDDAY_HOUR or (now_wib.hour == MIDDAY_HOUR and now_wib.minute >= MIDDAY_MINUTE)):
@@ -497,6 +590,16 @@ async def scraper_main():
                     log.error(f"❌ Second pass: {e}")
                 finally:
                     second_pass_done = True
+
+            # 16:30 — BSJP finalize: ESTIMASI → CONFIRMED / INVALID
+            if second_pass_done and not bsjp_finalize_done:
+                try:
+                    log.info("✅ BSJP finalize (16:30)")
+                    run_bsjp_finalize(conn)
+                except Exception as e:
+                    log.error(f"❌ BSJP finalize: {e}")
+                finally:
+                    bsjp_finalize_done = True
 
             # 15:46 — Fetch today's 15m candles (so 15:45 close is ready for BSJP scan)
             if not bsjp_15m_done and now_wib.hour == BSJP_15M_HOUR and now_wib.minute >= BSJP_15M_MINUTE:

@@ -18,8 +18,21 @@ body.sidebar-layout { overflow: hidden; }
 .page-body { overflow: hidden; }
 .data-table { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .data-table-body { flex: 1; overflow-y: auto; min-height: 0; }
-/* Rank | Ticker | CM | RSM | TP | SL | Last | Setup */
-.bsjp-cols { grid-template-columns: 44px 1.2fr 1.35fr 0.55fr 0.68fr 0.68fr 0.82fr 1.45fr; }
+/* Rank | Ticker | Setup | Entry | TP1 | TP2 | SL | Score | Lot | Status */
+.bsjp-cols { grid-template-columns: 44px 1.3fr 1.5fr 0.7fr 0.65fr 0.65fr 0.65fr 0.6fr 0.65fr 1.1fr; }
+.market-warn {
+  background: rgba(200,99,58,.1); border: 1px solid rgba(200,99,58,.3);
+  border-radius: 8px; padding: 8px 14px; display: flex; align-items: center; gap: 8px;
+  font-size: 12.5px; color: #c8633a; margin-bottom: 8px;
+}
+.status-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 100px; font-size: 11px;
+  font-family: var(--font-mono); font-weight: 600; letter-spacing: .02em;
+}
+.status-badge.estimasi { background: rgba(200,165,58,.12); color: #c8a53a; border: 1px solid rgba(200,165,58,.3); }
+.status-badge.confirmed { background: rgba(58,150,88,.12); color: #3a9658; border: 1px solid rgba(58,150,88,.3); }
+.status-badge.invalid   { background: rgba(200,60,60,.10); color: #c84040; border: 1px solid rgba(200,60,60,.25); }
 </style>
 </head>
 <body class="sidebar-layout">
@@ -41,6 +54,11 @@ body.sidebar-layout { overflow: hidden; }
   </div>
 
   <div class="page-body">
+    <!-- IHSG market warning (shown when IHSG down > 1.5%) -->
+    <div class="market-warn" id="marketWarn" style="display:none">
+      ⚠️ <strong>Pasar Melemah</strong> — IHSG turun lebih dari 1.5% hari ini. Pertimbangkan untuk skip signal BSJP.
+    </div>
+
     <div class="stat-cards-4">
       <div class="stat-card">
         <div class="stat-card-label">SM total</div>
@@ -73,7 +91,6 @@ body.sidebar-layout { overflow: hidden; }
       <div class="toolbar-divider"></div>
       <div id="datePicker"></div>
       <div class="toolbar-divider"></div>
-      <!-- Setup filter pills -->
       <div class="setup-pills" id="setupPills"></div>
       <div class="toolbar-spacer"></div>
       <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--muted)" id="resultCount"></span>
@@ -83,19 +100,21 @@ body.sidebar-layout { overflow: hidden; }
       <div class="data-table-head bsjp-cols">
         <div style="color:var(--muted);font-size:11px">Rank</div>
         <div>Ticker</div>
-        <div class="th-sortable active" data-col="cm" style="text-align:right">Clean Money <span class="sort-arrow">↓</span></div>
-        <div class="th-sortable" data-col="rsm" style="text-align:right">RSM <span class="sort-arrow">↓</span></div>
-        <div style="text-align:right">TP</div>
-        <div style="text-align:right">SL</div>
-        <div style="text-align:right">Last</div>
         <div style="text-align:center">Setup</div>
+        <div style="text-align:right">Entry</div>
+        <div style="text-align:right">TP1</div>
+        <div style="text-align:right">TP2</div>
+        <div style="text-align:right">SL</div>
+        <div class="th-sortable active" data-col="score" style="text-align:right">Score <span class="sort-arrow">↓</span></div>
+        <div style="text-align:right">Lot</div>
+        <div style="text-align:center">Status</div>
       </div>
       <div class="data-table-body" id="tableBody">
         <div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Loading...</div>
       </div>
       <div class="data-table-foot">
         <span id="rowCount">—</span>
-        <span class="foot-sort" id="sortLabel">Sort: Clean Money ↓</span>
+        <span class="foot-sort" id="sortLabel">Sort: Score ↓</span>
       </div>
     </div>
   </div>
@@ -104,8 +123,8 @@ body.sidebar-layout { overflow: hidden; }
 <script src="/static/zenith-utils.js"></script>
 <script>
 (function(){
-var SETUPS = ['BREAKOUT_MA5','BREAKOUT_SIDEWAYS','TRENDING_PREV_HIGH','CROSS_MA5','PULLBACK_BB','PULLBACK_MA5'];
-var S = {rows:[], filtered:[], date:'', sortCol:'cm', sortAsc:false, q:'', setup:null};
+var SETUPS = ['POWER_BREAK_V21','POWER_BREAK_V22','SMA5_BREAKOUT_V13','SMA5_BREAKOUT_V11','BB_PULLBACK','SMA5_PULLBACK_V12'];
+var S = {rows:[], filtered:[], date:'', sortCol:'score', sortAsc:false, q:'', setup:null};
 var today = window.todayLocal();
 S.date = today;
 
@@ -114,9 +133,20 @@ var sdp = new window.StockbitDatePicker('datePicker', {
   from: today, to: today,
   onChange: function(from) { S.date = from; load(); }
 });
-fetch('/api/last-date').then(function(r){return r.json();}).then(function(d){if(d.date){var iso=window.DD_MM_YYYYtoISO(d.date.replace(/\//g,'-'));S.date=iso;sdp.setDates(iso,iso);load();}}).catch(function(){});
+fetch('/api/last-date').then(function(r){return r.json();}).then(function(d){
+  if(d.date){var iso=window.DD_MM_YYYYtoISO(d.date.replace(/\//g,'-'));S.date=iso;sdp.setDates(iso,iso);load();}
+}).catch(function(){});
 
 window.loadIHSGBadge(document.getElementById('ihsgPrice'), document.getElementById('ihsgGain'));
+
+/* IHSG market warning */
+fetch('/api/flow?date_from='+window.isoToDD_MM_YYYY(today)+'&date_to='+window.isoToDD_MM_YYYY(today))
+  .then(function(r){return r.json();}).then(function(d){
+    var ihsgChg = d.totals && d.totals.ihsg_chg_pct != null ? d.totals.ihsg_chg_pct : null;
+    if (ihsgChg !== null && ihsgChg < -1.5) {
+      document.getElementById('marketWarn').style.display = 'flex';
+    }
+  }).catch(function(){});
 
 /* Setup pills */
 var pillsContainer = document.getElementById('setupPills');
@@ -125,7 +155,6 @@ SETUPS.forEach(function(s) {
   div.className = 'setup-pill';
   div.dataset.setup = s;
   div.textContent = s;
-  var sc = window.BSJP_STYLE[s] || {};
   div.addEventListener('click', function() {
     var wasActive = S.setup === s;
     S.setup = wasActive ? null : s;
@@ -154,18 +183,24 @@ document.querySelectorAll('.th-sortable').forEach(function(th) {
     S.sortCol===col ? S.sortAsc=!S.sortAsc : (S.sortCol=col, S.sortAsc=false);
     document.querySelectorAll('.th-sortable').forEach(function(e){ e.classList.remove('active'); e.querySelector('.sort-arrow').textContent='↓'; });
     th.classList.add('active'); th.querySelector('.sort-arrow').textContent = S.sortAsc?'↑':'↓';
-    document.getElementById('sortLabel').textContent = 'Sort: ' + (S.sortCol==='rsm'?'RSM':'Clean Money') + (S.sortAsc?' ↑':' ↓');
+    document.getElementById('sortLabel').textContent = 'Sort: Score' + (S.sortAsc?' ↑':' ↓');
     filter();
   });
 });
+
+function statusBadge(status) {
+  if (!status) return '';
+  var cls = status === 'CONFIRMED' ? 'confirmed' : status === 'INVALID' ? 'invalid' : 'estimasi';
+  var icon = status === 'CONFIRMED' ? '✓' : status === 'INVALID' ? '✕' : '⏳';
+  return '<span class="status-badge '+cls+'">'+icon+' '+status+'</span>';
+}
 
 function filter() {
   var rows = S.rows.slice();
   if (S.q) rows = rows.filter(function(r){ return r.ticker.startsWith(S.q); });
   if (S.setup) rows = rows.filter(function(r){ return r.setup === S.setup; });
-  var col = S.sortCol === 'rsm' ? 'rsm' : 'cm';
   rows.sort(function(a,b){
-    var av=a[col]!=null?a[col]:-999999, bv=b[col]!=null?b[col]:-999999;
+    var av=a.score!=null?a.score:-999, bv=b.score!=null?b.score:-999;
     return S.sortAsc ? av-bv : bv-av;
   });
   S.filtered = rows;
@@ -175,30 +210,34 @@ function filter() {
 function render() {
   var body = document.getElementById('tableBody');
   var rows = S.filtered;
-  document.getElementById('resultCount').textContent = rows.length + ' emiten';
+  document.getElementById('resultCount').textContent = rows.length + ' sinyal';
   if (!rows.length) {
-    body.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Tidak ada data untuk filter ini.</div>';
-    document.getElementById('rowCount').textContent = '0 emiten';
+    body.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Tidak ada sinyal untuk filter ini.</div>';
+    document.getElementById('rowCount').textContent = '0 sinyal';
     return;
   }
-  var maxCM = rows.reduce(function(m,r){ return Math.max(m, Math.abs(r.cm||0)); }, 1);
   body.innerHTML = rows.map(function(r,i){
-    var tpsl = window.bsjpTPSL(r.price, r.rsm);
-    var tp = tpsl.tp, sl = tpsl.sl;
-    var tpDelta = tp && r.price ? (((tp-r.price)/r.price)*100).toFixed(1) : null;
-    var slDelta = sl && r.price ? (((sl-r.price)/r.price)*100).toFixed(1) : null;
+    var entry = r.entry_final || r.entry_est || r.entry || null;
+    var tp1Delta = (entry && r.tp1) ? (((r.tp1-entry)/entry)*100).toFixed(1) : null;
+    var tp2Delta = (entry && r.tp2) ? (((r.tp2-entry)/entry)*100).toFixed(1) : null;
+    var slDelta  = (entry && r.sl)  ? (((r.sl -entry)/entry)*100).toFixed(1) : null;
+    var score    = r.score != null ? (r.score * 100).toFixed(1) : '—';
+    var lot      = r.lot_size || '—';
+    var note     = (r.status === 'INVALID' && r.invalid_reason) ? '<div style="font-size:10px;color:var(--down);margin-top:2px">'+r.invalid_reason+'</div>' : '';
     return '<div class="data-table-row bsjp-cols">' +
       '<div style="font-family:var(--font-mono);font-size:11.5px;font-weight:600;color:'+(i<3?'var(--accent)':'var(--muted)')+'">'+String(i+1).padStart(2,'0')+'</div>'+
       '<div class="ticker-cell">'+window.tickerAvHTML(r.ticker)+'<div class="ticker-cell-info"><div class="ticker-cell-name">'+r.ticker+'</div><div class="ticker-cell-sub">'+(r.name||'')+'</div></div></div>'+
-      '<div>'+window.cmBarHTML(r.cm, maxCM)+'</div>'+
-      '<div style="text-align:right;font-family:var(--font-mono);font-size:13px;color:'+(r.rsm>60?'var(--up)':'var(--text-dim)')+'">'+( r.rsm!=null?r.rsm.toFixed(1)+'%':'—')+'</div>'+
-      '<div style="text-align:right"><div style="font-family:var(--font-mono);font-size:12.5px;color:var(--up);font-weight:500">'+(tp?window.fmtPrice(tp):'—')+'</div>'+(tpDelta?'<div style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">+'+tpDelta+'%</div>':'')+'</div>'+
-      '<div style="text-align:right"><div style="font-family:var(--font-mono);font-size:12.5px;color:var(--down);font-weight:500">'+(sl?window.fmtPrice(sl):'—')+'</div>'+(slDelta?'<div style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">'+slDelta+'%</div>':'')+'</div>'+
-      '<div class="price-cell"><div class="price-cell-price">'+(r.price?window.fmtPrice(r.price):'—')+'</div><div class="price-cell-chg '+(r.gain_pct>=0?'up':'down')+'">'+(r.gain_pct!=null?window.fmtPct(r.gain_pct):'—')+'</div></div>'+
       '<div style="display:flex;justify-content:center">'+window.setupBadgeHTML(r.setup)+'</div>'+
+      '<div style="text-align:right"><div style="font-family:var(--font-mono);font-size:12.5px;font-weight:500">'+(entry?window.fmtPrice(entry):'—')+'</div></div>'+
+      '<div style="text-align:right"><div style="font-family:var(--font-mono);font-size:12.5px;color:var(--up);font-weight:500">'+(r.tp1?window.fmtPrice(r.tp1):'—')+'</div>'+(tp1Delta?'<div style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">+'+tp1Delta+'%</div>':'')+'</div>'+
+      '<div style="text-align:right"><div style="font-family:var(--font-mono);font-size:12.5px;color:var(--up);font-weight:500">'+(r.tp2?window.fmtPrice(r.tp2):'—')+'</div>'+(tp2Delta?'<div style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">+'+tp2Delta+'%</div>':'')+'</div>'+
+      '<div style="text-align:right"><div style="font-family:var(--font-mono);font-size:12.5px;color:var(--down);font-weight:500">'+(r.sl?window.fmtPrice(r.sl):'—')+'</div>'+(slDelta?'<div style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">'+slDelta+'%</div>':'')+'</div>'+
+      '<div style="text-align:right;font-family:var(--font-mono);font-size:12.5px;color:var(--accent)">'+score+'</div>'+
+      '<div style="text-align:right;font-family:var(--font-mono);font-size:12px;color:var(--text-dim)">'+lot+'</div>'+
+      '<div style="text-align:center">'+statusBadge(r.status||'ESTIMASI')+note+'</div>'+
     '</div>';
   }).join('');
-  document.getElementById('rowCount').textContent = rows.length + ' dari ' + S.rows.length + ' emiten';
+  document.getElementById('rowCount').textContent = rows.length + ' dari ' + S.rows.length + ' sinyal';
 }
 
 function load() {
@@ -208,17 +247,7 @@ function load() {
     .then(function(r){ return r.json(); })
     .then(function(d) {
       var signals = d.signals || [];
-      S.rows = signals.map(function(r) {
-        return {
-          ticker:   r.ticker,
-          name:     r.name || '',
-          cm:       r.clean_money || r.cm_val || 0,
-          rsm:      r.rsm || 0,
-          price:    r.price_close || r.price || null,
-          gain_pct: r.price_change_pct || r.gain_pct || null,
-          setup:    r.setup || window.bsjpSetup(r.ticker),
-        };
-      });
+      S.rows = signals;
 
       document.getElementById('statCount').textContent = signals.length;
       document.getElementById('statDate').textContent  = dmy;

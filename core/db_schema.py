@@ -317,29 +317,32 @@ def _create_inst_flow_cache(conn):
 
 def _create_bsjp_signals(conn):
     cur = conn.cursor()
-    # Migrate: drop old schema if entry_est column exists
+    # Migrate: recreate with new schema if entry_est column is missing
     cur.execute("""
         SELECT column_name FROM information_schema.columns
         WHERE table_name = 'bsjp_signals' AND column_name = 'entry_est'
     """)
-    if cur.fetchone():
+    if not cur.fetchone():
         cur.execute("DROP TABLE IF EXISTS bsjp_signals CASCADE")
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS bsjp_signals (
-            id          SERIAL PRIMARY KEY,
-            date        TEXT NOT NULL,
-            ticker      TEXT NOT NULL,
-            setup       TEXT NOT NULL,
-            entry       INTEGER,
-            tp1         INTEGER,
-            tp2         INTEGER,
-            sl          INTEGER,
-            score       REAL,
-            day_rank    INTEGER,
-            lot_size    INTEGER,
-            status      TEXT DEFAULT 'PENDING',
-            computed_at TIMESTAMP DEFAULT NOW(),
+            id             SERIAL PRIMARY KEY,
+            date           TEXT NOT NULL,
+            ticker         TEXT NOT NULL,
+            setup          TEXT NOT NULL,
+            entry_est      INTEGER,
+            entry_final    INTEGER,
+            tp1            INTEGER,
+            tp2            INTEGER,
+            sl             INTEGER,
+            sl_type        TEXT,
+            score          REAL,
+            day_rank       INTEGER,
+            lot_size       INTEGER,
+            status         TEXT DEFAULT 'ESTIMASI',
+            invalid_reason TEXT,
+            computed_at    TIMESTAMP DEFAULT NOW(),
             UNIQUE(date, ticker)
         )
     """)

@@ -106,12 +106,12 @@ window.actionBadgeHTML = function(action) {
 
 /* ── BSJP Setup badge HTML ─────────────────────────────────────────── */
 window.BSJP_STYLE = {
-  'BREAKOUT_MA5':       { col:'#3a6b58', bg:'rgba(58,107,88,.11)'   },
-  'BREAKOUT_SIDEWAYS':  { col:'#4a7fdb', bg:'rgba(74,127,219,.11)'  },
-  'TRENDING_PREV_HIGH': { col:'#2a7a5a', bg:'rgba(58,107,88,.09)'   },
-  'CROSS_MA5':          { col:'#c8633a', bg:'rgba(200,99,58,.11)'   },
-  'PULLBACK_BB':        { col:'#8252c8', bg:'rgba(130,82,200,.11)'  },
-  'PULLBACK_MA5':       { col:'#3a6fbb', bg:'rgba(74,127,219,.09)'  },
+  'POWER_BREAK_V21':   { col:'#3a6b58', bg:'rgba(58,107,88,.11)'   },
+  'POWER_BREAK_V22':   { col:'#4a7fdb', bg:'rgba(74,127,219,.11)'  },
+  'SMA5_BREAKOUT_V13': { col:'#2a7a5a', bg:'rgba(58,107,88,.09)'   },
+  'SMA5_BREAKOUT_V11': { col:'#c8633a', bg:'rgba(200,99,58,.11)'   },
+  'BB_PULLBACK':       { col:'#8252c8', bg:'rgba(130,82,200,.11)'  },
+  'SMA5_PULLBACK_V12': { col:'#3a6fbb', bg:'rgba(74,127,219,.09)'  },
 };
 window.setupBadgeHTML = function(setup) {
   if (!setup) return '';
@@ -129,7 +129,7 @@ window.bsjpTPSL = function(price, rsm) {
   return { tp: Math.round(price + atr * 1.6), sl: Math.round(price - atr * 0.95) };
 };
 window.bsjpSetup = function(ticker) {
-  const SETUPS = ['BREAKOUT_MA5','BREAKOUT_SIDEWAYS','TRENDING_PREV_HIGH','CROSS_MA5','PULLBACK_BB','PULLBACK_MA5'];
+  const SETUPS = ['POWER_BREAK_V21','POWER_BREAK_V22','SMA5_BREAKOUT_V13','SMA5_BREAKOUT_V11','BB_PULLBACK','SMA5_PULLBACK_V12'];
   const h = ticker.split('').reduce((a,c) => (a * 31 + c.charCodeAt(0)) | 0, 0);
   return SETUPS[Math.abs(h) % SETUPS.length];
 };

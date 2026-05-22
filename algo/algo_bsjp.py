@@ -1,4 +1,13 @@
-"""algo/algo_bsjp.py — BSJP signal generation. Pure functions, zero DB."""
+"""algo/algo_bsjp.py — BSJP signal generation. Pure functions, zero DB.
+
+Setup priority (urutan cek):
+1. POWER_BREAK_V21  — breakout with prev close below MA5
+2. POWER_BREAK_V22  — breakout in sideways range
+3. SMA5_BREAKOUT_V13 — trending, break prev high, streak >= 3
+4. SMA5_BREAKOUT_V11 — fresh MA5 cross (streak == 1)
+5. BB_PULLBACK       — pullback ke BB midline, first touch
+6. SMA5_PULLBACK_V12 — pullback ke MA5, streak >= 1
+"""
 
 def _f(val, default=None):
     try: return float(val) if val is not None else default
@@ -25,12 +34,12 @@ def _is_ara(row: dict) -> bool:
 
 
 SETUP_WR = {
-    "TRENDING_PREV_HIGH": 0.784,
-    "PULLBACK_MA5":       0.638,
-    "PULLBACK_BB":        0.596,
-    "CROSS_MA5":          0.550,
-    "BREAKOUT_MA5":       0.520,
-    "BREAKOUT_SIDEWAYS":  0.520,
+    "SMA5_BREAKOUT_V13": 0.784,
+    "SMA5_PULLBACK_V12": 0.638,
+    "BB_PULLBACK":       0.596,
+    "SMA5_BREAKOUT_V11": 0.550,
+    "POWER_BREAK_V21":   0.520,
+    "POWER_BREAK_V22":   0.520,
 }
 
 def _compute_score(row: dict, setup: str) -> float:
@@ -54,17 +63,18 @@ def _compute_score(row: dict, setup: str) -> float:
 class BSJPAlgo:
     name = "BSJP"
     MIN_SRI      = 1.2
+    MAX_RPR      = 0.55
     MIN_MF_RATIO = 50.0
     MIN_RSM      = 60.0
-    BREAKOUT_MIN_VALUE = 5_000_000_000
+    POWER_BREAK_MIN_VALUE = 5_000_000_000
 
-    SETUP_MAX_RPR = {
-        "BREAKOUT_MA5":       0.45,
-        "BREAKOUT_SIDEWAYS":  0.35,
-        "TRENDING_PREV_HIGH": 0.40,
-        "CROSS_MA5":          0.25,
-        "PULLBACK_BB":        0.25,
-        "PULLBACK_MA5":       0.50,
+    SL_MAP = {
+        "POWER_BREAK_V21":   "FIXED_2PCT",
+        "POWER_BREAK_V22":   "FIXED_2PCT",
+        "SMA5_BREAKOUT_V13": "MA5",
+        "SMA5_BREAKOUT_V11": "MA5",
+        "BB_PULLBACK":       "BB_MID",
+        "SMA5_PULLBACK_V12": "MA5",
     }
 
     def signal_detail(self, ticker: str, row: dict) -> dict | None:
@@ -74,30 +84,33 @@ class BSJPAlgo:
         if not self._sm_gate(row):
             return None
 
-        rpr = _f(row.get("rpr"), 1.0)
         for name, fn in [
-            ("BREAKOUT_MA5",       self._setup_breakout_ma5),
-            ("BREAKOUT_SIDEWAYS",  self._setup_breakout_sideways),
-            ("TRENDING_PREV_HIGH", self._setup_trending_prev_high),
-            ("CROSS_MA5",          self._setup_cross_ma5),
-            ("PULLBACK_BB",        self._setup_pullback_bb),
-            ("PULLBACK_MA5",       self._setup_pullback_ma5),
+            ("POWER_BREAK_V21",   self._setup_power_break_v21),
+            ("POWER_BREAK_V22",   self._setup_power_break_v22),
+            ("SMA5_BREAKOUT_V13", self._setup_sma5_breakout_v13),
+            ("SMA5_BREAKOUT_V11", self._setup_sma5_breakout_v11),
+            ("BB_PULLBACK",       self._setup_bb_pullback),
+            ("SMA5_PULLBACK_V12", self._setup_sma5_pullback_v12),
         ]:
-            if rpr <= self.SETUP_MAX_RPR[name] and fn(row):
-                entry = round(price_close)
+            if fn(row):
+                entry   = round(price_close)
+                sl_type = self.SL_MAP[name]
                 return {
-                    "setup": name,
-                    "entry": entry,
-                    "tp1":   round(price_close * 1.01),
-                    "tp2":   round(price_close * 1.02),
-                    "sl":    self._resolve_sl(name, row, entry),
+                    "setup":   name,
+                    "entry":   entry,
+                    "tp1":     round(price_close * 1.01),
+                    "tp2":     round(price_close * 1.02),
+                    "sl":      self._compute_sl(row, entry, sl_type),
+                    "sl_type": sl_type,
                 }
         return None
 
-    def _sm_gate(self, row):
+    def _sm_gate(self, row: dict) -> bool:
         if row.get("phase") in {"UPTHRUST", "DISTRI"}:
             return False
         if _f(row.get("sri"), 0) < self.MIN_SRI:
+            return False
+        if _f(row.get("rpr"), 1.0) > self.MAX_RPR:
             return False
         if _f(row.get("mf_ratio"), 0) < self.MIN_MF_RATIO:
             return False
@@ -106,34 +119,32 @@ class BSJPAlgo:
         rsm = sm / (sm + bm) * 100 if (sm + bm) > 0 else 0
         return rsm >= self.MIN_RSM
 
-    def _resolve_sl(self, setup, row, entry):
-        if setup in ("BREAKOUT_MA5", "BREAKOUT_SIDEWAYS"):
-            return round(entry * 0.98)
-        elif setup in ("TRENDING_PREV_HIGH", "CROSS_MA5", "PULLBACK_MA5"):
+    def _compute_sl(self, row: dict, entry: int, sl_type: str) -> int:
+        if sl_type == "MA5":
             ma5 = _f(row.get("ma5"), 0)
             return round(ma5) if ma5 > 0 else round(entry * 0.98)
-        elif setup == "PULLBACK_BB":
+        elif sl_type == "BB_MID":
             bb_mid = _f(row.get("bb_mid"), 0)
             return round(bb_mid) if bb_mid > 0 else round(entry * 0.98)
         return round(entry * 0.98)
 
-    def _setup_breakout_ma5(self, row):
+    def _setup_power_break_v21(self, row: dict) -> bool:
         return (
             _f(row.get("price_change_pct"), 0) >= 10.0
             and _f(row.get("price_close"), 0) > _f(row.get("ma5"), 0)
             and _b(row.get("prev_close_below_ma5"))
-            and _f(row.get("daily_value"), 0) >= self.BREAKOUT_MIN_VALUE
+            and _f(row.get("daily_value"), 0) >= self.POWER_BREAK_MIN_VALUE
         )
 
-    def _setup_breakout_sideways(self, row):
+    def _setup_power_break_v22(self, row: dict) -> bool:
         return (
             _f(row.get("price_change_pct"), 0) >= 10.0
             and _f(row.get("price_close"), 0) > _f(row.get("ma5"), 0)
             and _b(row.get("is_sideways"))
-            and _f(row.get("daily_value"), 0) >= self.BREAKOUT_MIN_VALUE
+            and _f(row.get("daily_value"), 0) >= self.POWER_BREAK_MIN_VALUE
         )
 
-    def _setup_trending_prev_high(self, row):
+    def _setup_sma5_breakout_v13(self, row: dict) -> bool:
         return (
             _i(row.get("ma5_price_streak"), 0) >= 3
             and _b(row.get("prev_high_break"))
@@ -141,7 +152,7 @@ class BSJPAlgo:
             and _f(row.get("price_close"), 0) > _f(row.get("ma5"), 0)
         )
 
-    def _setup_cross_ma5(self, row):
+    def _setup_sma5_breakout_v11(self, row: dict) -> bool:
         return (
             _b(row.get("prev_close_below_ma5"))
             and _f(row.get("price_change_pct"), 0) > 0
@@ -149,13 +160,13 @@ class BSJPAlgo:
             and _i(row.get("ma5_price_streak"), 0) == 1
         )
 
-    def _setup_pullback_bb(self, row):
+    def _setup_bb_pullback(self, row: dict) -> bool:
         bb_mid = _f(row.get("bb_mid"), None)
         if bb_mid is None:
             return False
         price_close = _f(row.get("price_close"), 0)
         days_since  = row.get("days_since_near_bb_mid")
-        first_touch = days_since is None or _i(days_since, -1) >= 10
+        first_touch = (days_since is None or _i(days_since, -1) >= 10)
         return (
             _f(row.get("price_change_pct"), 0) < 0
             and price_close >= bb_mid
@@ -163,7 +174,7 @@ class BSJPAlgo:
             and first_touch
         )
 
-    def _setup_pullback_ma5(self, row):
+    def _setup_sma5_pullback_v12(self, row: dict) -> bool:
         return (
             _f(row.get("price_change_pct"), 0) < 0
             and _f(row.get("price_close"), 0) >= _f(row.get("ma5"), 0)
