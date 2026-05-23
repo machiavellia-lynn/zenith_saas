@@ -308,11 +308,12 @@ function reloadChartData() { loadMetrics(); loadTransactions(); }
 function isDark() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
 function initChart() {
   var container = document.getElementById('chartArea');
-  container.style.height = '340px';
+  var chartH = Math.max(420, window.innerHeight - 250);
+  container.style.height = chartH + 'px';
   var dark = isDark();
   chart = LightweightCharts.createChart(container, {
     width: container.offsetWidth,
-    height: 340,
+    height: chartH,
     layout: {
       background: { type: 'solid', color: dark ? '#0e1318' : '#fafaf7' },
       textColor: dark ? '#6a8090' : '#7a7060',
