@@ -19,7 +19,7 @@ body.sidebar-layout { overflow: hidden; }
 .data-table { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .data-table-body { flex: 1; overflow-y: auto; min-height: 0; }
 /* Rank | Ticker | Setup | Entry | TP1 | TP2 | SL | Score | Last */
-.bsjp-cols { grid-template-columns: 44px 1.3fr 1.5fr 0.7fr 0.65fr 0.65fr 0.65fr 0.6fr 0.85fr; column-gap: 8px; }
+.bsjp-cols { grid-template-columns: 44px 1.2fr 1.1fr 0.7fr 0.7fr 0.7fr 0.7fr 0.6fr 0.85fr; column-gap: 8px; }
 .market-warn {
   background: rgba(200,99,58,.1); border: 1px solid rgba(200,99,58,.3);
   border-radius: 8px; padding: 8px 14px; display: flex; align-items: center; gap: 8px;
@@ -220,10 +220,10 @@ function render() {
       '<div style="font-family:var(--font-mono);font-size:11.5px;font-weight:600;color:'+(i<3?'var(--accent)':'var(--muted)')+'">'+String(i+1).padStart(2,'0')+'</div>'+
       '<div class="ticker-cell">'+window.tickerAvHTML(r.ticker)+'<div class="ticker-cell-info"><div class="ticker-cell-name">'+r.ticker+'</div><div class="ticker-cell-sub">'+(r.name||'')+'</div></div></div>'+
       '<div style="display:flex;justify-content:center">'+window.setupBadgeHTML(r.setup)+'</div>'+
-      '<div style="text-align:right"><div style="font-family:var(--font-mono);font-size:12.5px;font-weight:500">'+(entry?window.fmtPrice(entry):'—')+'</div></div>'+
-      '<div style="text-align:right"><div style="font-family:var(--font-mono);font-size:12.5px;color:var(--up);font-weight:500">'+(r.tp1?window.fmtPrice(r.tp1):'—')+'</div>'+(tp1Delta?'<div style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">+'+tp1Delta+'%</div>':'')+'</div>'+
-      '<div style="text-align:right"><div style="font-family:var(--font-mono);font-size:12.5px;color:var(--up);font-weight:500">'+(r.tp2?window.fmtPrice(r.tp2):'—')+'</div>'+(tp2Delta?'<div style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">+'+tp2Delta+'%</div>':'')+'</div>'+
-      '<div style="text-align:right"><div style="font-family:var(--font-mono);font-size:12.5px;color:var(--down);font-weight:500">'+(r.sl?window.fmtPrice(r.sl):'—')+'</div>'+(slDelta?'<div style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">'+slDelta+'%</div>':'')+'</div>'+
+      '<div style="display:flex;flex-direction:column;align-items:flex-end;justify-content:center"><div style="font-family:var(--font-mono);font-size:12.5px;font-weight:500">'+(entry?window.fmtPrice(entry):'—')+'</div><div style="min-height:14px"></div></div>'+
+      '<div style="display:flex;flex-direction:column;align-items:flex-end;justify-content:center"><div style="font-family:var(--font-mono);font-size:12.5px;color:var(--up);font-weight:500">'+(r.tp1?window.fmtPrice(r.tp1):'—')+'</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);line-height:1.4;min-height:14px">'+(tp1Delta?'+'+tp1Delta+'%':'')+'</div></div>'+
+      '<div style="display:flex;flex-direction:column;align-items:flex-end;justify-content:center"><div style="font-family:var(--font-mono);font-size:12.5px;color:var(--up);font-weight:500">'+(r.tp2?window.fmtPrice(r.tp2):'—')+'</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);line-height:1.4;min-height:14px">'+(tp2Delta?'+'+tp2Delta+'%':'')+'</div></div>'+
+      '<div style="display:flex;flex-direction:column;align-items:flex-end;justify-content:center"><div style="font-family:var(--font-mono);font-size:12.5px;color:var(--down);font-weight:500">'+(r.sl?window.fmtPrice(r.sl):'—')+'</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);line-height:1.4;min-height:14px">'+(slDelta?slDelta+'%':'')+'</div></div>'+
       '<div style="text-align:right;font-family:var(--font-mono);font-size:12.5px;color:var(--accent)">'+score+'</div>'+
       '<div class="price-cell">'+
         '<div class="price-cell-price">'+(r.price?window.fmtPrice(r.price):'—')+'</div>'+

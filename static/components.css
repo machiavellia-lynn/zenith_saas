@@ -224,7 +224,7 @@
 /* ── CM GRADIENT BAR ─────────────────────────────────────────────── */
 .cm-bar-wrap { display: flex; align-items: center; justify-content: flex-end; gap: 7px; }
 .cm-bar-track {
-  width: 52px; height: 5px; border-radius: 99px;
+  width: 70px; height: 4px; border-radius: 99px;
   overflow: hidden; flex-shrink: 0; background: var(--surface3); position: relative;
 }
 .cm-bar-fill-up {
