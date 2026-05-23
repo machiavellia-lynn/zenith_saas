@@ -300,19 +300,19 @@ var wyckoffDates  = { from: today, to: today };
 var bsjpDates     = { from: today, to: today };
 var scraperQDate  = { from: today };
 
-new window.StockbitDatePicker('wyckoffDP', {
+var dpWyckoff = new window.StockbitDatePicker('wyckoffDP', {
   from: today, to: today,
   onChange: function(f, t) { wyckoffDates.from = f; wyckoffDates.to = t || f; }
 });
-new window.StockbitDatePicker('bsjpDP', {
+var dpBsjp = new window.StockbitDatePicker('bsjpDP', {
   from: today, to: today,
   onChange: function(f, t) { bsjpDates.from = f; bsjpDates.to = t || f; }
 });
-new window.StockbitDatePicker('scraperQDP', {
+var dpScraperQ = new window.StockbitDatePicker('scraperQDP', {
   from: today, to: today,
   onChange: function(f) { scraperQDate.from = f; }
 });
-fetch('/api/last-date',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){if(d.date){var iso=window.DD_MM_YYYYtoISO(d.date.replace(/\//g,'-'));wyckoffDates.from=wyckoffDates.to=bsjpDates.from=bsjpDates.to=scraperQDate.from=iso;}}).catch(function(){});
+fetch('/api/last-date',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){if(d.date){var iso=window.DD_MM_YYYYtoISO(d.date.replace(/\//g,'-'));wyckoffDates.from=wyckoffDates.to=bsjpDates.from=bsjpDates.to=scraperQDate.from=iso;dpWyckoff.setDates(iso,iso);dpBsjp.setDates(iso,iso);dpScraperQ.setDates(iso,iso);}}).catch(function(){});
 
 /* Tab switching */
 window.switchTab = function(tab) {
@@ -361,7 +361,7 @@ window.runAction = function(action) {
   var from = window.isoToDD_MM_YYYY(dates.from), to = window.isoToDD_MM_YYYY(dates.to);
   var url;
   if (action === 'fetch_daily')  url = '/admin/backfill-prices?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to);
-  else if (action === 'recompute_w') url = '/admin/recompute-analytics';
+  else if (action === 'recompute_w') url = '/admin/wyckoff-recompute?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to);
   else if (action === 'rebuild') url = '/admin/rebuild-summary';
   else if (action === 'fetch_15m') url = '/admin/backfill-intraday?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to);
   else if (action === 'recompute_b') url = '/admin/bsjp-recompute?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to);
