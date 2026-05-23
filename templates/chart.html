@@ -72,7 +72,8 @@ body.sidebar-layout { overflow: hidden; }
 .ohlc-sep { color: var(--border2); }
 .ohlc-l { color: var(--muted); margin-right: 4px; }
 .ohlc-v { color: var(--ink); font-weight: 600; }
-#chartArea { background: var(--bg); height: calc(100vh - 360px); min-height: 360px; }
+#chartArea { background: var(--bg); min-height: 200px; }
+.ovl-cnt { font-size: 9.5px; opacity: 0.65; margin-left: 2px; }
 .metrics-strip {
   display: flex; background: var(--surface); border: 1px solid var(--border);
   border-radius: 10px; overflow: hidden; flex-shrink: 0;
@@ -131,7 +132,7 @@ body.sidebar-layout { overflow: hidden; }
   <div class="page-body">
 
     <!-- Ticker row -->
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:12px">
       <div class="chart-ticker-input-wrap">
         <span style="color:var(--muted);font-size:13px">⌕</span>
         <input type="text" class="chart-ticker-input" id="tickerInput" value="BBRI" placeholder="Ticker..." maxlength="8" autocomplete="off"/>
@@ -152,7 +153,7 @@ body.sidebar-layout { overflow: hidden; }
     </div>
 
     <!-- Chart card -->
-    <div class="chart-card" style="margin-bottom:14px;position:relative">
+    <div class="chart-card" style="position:relative">
       <div class="chart-toolbar">
         <!-- TF selector -->
         <div class="tf-selector" id="tfSelector">
@@ -162,9 +163,9 @@ body.sidebar-layout { overflow: hidden; }
         </div>
         <div style="width:1px;height:20px;background:var(--border)"></div>
         <span style="font-size:11.5px;color:var(--muted)">Overlay:</span>
-        <div class="ovl-btn active" id="ovlBtnCM" onclick="toggleOverlay('cm')" style="--ovl-col:#3a6b58"><div class="ovl-dot" style="background:#3a6b58"></div>CM</div>
-        <div class="ovl-btn" id="ovlBtnSM" onclick="toggleOverlay('sm')" style="--ovl-col:#4a7fdb"><div class="ovl-dot" style="background:#4a7fdb"></div>SM</div>
-        <div class="ovl-btn" id="ovlBtnBM" onclick="toggleOverlay('bm')" style="--ovl-col:#c87d3a"><div class="ovl-dot" style="background:#c87d3a"></div>BM</div>
+        <div class="ovl-btn active" id="ovlBtnCM" onclick="toggleOverlay('cm')" style="--ovl-col:#3a6b58"><div class="ovl-dot" style="background:#3a6b58"></div>CM<span class="ovl-cnt" id="ovlCntCM"></span></div>
+        <div class="ovl-btn" id="ovlBtnSM" onclick="toggleOverlay('sm')" style="--ovl-col:#4a7fdb"><div class="ovl-dot" style="background:#4a7fdb"></div>SM<span class="ovl-cnt" id="ovlCntSM"></span></div>
+        <div class="ovl-btn" id="ovlBtnBM" onclick="toggleOverlay('bm')" style="--ovl-col:#c87d3a"><div class="ovl-dot" style="background:#c87d3a"></div>BM<span class="ovl-cnt" id="ovlCntBM"></span></div>
         <div style="flex:1"></div>
         <div class="scale-toggle">
           <div class="scale-btn active" id="btnAuto" onclick="setScale('auto')" title="Auto scale">A</div>
@@ -194,7 +195,7 @@ body.sidebar-layout { overflow: hidden; }
     </div>
 
     <!-- Metrics strip -->
-    <div class="metrics-strip" style="margin-bottom:14px">
+    <div class="metrics-strip">
       <div class="metric-cell"><div class="metric-lbl">Avg SM</div><div class="metric-val" id="mpAvgSM" style="color:var(--up)">—</div></div>
       <div class="metric-cell"><div class="metric-lbl">Avg BM</div><div class="metric-val" id="mpAvgBM" style="color:var(--down)">—</div></div>
       <div class="metric-cell"><div class="metric-lbl">ATR%</div><div class="metric-val" id="mpATR">—</div></div>
@@ -252,6 +253,22 @@ var ovlShowCM = true, ovlShowSM = false, ovlShowBM = false;
 var overlayDataCache = [];
 
 var txDateFrom = '', txDateTo = '';
+
+function sizeChart() {
+  var pb = document.querySelector('.page-body');
+  var toolbar = document.querySelector('.chart-toolbar');
+  var ohlc = document.querySelector('.ohlc-bar');
+  var metrics = document.querySelector('.metrics-strip');
+  var ticker = pb ? pb.querySelector(':scope > div:first-child') : null;
+  if (!pb || !toolbar || !ohlc || !metrics || !ticker) return;
+  var style = getComputedStyle(pb);
+  var pbPad = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+  var gap = parseFloat(style.gap) || 16;
+  var used = ticker.offsetHeight + toolbar.offsetHeight + ohlc.offsetHeight + metrics.offsetHeight + pbPad + gap * 2;
+  var h = Math.max(200, pb.clientHeight - used - 8);
+  document.getElementById('chartArea').style.height = h + 'px';
+}
+
 function isoToAPI(iso){ if(!iso)return''; var p=iso.split('-'); return p[2]+'-'+p[1]+'-'+p[0]; }
 function fmtM(v){if(v==null)return'—';var a=Math.abs(v),s=v<0?'-':'';if(a>=1000)return s+(a/1000).toFixed(1)+'B';if(a>=1)return s+a.toFixed(1)+'M';if(a>0)return s+(a*1000).toFixed(0)+'K';return'0';}
 function fmtMsign(v){if(v==null)return'—';var a=Math.abs(v),s=v<0?'-':'';if(a>=1000)return (v>0?'+':s)+(a/1000).toFixed(1)+'B';if(a>=1)return (v>0?'+':s)+a.toFixed(1)+'M';return (v>0?'+':s)+(a*1000).toFixed(0)+'K';}
@@ -325,6 +342,7 @@ function initChart() {
     timeScale: {
       borderColor: dark ? '#1a2230' : '#e5e0d8',
       timeVisible: true,
+      rightOffset: 8,
       tickMarkFormatter: function(t) {
         var d = new Date(t*1000);
         var h = String(d.getUTCHours()).padStart(2,'0'), m = String(d.getUTCMinutes()).padStart(2,'0');
@@ -440,7 +458,17 @@ async function loadOverlayData(candles) {
       cmD.push({time:ct,value:lastCum.cm}); smD.push({time:ct,value:lastCum.sm}); bmD.push({time:ct,value:lastCum.bm});
     });
     ovlSeriesCM.setData(cmD); ovlSeriesSM.setData(smD); ovlSeriesBM.setData(bmD);
-  } catch(_) { overlayDataCache = []; }
+    var cmCnt=0, smCnt=0, bmCnt=0;
+    data.points.forEach(function(p){ if(p.cm) cmCnt++; if(p.sm) smCnt++; if(p.bm) bmCnt++; });
+    document.getElementById('ovlCntCM').textContent = cmCnt ? ' '+cmCnt : '';
+    document.getElementById('ovlCntSM').textContent = smCnt ? ' '+smCnt : '';
+    document.getElementById('ovlCntBM').textContent = bmCnt ? ' '+bmCnt : '';
+  } catch(_) {
+    overlayDataCache = [];
+    document.getElementById('ovlCntCM').textContent = '';
+    document.getElementById('ovlCntSM').textContent = '';
+    document.getElementById('ovlCntBM').textContent = '';
+  }
 }
 
 /* Metrics */
@@ -526,6 +554,7 @@ new MutationObserver(function(mutations) {
 
 /* Init */
 document.getElementById('tickerInput').addEventListener('keydown', function(e){ if(e.key==='Enter') doLoad(); });
+window.addEventListener('resize', sizeChart);
 window.addEventListener('DOMContentLoaded', async function() {
   var initDate = window.todayLocal();
   try { var r = await fetch('/api/last-date'); var d = await r.json(); if(d.date) initDate = window.DD_MM_YYYYtoISO(d.date.replace(/\//g,'-')); } catch(_) {}
@@ -541,6 +570,7 @@ window.addEventListener('DOMContentLoaded', async function() {
   var params = new URLSearchParams(location.search);
   var pt = params.get('ticker');
   if (pt) document.getElementById('tickerInput').value = pt.toUpperCase();
+  sizeChart();
   initChart();
   doLoad();
 });
