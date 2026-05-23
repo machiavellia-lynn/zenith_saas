@@ -338,13 +338,13 @@ function renderTable() {
 
     return '<div class="data-table-row flow-cols" onclick="openDetail(' + JSON.stringify(r).replace(/"/g,'&quot;') + ')">' +
       '<div class="row-num' + (i < 3 ? ' top3' : '') + '">' + String(i+1).padStart(2,'0') + '</div>' +
-      '<div class="ticker-cell">' +
+      '<div class="ticker-cell">' + window.tickerAvHTML(r.ticker) +
         '<div class="ticker-cell-info">' +
           '<div class="ticker-cell-name">' + r.ticker + '</div>' +
           '<div class="ticker-cell-sub">' + (r.name || '') + '</div>' +
         '</div>' +
       '</div>' +
-      '<div style="text-align:right;font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:' + (r.tx >= 15 ? 'var(--ink)' : 'var(--text-dim)') + ';font-weight:' + (r.tx >= 15 ? '700' : '400') + '">' + (r.tx || '—') + '</div>' +
+      '<div style="text-align:right;font-family:var(--font-mono);font-size:13px;color:' + (r.tx >= 15 ? 'var(--ink)' : 'var(--text-dim)') + ';font-weight:' + (r.tx >= 15 ? '700' : '400') + '">' + (r.tx || '—') + '</div>' +
       '<div>' + window.cmBarHTML(cm, maxCM) + '</div>' +
       '<div style="text-align:right;font-family:var(--font-mono);font-size:12px;color:var(--up)">' + (r.sm_val != null ? window.fmtMoney(r.sm_val) : '—') + '</div>' +
       '<div style="text-align:right;font-family:var(--font-mono);font-size:12px;color:#e07840">' + (r.bm_val != null ? window.fmtMoney(r.bm_val) : '—') + '</div>' +
