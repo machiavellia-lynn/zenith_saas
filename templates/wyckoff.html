@@ -21,7 +21,7 @@ body.sidebar-layout { overflow: hidden; }
 
 /* Table columns: # | Ticker | TX | Clean Money | SM | BM | RSM | Last | Phase | Action */
 .flow-cols {
-  grid-template-columns: 32px 1.6fr 0.35fr 1.15fr 0.7fr 0.7fr 0.55fr 0.82fr 1.0fr 0.8fr;
+  grid-template-columns: 32px 0.9fr 0.35fr 1.15fr 0.7fr 0.7fr 0.55fr 0.82fr 1.0fr 0.8fr;
   column-gap: 8px;
 }
 </style>
@@ -121,7 +121,7 @@ body.sidebar-layout { overflow: hidden; }
         <div class="th-sortable" data-col="rsm" style="text-align:right">
           RSM <span class="sort-arrow">↓</span>
         </div>
-        <div class="th-sortable" data-col="price" style="text-align:right">Last <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable" data-col="gain_pct" style="text-align:right">Last <span class="sort-arrow">↓</span></div>
         <div class="th-sortable" data-col="phase">Phase <span class="sort-arrow">↓</span></div>
         <div class="th-sortable" data-col="action">Action <span class="sort-arrow">↓</span></div>
       </div>
@@ -211,7 +211,7 @@ clearBtn.addEventListener('click', function() {
 /* ── Sort headers ── */
 var _colLabels = {
   'clean_money': 'Clean Money', 'rsm': 'RSM', 'sm_val': 'SM', 'bm_val': 'BM',
-  'tx': 'TX', 'price': 'Last', 'gain_pct': 'Gain', 'ticker': 'Ticker',
+  'tx': 'TX', 'price': 'Price', 'gain_pct': 'Last', 'ticker': 'Ticker',
   'phase': 'Phase', 'action': 'Action'
 };
 document.querySelectorAll('.th-sortable').forEach(function(th) {

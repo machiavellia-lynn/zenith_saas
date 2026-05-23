@@ -19,7 +19,7 @@ body.sidebar-layout { overflow: hidden; }
 .data-table { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .data-table-body { flex: 1; overflow-y: auto; min-height: 0; }
 /* Rank | Ticker | Setup | Entry | TP1 | TP2 | SL | Score | Last */
-.bsjp-cols { grid-template-columns: 44px 1.3fr 1.5fr 0.7fr 0.65fr 0.65fr 0.65fr 0.6fr 0.85fr; column-gap: 8px; }
+.bsjp-cols { grid-template-columns: 44px 0.85fr 1.5fr 0.75fr 0.7fr 0.7fr 0.7fr 0.6fr 0.85fr; column-gap: 8px; }
 .market-warn {
   background: rgba(200,99,58,.1); border: 1px solid rgba(200,99,58,.3);
   border-radius: 8px; padding: 8px 14px; display: flex; align-items: center; gap: 8px;
@@ -98,7 +98,7 @@ body.sidebar-layout { overflow: hidden; }
         <div class="th-sortable" data-col="tp2" style="text-align:right">TP2 <span class="sort-arrow">↓</span></div>
         <div class="th-sortable" data-col="sl" style="text-align:right">SL <span class="sort-arrow">↓</span></div>
         <div class="th-sortable active" data-col="score" style="text-align:right">Score <span class="sort-arrow">↓</span></div>
-        <div class="th-sortable" data-col="price" style="text-align:right">Last <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable" data-col="gain_pct" style="text-align:right">Last <span class="sort-arrow">↓</span></div>
       </div>
       <div class="data-table-body" id="tableBody">
         <div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Loading...</div>
@@ -170,7 +170,7 @@ cBtn.addEventListener('click', function() { sEl.value=''; S.q=''; cBtn.style.dis
 /* Sort */
 var _bsjpColLabels = {
   'ticker':'Ticker','setup':'Setup','entry':'Entry','tp1':'TP1','tp2':'TP2',
-  'sl':'SL','score':'Score','price':'Last','gain_pct':'Gain'
+  'sl':'SL','score':'Score','price':'Price','gain_pct':'Last'
 };
 document.querySelectorAll('.th-sortable').forEach(function(th) {
   th.addEventListener('click', function() {
