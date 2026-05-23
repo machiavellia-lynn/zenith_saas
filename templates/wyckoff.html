@@ -22,6 +22,7 @@ body.sidebar-layout { overflow: hidden; }
 /* Table columns: # | Ticker | TX | Clean Money | SM | BM | RSM | Last | Phase | Action */
 .flow-cols {
   grid-template-columns: 32px 1.6fr 0.35fr 1.15fr 0.7fr 0.7fr 0.55fr 0.82fr 1.0fr 0.8fr;
+  column-gap: 8px;
 }
 </style>
 </head>
@@ -94,21 +95,14 @@ body.sidebar-layout { overflow: hidden; }
         Filters
         <span class="filter-badge" id="filterBadge" style="display:none">0</span>
         <span style="font-size:10px;margin-left:2px" id="filterChevron">▼</span>
-        <div class="filter-dropdown" id="filterDropdown">
-          <div class="filter-opt" data-key="sm100">
-            <div class="filter-checkbox" data-key="sm100"></div>SM &gt; 100M
-          </div>
-          <div class="filter-opt" data-key="rsm60">
-            <div class="filter-checkbox" data-key="rsm60"></div>RSM &gt; 60%
-          </div>
-          <div class="filter-opt" data-key="tx10">
-            <div class="filter-checkbox" data-key="tx10"></div>TX ≥ 10
-          </div>
-          <div class="filter-opt" data-key="cmPos">
-            <div class="filter-checkbox" data-key="cmPos"></div>CM Positif
-          </div>
+        <div class="filter-dropdown" id="filterDropdown" style="min-width:200px">
+          <div style="font-size:10px;color:var(--muted);padding:4px 10px 2px;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Phase</div>
+          <div id="phaseFilterOpts"></div>
           <div class="filter-sep"></div>
-          <button class="filter-clear" id="filterClear">Clear all</button>
+          <div style="font-size:10px;color:var(--muted);padding:4px 10px 2px;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Action</div>
+          <div id="actionFilterOpts"></div>
+          <div class="filter-sep"></div>
+          <button class="filter-clear" id="filterClear" style="color:var(--text-dim)">Clear all</button>
         </div>
       </div>
     </div>
@@ -117,19 +111,19 @@ body.sidebar-layout { overflow: hidden; }
     <div class="data-table" id="dataTable">
       <div class="data-table-head flow-cols">
         <div>#</div>
-        <div>Ticker</div>
-        <div style="text-align:right">TX</div>
-        <div class="th-sortable active" data-col="clean_money" style="text-align:right">
+        <div class="th-sortable" data-col="ticker">Ticker <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable" data-col="tx" style="text-align:right">TX <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable active" data-col="clean_money">
           Clean Money <span class="sort-arrow">↓</span>
         </div>
-        <div style="text-align:right">SM</div>
-        <div style="text-align:right">BM</div>
+        <div class="th-sortable" data-col="sm_val" style="text-align:right">SM <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable" data-col="bm_val" style="text-align:right">BM <span class="sort-arrow">↓</span></div>
         <div class="th-sortable" data-col="rsm" style="text-align:right">
           RSM <span class="sort-arrow">↓</span>
         </div>
-        <div style="text-align:right">Last</div>
-        <div>Phase</div>
-        <div>Action</div>
+        <div class="th-sortable" data-col="price" style="text-align:right">Last <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable" data-col="phase">Phase <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable" data-col="action">Action <span class="sort-arrow">↓</span></div>
       </div>
       <div class="data-table-body" id="tableBody">
         <div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">
@@ -167,7 +161,7 @@ body.sidebar-layout { overflow: hidden; }
 var state = {
   rows: [], filtered: [], dateFrom: '', dateTo: '',
   sortCol: 'clean_money', sortAsc: false,
-  q: '', filters: { sm100:false, rsm60:false, tx10:false, cmPos:false },
+  q: '', filterPhases: [], filterActions: [],
   liveDate: null
 };
 
@@ -215,6 +209,11 @@ clearBtn.addEventListener('click', function() {
 });
 
 /* ── Sort headers ── */
+var _colLabels = {
+  'clean_money': 'Clean Money', 'rsm': 'RSM', 'sm_val': 'SM', 'bm_val': 'BM',
+  'tx': 'TX', 'price': 'Last', 'gain_pct': 'Gain', 'ticker': 'Ticker',
+  'phase': 'Phase', 'action': 'Action'
+};
 document.querySelectorAll('.th-sortable').forEach(function(th) {
   th.addEventListener('click', function() {
     var col = th.dataset.col;
@@ -227,7 +226,7 @@ document.querySelectorAll('.th-sortable').forEach(function(th) {
     th.classList.add('active');
     th.querySelector('.sort-arrow').textContent = state.sortAsc ? '↑' : '↓';
     document.getElementById('sortLabel').textContent =
-      'Sort: ' + (state.sortCol === 'rsm' ? 'RSM' : 'Clean Money') + (state.sortAsc ? ' ↑' : ' ↓');
+      'Sort: ' + (_colLabels[state.sortCol] || state.sortCol) + (state.sortAsc ? ' ↑' : ' ↓');
     applyFilter();
   });
 });
@@ -247,43 +246,71 @@ document.addEventListener('mousedown', function(e) {
   }
 });
 
-document.querySelectorAll('.filter-opt').forEach(function(opt) {
-  opt.addEventListener('click', function(e) {
-    e.stopPropagation();
-    var key = opt.dataset.key;
-    state.filters[key] = !state.filters[key];
-    opt.querySelector('.filter-checkbox').classList.toggle('checked', state.filters[key]);
-    updateFilterBadge();
-    applyFilter();
-  });
-});
 document.getElementById('filterClear').addEventListener('click', function(e) {
   e.stopPropagation();
-  Object.keys(state.filters).forEach(function(k) { state.filters[k] = false; });
-  document.querySelectorAll('.filter-checkbox').forEach(function(cb) { cb.classList.remove('checked'); });
+  state.filterPhases = [];
+  state.filterActions = [];
+  document.querySelectorAll('#phaseFilterOpts .filter-checkbox, #actionFilterOpts .filter-checkbox')
+    .forEach(function(cb) { cb.classList.remove('checked'); });
   updateFilterBadge();
   applyFilter();
 });
 
 function updateFilterBadge() {
-  var count = Object.values(state.filters).filter(Boolean).length;
+  var count = state.filterPhases.length + state.filterActions.length;
   var badge = document.getElementById('filterBadge');
   badge.textContent = count;
   badge.style.display = count ? 'flex' : 'none';
   filterBtn.classList.toggle('has-filters', count > 0);
 }
 
+function buildFilterOpts() {
+  var phases  = [];
+  var actions = [];
+  state.rows.forEach(function(r) {
+    if (r.phase  && phases.indexOf(r.phase)  < 0) phases.push(r.phase);
+    if (r.action && actions.indexOf(r.action) < 0) actions.push(r.action);
+  });
+  phases.sort(); actions.sort();
+
+  function makeOpts(items, group, selectedArr, containerId) {
+    var html = items.map(function(v) {
+      var active = selectedArr.indexOf(v) >= 0;
+      return '<div class="filter-opt" data-group="' + group + '" data-val="' + v + '">' +
+        '<div class="filter-checkbox' + (active ? ' checked' : '') + '"></div>' + v +
+      '</div>';
+    }).join('');
+    document.getElementById(containerId).innerHTML = html;
+    document.querySelectorAll('#' + containerId + ' .filter-opt').forEach(function(opt) {
+      opt.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var val = opt.dataset.val;
+        var arr = group === 'phase' ? state.filterPhases : state.filterActions;
+        var idx = arr.indexOf(val);
+        if (idx >= 0) arr.splice(idx, 1); else arr.push(val);
+        opt.querySelector('.filter-checkbox').classList.toggle('checked', arr.indexOf(val) >= 0);
+        updateFilterBadge();
+        applyFilter();
+      });
+    });
+  }
+  makeOpts(phases,  'phase',  state.filterPhases,  'phaseFilterOpts');
+  makeOpts(actions, 'action', state.filterActions, 'actionFilterOpts');
+}
+
 /* ── Apply filter & sort ── */
 function applyFilter() {
   var rows = state.rows.slice();
   if (state.q) rows = rows.filter(function(r){ return r.ticker.startsWith(state.q); });
-  if (state.filters.sm100) rows = rows.filter(function(r){ return r.sm_val >= 100; });
-  if (state.filters.rsm60) rows = rows.filter(function(r){ return r.rsm >= 60; });
-  if (state.filters.tx10)  rows = rows.filter(function(r){ return r.tx  >= 10; });
-  if (state.filters.cmPos) rows = rows.filter(function(r){ return r.clean_money > 0; });
+  if (state.filterPhases.length)  rows = rows.filter(function(r){ return state.filterPhases.indexOf(r.phase) >= 0; });
+  if (state.filterActions.length) rows = rows.filter(function(r){ return state.filterActions.indexOf(r.action) >= 0; });
 
   var col = state.sortCol;
-  rows.sort(function(a,b){
+  rows.sort(function(a, b) {
+    if (col === 'ticker' || col === 'phase' || col === 'action') {
+      var av = a[col] || '', bv = b[col] || '';
+      return state.sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+    }
     var av = a[col] != null ? a[col] : -999999;
     var bv = b[col] != null ? b[col] : -999999;
     return state.sortAsc ? av - bv : bv - av;
@@ -350,6 +377,7 @@ function fetchData(silent) {
       state.rows = (d.tickers || []).map(function(r) {
         return Object.assign({ name: '' }, r);
       });
+      buildFilterOpts();
       var totals = d.totals || {};
       var smTotal  = totals.sm   || 0;
       var bmTotal  = totals.bm   || 0;

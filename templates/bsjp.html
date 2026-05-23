@@ -18,8 +18,8 @@ body.sidebar-layout { overflow: hidden; }
 .page-body { overflow: hidden; }
 .data-table { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .data-table-body { flex: 1; overflow-y: auto; min-height: 0; }
-/* Rank | Ticker | Setup | Entry | TP1 | TP2 | SL | Score | Lot */
-.bsjp-cols { grid-template-columns: 44px 1.3fr 1.5fr 0.7fr 0.65fr 0.65fr 0.65fr 0.6fr 0.65fr; }
+/* Rank | Ticker | Setup | Entry | TP1 | TP2 | SL | Score | Last */
+.bsjp-cols { grid-template-columns: 44px 1.3fr 1.5fr 0.7fr 0.65fr 0.65fr 0.65fr 0.6fr 0.85fr; column-gap: 8px; }
 .market-warn {
   background: rgba(200,99,58,.1); border: 1px solid rgba(200,99,58,.3);
   border-radius: 8px; padding: 8px 14px; display: flex; align-items: center; gap: 8px;
@@ -91,14 +91,14 @@ body.sidebar-layout { overflow: hidden; }
     <div class="data-table">
       <div class="data-table-head bsjp-cols">
         <div style="color:var(--muted);font-size:11px">Rank</div>
-        <div>Ticker</div>
-        <div style="text-align:center">Setup</div>
-        <div style="text-align:right">Entry</div>
-        <div style="text-align:right">TP1</div>
-        <div style="text-align:right">TP2</div>
-        <div style="text-align:right">SL</div>
+        <div class="th-sortable" data-col="ticker">Ticker <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable" data-col="setup" style="text-align:center">Setup <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable" data-col="entry" style="text-align:right">Entry <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable" data-col="tp1" style="text-align:right">TP1 <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable" data-col="tp2" style="text-align:right">TP2 <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable" data-col="sl" style="text-align:right">SL <span class="sort-arrow">↓</span></div>
         <div class="th-sortable active" data-col="score" style="text-align:right">Score <span class="sort-arrow">↓</span></div>
-        <div style="text-align:right">Lot</div>
+        <div class="th-sortable" data-col="price" style="text-align:right">Last <span class="sort-arrow">↓</span></div>
       </div>
       <div class="data-table-body" id="tableBody">
         <div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Loading...</div>
@@ -168,13 +168,17 @@ sEl.addEventListener('input', function() { S.q = this.value.toUpperCase().trim()
 cBtn.addEventListener('click', function() { sEl.value=''; S.q=''; cBtn.style.display='none'; filter(); });
 
 /* Sort */
+var _bsjpColLabels = {
+  'ticker':'Ticker','setup':'Setup','entry':'Entry','tp1':'TP1','tp2':'TP2',
+  'sl':'SL','score':'Score','price':'Last','gain_pct':'Gain'
+};
 document.querySelectorAll('.th-sortable').forEach(function(th) {
   th.addEventListener('click', function() {
     var col = th.dataset.col;
     S.sortCol===col ? S.sortAsc=!S.sortAsc : (S.sortCol=col, S.sortAsc=false);
     document.querySelectorAll('.th-sortable').forEach(function(e){ e.classList.remove('active'); e.querySelector('.sort-arrow').textContent='↓'; });
     th.classList.add('active'); th.querySelector('.sort-arrow').textContent = S.sortAsc?'↑':'↓';
-    document.getElementById('sortLabel').textContent = 'Sort: Score' + (S.sortAsc?' ↑':' ↓');
+    document.getElementById('sortLabel').textContent = 'Sort: ' + (_bsjpColLabels[col]||col) + (S.sortAsc?' ↑':' ↓');
     filter();
   });
 });
@@ -183,9 +187,15 @@ function filter() {
   var rows = S.rows.slice();
   if (S.q) rows = rows.filter(function(r){ return r.ticker.startsWith(S.q); });
   if (S.setup) rows = rows.filter(function(r){ return r.setup === S.setup; });
-  rows.sort(function(a,b){
-    var av=a.score!=null?a.score:-999, bv=b.score!=null?b.score:-999;
-    return S.sortAsc ? av-bv : bv-av;
+  var col = S.sortCol;
+  rows.sort(function(a, b) {
+    if (col === 'ticker' || col === 'setup') {
+      var av = a[col] || '', bv = b[col] || '';
+      return S.sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+    }
+    var av = a[col] != null ? a[col] : -999;
+    var bv = b[col] != null ? b[col] : -999;
+    return S.sortAsc ? av - bv : bv - av;
   });
   S.filtered = rows;
   render();
@@ -206,7 +216,6 @@ function render() {
     var tp2Delta = (entry && r.tp2) ? (((r.tp2-entry)/entry)*100).toFixed(1) : null;
     var slDelta  = (entry && r.sl)  ? (((r.sl -entry)/entry)*100).toFixed(1) : null;
     var score    = r.score != null ? (r.score * 100).toFixed(1) : '—';
-    var lot      = r.lot_size || '—';
     return '<div class="data-table-row bsjp-cols">' +
       '<div style="font-family:var(--font-mono);font-size:11.5px;font-weight:600;color:'+(i<3?'var(--accent)':'var(--muted)')+'">'+String(i+1).padStart(2,'0')+'</div>'+
       '<div class="ticker-cell">'+window.tickerAvHTML(r.ticker)+'<div class="ticker-cell-info"><div class="ticker-cell-name">'+r.ticker+'</div><div class="ticker-cell-sub">'+(r.name||'')+'</div></div></div>'+
@@ -216,7 +225,10 @@ function render() {
       '<div style="text-align:right"><div style="font-family:var(--font-mono);font-size:12.5px;color:var(--up);font-weight:500">'+(r.tp2?window.fmtPrice(r.tp2):'—')+'</div>'+(tp2Delta?'<div style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">+'+tp2Delta+'%</div>':'')+'</div>'+
       '<div style="text-align:right"><div style="font-family:var(--font-mono);font-size:12.5px;color:var(--down);font-weight:500">'+(r.sl?window.fmtPrice(r.sl):'—')+'</div>'+(slDelta?'<div style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">'+slDelta+'%</div>':'')+'</div>'+
       '<div style="text-align:right;font-family:var(--font-mono);font-size:12.5px;color:var(--accent)">'+score+'</div>'+
-      '<div style="text-align:right;font-family:var(--font-mono);font-size:12px;color:var(--text-dim)">'+lot+'</div>'+
+      '<div class="price-cell">'+
+        '<div class="price-cell-price">'+(r.price?window.fmtPrice(r.price):'—')+'</div>'+
+        '<div class="price-cell-chg '+(r.gain_pct>=0?'up':'down')+'">'+(r.gain_pct!=null?window.fmtPct(r.gain_pct):'—')+'</div>'+
+      '</div>'+
     '</div>';
   }).join('');
   document.getElementById('rowCount').textContent = rows.length + ' dari ' + S.rows.length + ' sinyal';
@@ -225,35 +237,37 @@ function render() {
 function load() {
   document.getElementById('tableBody').innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Loading...</div>';
   var dmy = window.isoToDD_MM_YYYY(S.date);
-  fetch('/api/bsjp/signals?date=' + encodeURIComponent(dmy))
-    .then(function(r){ return r.json(); })
-    .then(function(d) {
-      var signals = d.signals || [];
-      S.rows = signals;
-
-      document.getElementById('statCount').textContent = signals.length;
-      document.getElementById('statDate').textContent  = dmy;
-
-      /* Fetch totals from flow API for stat cards */
-      fetch('/api/flow?date_from=' + encodeURIComponent(dmy) + '&date_to=' + encodeURIComponent(dmy))
-        .then(function(r){ return r.json(); })
-        .then(function(fd) {
-          var t = fd.totals || {};
-          document.getElementById('statSM').textContent = '+' + window.fmtMoney(t.sm || 0);
-          document.getElementById('statSMSub').textContent = (fd.tickers||[]).filter(function(r){return(r.sm_val||0)>0;}).length + ' emiten';
-          document.getElementById('statBM').textContent = window.fmtMoney(t.bm || 0);
-          document.getElementById('statBMSub').textContent = (fd.tickers||[]).filter(function(r){return(r.bm_val||0)>0;}).length + ' emiten';
-          var cmT = t.net_cm || 0;
-          var cmEl = document.getElementById('statCM');
-          cmEl.textContent = (cmT>=0?'+':'') + window.fmtMoney(cmT);
-          cmEl.className = 'stat-card-value ' + (cmT>=0?'up':'down');
-        }).catch(function(){});
-
-      filter();
-    })
-    .catch(function() {
-      document.getElementById('tableBody').innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Gagal memuat data.</div>';
+  var flowUrl = '/api/flow?date_from=' + encodeURIComponent(dmy) + '&date_to=' + encodeURIComponent(dmy);
+  Promise.all([
+    fetch('/api/bsjp/signals?date=' + encodeURIComponent(dmy)).then(function(r){ return r.json(); }),
+    fetch(flowUrl).then(function(r){ return r.json(); })
+  ]).then(function(results) {
+    var d = results[0], fd = results[1];
+    var signals = d.signals || [];
+    /* Build price map from flow data */
+    var priceMap = {};
+    (fd.tickers || []).forEach(function(t){ priceMap[t.ticker] = {price: t.price, gain_pct: t.gain_pct}; });
+    /* Merge price into signals */
+    S.rows = signals.map(function(r){
+      var p = priceMap[r.ticker] || {};
+      return Object.assign({}, r, {price: p.price||null, gain_pct: p.gain_pct||null});
     });
+    document.getElementById('statCount').textContent = signals.length;
+    document.getElementById('statDate').textContent  = dmy;
+    /* Stat cards from flow totals */
+    var t = fd.totals || {};
+    document.getElementById('statSM').textContent = '+' + window.fmtMoney(t.sm || 0);
+    document.getElementById('statSMSub').textContent = (fd.tickers||[]).filter(function(r){return(r.sm_val||0)>0;}).length + ' emiten';
+    document.getElementById('statBM').textContent = window.fmtMoney(t.bm || 0);
+    document.getElementById('statBMSub').textContent = (fd.tickers||[]).filter(function(r){return(r.bm_val||0)>0;}).length + ' emiten';
+    var cmT = t.net_cm || 0;
+    var cmEl = document.getElementById('statCM');
+    cmEl.textContent = (cmT>=0?'+':'') + window.fmtMoney(cmT);
+    cmEl.className = 'stat-card-value ' + (cmT>=0?'up':'down');
+    filter();
+  }).catch(function() {
+    document.getElementById('tableBody').innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Gagal memuat data.</div>';
+  });
 }
 
 load();

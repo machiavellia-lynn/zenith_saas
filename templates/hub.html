@@ -402,9 +402,9 @@ body { display: flex; flex-direction: column; }
             <div class="hub-stat-delta">emiten today</div>
           </div>
           <div class="hub-stat">
-            <div class="hub-stat-label">SM / BM ratio</div>
-            <div class="hub-stat-val" id="snapRatio">—</div>
-            <div class="hub-stat-delta" id="snapRatioBias">—</div>
+            <div class="hub-stat-label">Net MF</div>
+            <div class="hub-stat-val" id="snapNetMF">—</div>
+            <div class="hub-stat-delta" id="snapNetMFSub">net money flow</div>
           </div>
         </div>
         <div class="hub-snapshot-footer">
@@ -573,29 +573,37 @@ async function init() {
       var dt = ld.date.replace(/\//g, '-');
       var r3 = await fetch('/api/flow?date_from=' + dt + '&date_to=' + dt);
       var fd = await r3.json();
+      var tickers = fd.tickers || [];
       if (fd.totals) {
-        var sm = fd.totals.sm || 0, bm = fd.totals.bm || 0;
-        var cm = sm - bm;
-        document.getElementById('snapCM').textContent = fmtM(cm);
-        document.getElementById('snapCM').style.color = cm >= 0 ? 'var(--up)' : 'var(--down)';
-        document.getElementById('snapSMCount').textContent = fd.totals.sm_count || '—';
-        var ratio = bm !== 0 ? (sm / Math.abs(bm)).toFixed(2) + '×' : '—';
-        document.getElementById('snapRatio').textContent = ratio;
-        document.getElementById('snapRatioBias').textContent = cm >= 0 ? 'accumulation bias' : 'distribution bias';
+        /* Clean Money from pre-computed totals */
+        var netCM = fd.totals.net_cm || 0;
+        document.getElementById('snapCM').textContent = fmtM(netCM);
+        document.getElementById('snapCM').style.color = netCM >= 0 ? 'var(--up)' : 'var(--down)';
+        /* Smart-active: tickers with both SM > 0 AND BM > 0 */
+        var smartActive = tickers.filter(function(t){ return (t.sm_val||0) > 0 && (t.bm_val||0) > 0; }).length;
+        document.getElementById('snapSMCount').textContent = smartActive;
+        /* Net MF */
+        var netMF = fd.totals.net_mf;
+        var netMFEl = document.getElementById('snapNetMF');
+        netMFEl.textContent = netMF != null ? fmtM(netMF) : '—';
+        netMFEl.style.color = (netMF != null && netMF >= 0) ? 'var(--up)' : 'var(--down)';
       }
-      if (fd.rows && fd.rows.length > 0) {
-        /* Top mover by price change */
-        var top = fd.rows.reduce(function(a, b) { return Math.abs((b.price_change||0)) > Math.abs((a.price_change||0)) ? b : a; });
-        if (top && top.ticker) {
-          var chg = top.price_change || 0;
+      if (tickers.length > 0) {
+        /* Top 3 movers by gain_pct */
+        var withGain = tickers.filter(function(t){ return t.gain_pct != null; });
+        withGain.sort(function(a, b){ return (b.gain_pct||0) - (a.gain_pct||0); });
+        var top3 = withGain.slice(0, 3);
+        if (top3.length > 0) {
           document.getElementById('snapTopMover').textContent =
-            'Top mover · ' + top.ticker + ' ' + (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+            'Top mover · ' + top3.map(function(t){
+              return t.ticker + ' ' + (t.gain_pct >= 0 ? '+' : '') + t.gain_pct.toFixed(2) + '%';
+            }).join(' · ');
         }
-        /* Accumulation strip — top 5 by CM */
-        var sorted = fd.rows.slice().sort(function(a, b) { return (b.cm||0) - (a.cm||0); }).slice(0, 5);
-        var maxCM = Math.max.apply(null, sorted.map(function(r){ return Math.abs(r.cm||0); })) || 1;
+        /* Accumulation strip — top 5 by clean_money */
+        var sorted = tickers.slice().sort(function(a, b){ return (b.clean_money||0) - (a.clean_money||0); }).slice(0, 5);
+        var maxCM = Math.max.apply(null, sorted.map(function(r){ return Math.abs(r.clean_money||0); })) || 1;
         var html = sorted.map(function(r) {
-          var cm = r.cm || 0, chg = r.price_change || 0;
+          var cm = r.clean_money || 0, chg = r.gain_pct || 0;
           var barPct = Math.min(100, Math.abs(cm) / maxCM * 100);
           return '<div class="hub-accum-item">' +
             '<div class="hub-accum-ticker-row">' +
