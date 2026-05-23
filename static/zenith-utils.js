@@ -175,17 +175,16 @@ window.DD_MM_YYYYtoISO = function(s) {
    ══════════════════════════════════════════════════════════════════════ */
 window.StockbitDatePicker = class StockbitDatePicker {
   constructor(containerId, opts) {
-    this.el      = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
-    this.from    = opts.from || window.todayLocal();
-    this.to      = opts.to   || this.from;
-    this.onChange = opts.onChange || function(){};
+    this.el       = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
+    this.from     = opts.from || window.todayLocal();
+    this.to       = opts.to   || this.from;
+    this.onChange  = opts.onChange || function(){};
     this.alignRight = opts.alignRight || false;
 
     this._open = false;
     this._step = 'from'; // 'from' | 'to'
-    this._hover = null;
-    this._viewYear  = 2026;
-    this._viewMonth = 4; // 0-indexed
+    this._viewYear  = new Date().getFullYear();
+    this._viewMonth = new Date().getMonth(); // 0-indexed
 
     this._MON   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     this._WDAYS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
@@ -236,7 +235,6 @@ window.StockbitDatePicker = class StockbitDatePicker {
     }
     this._step = 'from';
     this._renderPopup();
-    // Position popup
     if (this._strip && this._popup) {
       const r  = this._strip.getBoundingClientRect();
       const PW = 280;
@@ -253,7 +251,6 @@ window.StockbitDatePicker = class StockbitDatePicker {
   _closeCal() {
     if (this._popup) this._popup.classList.remove('open');
     this._open = false;
-    this._hover = null;
   }
 
   _dim(y, m) { return new Date(y, m + 1, 0).getDate(); }
@@ -262,12 +259,27 @@ window.StockbitDatePicker = class StockbitDatePicker {
     return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
   }
 
-  _inRange(k) {
-    if (!this.from) return false;
-    const end = (this._step === 'to' ? this._hover : null) || this.to;
-    if (!end || end === this.from) return false;
-    const [lo, hi] = this.from <= end ? [this.from, end] : [end, this.from];
+  _inRangeWith(k, from, to) {
+    if (!from || !to || from === to) return false;
+    const [lo, hi] = from <= to ? [from, to] : [to, from];
     return k > lo && k < hi;
+  }
+
+  /* Update day cell CSS classes for hover preview — no HTML rebuild */
+  _applyDayClasses(hoverKey) {
+    if (!this._popup) return;
+    const end = (this._step === 'to' && hoverKey) ? hoverKey : this.to;
+    this._popup.querySelectorAll('.sdp-cal-day[data-key]').forEach(el => {
+      const k = el.dataset.key;
+      const isSt = k === this.from;
+      const isEn = k === end && k !== this.from;
+      const inRng = this._inRangeWith(k, this.from, end);
+      const isSingle = isSt && (!end || end === this.from);
+      let cls = 'sdp-cal-day';
+      if (isSt || isEn) cls += ' selected' + (isSingle ? '' : (isSt ? ' range-start' : ' range-end'));
+      if (inRng) cls += ' in-range';
+      el.className = cls;
+    });
   }
 
   _renderPopup() {
@@ -279,10 +291,10 @@ window.StockbitDatePicker = class StockbitDatePicker {
     let days = '';
     for (let i = 0; i < first; i++) days += '<div></div>';
     for (let d = 1; d <= dim; d++) {
-      const k   = this._toKey(y, m, d);
-      const isSt = k === this.from;
-      const isEn = k === (this._step === 'to' ? this._hover || this.to : this.to) && k !== this.from;
-      const inRng = this._inRange(k);
+      const k      = this._toKey(y, m, d);
+      const isSt   = k === this.from;
+      const isEn   = k === this.to && k !== this.from;
+      const inRng  = this._inRangeWith(k, this.from, this.to);
       const isSingle = isSt && (!this.to || this.to === this.from);
       let cls = 'sdp-cal-day';
       if (isSt || isEn) cls += ' selected' + (isSingle ? '' : (isSt ? ' range-start' : ' range-end'));
@@ -301,30 +313,30 @@ window.StockbitDatePicker = class StockbitDatePicker {
     this._popup.innerHTML = `
       <div class="sdp-cal-hint">${hintText}</div>
       <div class="sdp-cal-nav">
-        <button class="sdp-cal-nav-btn" id="sdp-prev-m">‹</button>
+        <button class="sdp-cal-nav-btn sdp-nav-prev">‹</button>
         <div class="sdp-cal-month">${this._MON[m]} ${y}</div>
-        <button class="sdp-cal-nav-btn" id="sdp-next-m">›</button>
+        <button class="sdp-cal-nav-btn sdp-nav-next">›</button>
       </div>
       <div class="sdp-cal-wdays">${this._WDAYS.map(w=>`<div class="sdp-cal-wday">${w}</div>`).join('')}</div>
-      <div class="sdp-cal-grid" id="sdp-cal-grid">${days}</div>
+      <div class="sdp-cal-grid">${days}</div>
       <div class="sdp-cal-foot">
         <span class="sdp-cal-foot-label">${footLabel}</span>
         <button class="sdp-cal-reset">Reset</button>
       </div>`;
 
-    // Bind month nav
-    this._popup.querySelector('#sdp-prev-m').addEventListener('click', () => {
+    /* Month navigation — stable elements, never replaced by hover */
+    this._popup.querySelector('.sdp-nav-prev').addEventListener('click', () => {
       if (this._viewMonth === 0) { this._viewMonth = 11; this._viewYear--; }
       else this._viewMonth--;
       this._renderPopup();
     });
-    this._popup.querySelector('#sdp-next-m').addEventListener('click', () => {
+    this._popup.querySelector('.sdp-nav-next').addEventListener('click', () => {
       if (this._viewMonth === 11) { this._viewMonth = 0; this._viewYear++; }
       else this._viewMonth++;
       this._renderPopup();
     });
 
-    // Bind day clicks
+    /* Day clicks */
     this._popup.querySelectorAll('.sdp-cal-day[data-key]').forEach(el => {
       el.addEventListener('click', () => {
         const k = el.dataset.key;
@@ -342,15 +354,22 @@ window.StockbitDatePicker = class StockbitDatePicker {
         this.onChange(this.from, this.to);
         if (this._open) this._renderPopup();
       });
-      el.addEventListener('mouseenter', () => {
-        if (this._step === 'to' && this.from) {
-          this._hover = el.dataset.key;
-          this._renderPopup();
-        }
-      });
     });
 
-    // Reset
+    /* Hover preview — grid-level delegation, no innerHTML replacement */
+    const grid = this._popup.querySelector('.sdp-cal-grid');
+    if (grid) {
+      grid.addEventListener('mouseover', (e) => {
+        if (this._step !== 'to' || !this.from) return;
+        const cell = e.target.closest('.sdp-cal-day[data-key]');
+        if (cell) this._applyDayClasses(cell.dataset.key);
+      });
+      grid.addEventListener('mouseleave', () => {
+        if (this._step === 'to') this._applyDayClasses(null);
+      });
+    }
+
+    /* Reset */
     const resetBtn = this._popup.querySelector('.sdp-cal-reset');
     if (resetBtn) resetBtn.addEventListener('click', () => {
       const today = window.todayLocal();
@@ -363,7 +382,6 @@ window.StockbitDatePicker = class StockbitDatePicker {
   }
 
   _render() {
-    // Build the strip HTML
     this.el.innerHTML = `
       <div class="sdp-strip">
         <button type="button" class="sdp-arrow sdp-arrow-left" title="Hari sebelumnya">‹</button>
@@ -382,12 +400,10 @@ window.StockbitDatePicker = class StockbitDatePicker {
     this._strip  = this.el.querySelector('.sdp-strip');
     this._textEl = this.el.querySelector('.sdp-text');
 
-    // Create popup at body level (to avoid overflow clipping)
     this._popup = document.createElement('div');
     this._popup.className = 'sdp-cal-popup';
     document.body.appendChild(this._popup);
 
-    // Bind arrows
     this.el.querySelector('.sdp-arrow-left').addEventListener('click',  () => this._addDay(-1));
     this.el.querySelector('.sdp-arrow-right').addEventListener('click', () => this._addDay(1));
     this.el.querySelector('.sdp-cal-btn').addEventListener('click', (e) => {
@@ -395,7 +411,6 @@ window.StockbitDatePicker = class StockbitDatePicker {
       this._open ? this._closeCal() : this._openCal();
     });
 
-    // Outside click
     document.addEventListener('mousedown', (e) => {
       if (this._open && this._popup && !this._popup.contains(e.target) && !this.el.contains(e.target)) {
         this._closeCal();
