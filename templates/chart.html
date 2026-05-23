@@ -72,7 +72,7 @@ body.sidebar-layout { overflow: hidden; }
 .ohlc-sep { color: var(--border2); }
 .ohlc-l { color: var(--muted); margin-right: 4px; }
 .ohlc-v { color: var(--ink); font-weight: 600; }
-#chartArea { background: var(--bg); height: calc(100vh - 262px); min-height: 400px; }
+#chartArea { background: var(--bg); height: calc(100vh - 360px); min-height: 360px; }
 .metrics-strip {
   display: flex; background: var(--surface); border: 1px solid var(--border);
   border-radius: 10px; overflow: hidden; flex-shrink: 0;
@@ -250,7 +250,6 @@ var chart = null, candleSeries = null, volumeSeries = null;
 var ovlSeriesCM = null, ovlSeriesSM = null, ovlSeriesBM = null;
 var ovlShowCM = true, ovlShowSM = false, ovlShowBM = false;
 var overlayDataCache = [];
-var chartRO = null; // single persistent ResizeObserver
 
 var txDateFrom = '', txDateTo = '';
 function isoToAPI(iso){ if(!iso)return''; var p=iso.split('-'); return p[2]+'-'+p[1]+'-'+p[0]; }
@@ -309,12 +308,9 @@ function reloadChartData() { loadMetrics(); loadTransactions(); }
 function isDark() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
 function initChart() {
   var container = document.getElementById('chartArea');
-  var chartH = container.clientHeight || Math.max(400, window.innerHeight - 262);
-  var chartW = container.clientWidth  || container.offsetWidth;
   var dark = isDark();
   chart = LightweightCharts.createChart(container, {
-    width: chartW,
-    height: chartH,
+    autoSize: true,
     layout: {
       background: { type: 'solid', color: dark ? '#0e1318' : '#fafaf7' },
       textColor: dark ? '#6a8090' : '#7a7060',
@@ -366,13 +362,6 @@ function initChart() {
   });
 
   applyAutoScale(isAutoScale);
-  if (!chartRO) {
-    chartRO = new ResizeObserver(function() {
-      if (!chart) return;
-      chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
-    });
-    chartRO.observe(container);
-  }
 }
 
 /* Load OHLCV */
