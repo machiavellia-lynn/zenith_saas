@@ -393,6 +393,10 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
     scored.sort(key=lambda x: -x[0])
     top = scored[:TOP_N_BSJP]
 
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM bsjp_signals WHERE date = %s", (today,))
+    conn.commit()
+
     for rank, (score, ticker, sig, row, lot) in enumerate(top, 1):
         with conn.cursor() as cur:
             cur.execute("""
@@ -400,12 +404,6 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
                     (date, ticker, setup, entry, tp1, tp2, sl, sl_type,
                      score, day_rank, lot_size)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                ON CONFLICT (date, ticker) DO UPDATE SET
-                    setup=EXCLUDED.setup, entry=EXCLUDED.entry,
-                    tp1=EXCLUDED.tp1, tp2=EXCLUDED.tp2, sl=EXCLUDED.sl,
-                    sl_type=EXCLUDED.sl_type, score=EXCLUDED.score,
-                    day_rank=EXCLUDED.day_rank, lot_size=EXCLUDED.lot_size,
-                    computed_at=NOW()
             """, (today, ticker, sig["setup"], sig["entry"],
                   sig["tp1"], sig["tp2"], sig["sl"], sig["sl_type"],
                   score, rank, lot))
