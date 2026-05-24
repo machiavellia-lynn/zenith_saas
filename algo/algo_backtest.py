@@ -307,15 +307,17 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
         df = _dmy_to_ymd(date_from)
         dt = _dmy_to_ymd(date_to)
         signals = fetchall(conn, """
-            SELECT TO_CHAR(date, 'DD-MM-YYYY') AS date_dmy, date::text AS date_ymd,
+            SELECT SUBSTRING(date, 9, 2)||'-'||SUBSTRING(date, 6, 2)||'-'||SUBSTRING(date, 1, 4) AS date_dmy,
+                   date AS date_ymd,
                    ticker, setup, entry, tp1, tp2, sl
             FROM bsjp_signals
-            WHERE date BETWEEN %s::date AND %s::date
+            WHERE date BETWEEN %s AND %s
             ORDER BY date, id
         """, [df, dt])
     else:
         signals = fetchall(conn, """
-            SELECT TO_CHAR(date, 'DD-MM-YYYY') AS date_dmy, date::text AS date_ymd,
+            SELECT SUBSTRING(date, 9, 2)||'-'||SUBSTRING(date, 6, 2)||'-'||SUBSTRING(date, 1, 4) AS date_dmy,
+                   date AS date_ymd,
                    ticker, setup, entry, tp1, tp2, sl
             FROM bsjp_signals
             ORDER BY date, id
