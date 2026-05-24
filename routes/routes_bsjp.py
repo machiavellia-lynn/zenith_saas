@@ -36,3 +36,14 @@ def api_bsjp_results():
         "SELECT * FROM bsjp_results WHERE date = %s ORDER BY id",
         [date_str])
     return jsonify({"date": date_str, "count": len(rows), "results": rows})
+
+
+@bp_bsjp.route("/api/bsjp/compute", methods=["POST"])
+@require_auth
+def api_bsjp_compute():
+    """Trigger PRE signal generation untuk tanggal tertentu (DD-MM-YYYY)."""
+    body     = request.get_json(silent=True) or {}
+    date_str = body.get("date") or _today_dmy()
+    from algo.analytics_bsjp import generate_bsjp_signals
+    n = generate_bsjp_signals(get_db(), date_str)
+    return jsonify({"date": date_str, "signals_generated": n})

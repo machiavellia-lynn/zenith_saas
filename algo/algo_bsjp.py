@@ -63,10 +63,19 @@ def _compute_score(row: dict, setup: str) -> float:
 class BSJPAlgo:
     name = "BSJP"
     MIN_SRI      = 1.2
-    MAX_RPR      = 0.55
     MIN_MF_RATIO = 50.0
     MIN_RSM      = 60.0
     POWER_BREAK_MIN_VALUE = 5_000_000_000
+
+    # RPR dicek per-setup (bukan di SM Gate)
+    SETUP_MAX_RPR = {
+        "POWER_BREAK_V21":   0.45,
+        "POWER_BREAK_V22":   0.35,
+        "SMA5_BREAKOUT_V13": 0.40,
+        "SMA5_BREAKOUT_V11": 0.25,
+        "BB_PULLBACK":       0.25,
+        "SMA5_PULLBACK_V12": 0.50,
+    }
 
     SL_MAP = {
         "POWER_BREAK_V21":   "FIXED_2PCT",
@@ -84,6 +93,7 @@ class BSJPAlgo:
         if not self._sm_gate(row):
             return None
 
+        rpr = _f(row.get("rpr"), 1.0)
         for name, fn in [
             ("POWER_BREAK_V21",   self._setup_power_break_v21),
             ("POWER_BREAK_V22",   self._setup_power_break_v22),
@@ -92,7 +102,7 @@ class BSJPAlgo:
             ("BB_PULLBACK",       self._setup_bb_pullback),
             ("SMA5_PULLBACK_V12", self._setup_sma5_pullback_v12),
         ]:
-            if fn(row):
+            if rpr <= self.SETUP_MAX_RPR[name] and fn(row):
                 entry   = round(price_close)
                 sl_type = self.SL_MAP[name]
                 return {
@@ -109,8 +119,6 @@ class BSJPAlgo:
         if row.get("phase") in {"UPTHRUST", "DISTRI"}:
             return False
         if _f(row.get("sri"), 0) < self.MIN_SRI:
-            return False
-        if _f(row.get("rpr"), 1.0) > self.MAX_RPR:
             return False
         if _f(row.get("mf_ratio"), 0) < self.MIN_MF_RATIO:
             return False
