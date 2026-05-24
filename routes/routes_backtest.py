@@ -57,7 +57,8 @@ def api_backtest_bsjp():
 
     result = get_bsjp_result()
     if not result:
-        return jsonify({"error": "Belum ada data. Klik RUN BACKTEST."})
+        request_bsjp_backtest()  # auto-trigger with all available data; no-op if already running
+        return jsonify(get_bsjp_status())
     return jsonify(result)
 
 

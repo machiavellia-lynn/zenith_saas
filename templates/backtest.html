@@ -770,7 +770,27 @@ fetch('/api/backtest').then(function(r){ return r.json(); }).then(function(d) {
 }).catch(function(){});
 
 fetch('/api/backtest/bsjp').then(function(r){ return r.json(); }).then(function(d) {
-  if (!d.error && d.leaderboard) renderBSJP(d);
+  if (!d.error && d.leaderboard) {
+    renderBSJP(d);
+  } else if (d.status === 'running') {
+    // Auto-triggered on backend — poll BSJP endpoint directly (S.algo may still be 'wyckoff')
+    document.getElementById('btStatus').innerHTML = '<span style="color:var(--muted)">Computing BSJP backtest…</span>';
+    var bsjpInitPoll = setInterval(function() {
+      fetch('/api/backtest/bsjp?status=1').then(function(r){ return r.json(); })
+        .then(function(sd) {
+          if (sd.status !== 'running') {
+            clearInterval(bsjpInitPoll);
+            fetch('/api/backtest/bsjp').then(function(r){ return r.json(); })
+              .then(function(rd) {
+                if (!rd.error && rd.leaderboard) {
+                  renderBSJP(rd);
+                  if (S.algo !== 'bsjp') document.getElementById('btStatus').innerHTML = '';
+                }
+              }).catch(function(){});
+          }
+        }).catch(function(){ clearInterval(bsjpInitPoll); });
+    }, 2000);
+  }
 }).catch(function(){});
 
 })();
