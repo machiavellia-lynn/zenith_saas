@@ -2,6 +2,7 @@
 utils.py — Zenith 2.0 Pure Utility Functions
 RULE: Pure functions only. No DB, no HTTP, no Flask imports.
 """
+import gc
 import os
 import re
 from datetime import datetime
@@ -52,6 +53,16 @@ def date_range(date_from: str, date_to: str) -> list[str]:
         dates.append(cur.strftime("%d-%m-%Y"))
         cur += timedelta(days=1)
     return dates
+
+
+def trim_memory():
+    """Force GC and return freed heap pages to OS. Safe no-op on non-Linux platforms."""
+    gc.collect()
+    try:
+        import ctypes
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except Exception:
+        pass
 
 
 def load_kompas100_reference(kompas100_file: str):

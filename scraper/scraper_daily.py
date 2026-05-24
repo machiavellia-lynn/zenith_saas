@@ -22,6 +22,7 @@ from config import (
     RECOMPUTE_HOUR, RECOMPUTE_MINUTE,
 )
 from core.db import get_scraper_db, transaction, fetchall
+from core.utils import trim_memory
 import psycopg2
 from scraper.scraper_parser import parse_joker_message, parse_mf_message
 from scraper.scraper_saver import save_sm_bm_rows, save_mf_rows
@@ -438,7 +439,7 @@ async def scraper_main():
             return
 
         log.info("🔗 Telegram connected")
-        await client.get_dialogs()
+        await client.get_dialogs(limit=50)  # limit entity cache; 50 cukup untuk resolve GROUP_ID
 
         @client.on(events.NewMessage(chats=GROUP_ID))
         async def on_new_message(event):
@@ -478,6 +479,7 @@ async def scraper_main():
                     log.error(f"❌ Midday pass: {e}")
                 finally:
                     midday_pass_done = True
+                    trim_memory()
 
             if not first_pass_done and now_wib.hour >= BACKFILL_HOUR and now_wib.minute >= BACKFILL_MINUTE:
                 try:
@@ -487,6 +489,7 @@ async def scraper_main():
                     log.error(f"❌ First pass: {e}")
                 finally:
                     first_pass_done = True
+                    trim_memory()
 
             if first_pass_done and not second_pass_done and now_wib.hour >= RECOMPUTE_HOUR and now_wib.minute >= RECOMPUTE_MINUTE:
                 try:
@@ -496,6 +499,7 @@ async def scraper_main():
                     log.error(f"❌ Second pass: {e}")
                 finally:
                     second_pass_done = True
+                    trim_memory()
 
             # 15:46 — Fetch today's 15m candles (so 15:45 close is ready for BSJP scan)
             if not bsjp_15m_done and now_wib.hour == BSJP_15M_HOUR and now_wib.minute >= BSJP_15M_MINUTE:
@@ -548,6 +552,8 @@ async def scraper_main():
                     log.error(f"❌ Manual backfill: {e}")
                     with _backfill_lock:
                         _backfill_request.update({"status": "error", "result": str(e)})
+                finally:
+                    trim_memory()
 
             with _backfill_lock:
                 do_rebuild = _rebuild_request["status"] == "pending"
@@ -563,6 +569,8 @@ async def scraper_main():
                     log.error(f"❌ Rebuild: {e}")
                     with _backfill_lock:
                         _rebuild_request.update({"status": "error", "result": str(e)})
+                finally:
+                    trim_memory()
 
             with _backfill_lock:
                 do_recompute = _recompute_request["status"] == "pending"
@@ -596,6 +604,8 @@ async def scraper_main():
                     log.error("❌ Recompute analytics: %s", e)
                     with _backfill_lock:
                         _recompute_request.update({"status": "error", "result": str(e)})
+                finally:
+                    trim_memory()
 
             with _backfill_lock:
                 bt_days = _backtest_request["days"] if _backtest_request["status"] == "pending" else None
@@ -715,6 +725,8 @@ async def scraper_main():
                     log.error(f"❌ Fix All: {e}")
                     with _backfill_lock:
                         _fix_all_request.update({"status": "error", "step": None, "result": str(e)})
+                finally:
+                    trim_memory()
 
             with _backfill_lock:
                 do_tele_dates = _tele_dates_request["status"] == "pending"
@@ -736,6 +748,8 @@ async def scraper_main():
                     log.error("❌ Tele dates backfill: %s", e)
                     with _backfill_lock:
                         _tele_dates_request.update({"status": "error", "error": str(e)})
+                finally:
+                    trim_memory()
 
             # Wait up to 5 s, but wake immediately if a request is queued
             try:

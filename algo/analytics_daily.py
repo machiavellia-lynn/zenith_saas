@@ -6,6 +6,7 @@ RULE: No HTTP calls. No raw DB queries for flow data — that's summary_rebuild'
 import logging
 
 from core.db import fetchall, execute
+from core.utils import trim_memory
 from algo.indicators import (
     compute_ma, compute_rsi14, compute_cm_streak,
     compute_ma50, compute_bollinger_bands, detect_sideways,
@@ -255,3 +256,4 @@ def compute_analytics_range(conn, date_from: str, date_to: str):
     """, [date_from, date_to])]
     for d in dates:
         compute_analytics_for_date(conn, d)
+    trim_memory()
