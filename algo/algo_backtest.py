@@ -475,7 +475,9 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
                 stamp = "PRE_ONLY"
             else:
                 continue  # FINAL_ONLY — tidak realistis, skip
-            sig = pre_sigs[ticker] if in_pre else final_sigs[ticker][1]
+            # Local bsjp_view.py: PRE+FINAL → pakai FINAL sig (setup dari EOD price)
+            # PRE_ONLY → pakai PRE sig (setup dari 15:45 price)
+            sig = final_sigs[ticker][1] if in_final else pre_sigs[ticker]
             ph15_needed.add((next_ymd, ticker))
             day_trades.append((ticker, sig, stamp))
 
