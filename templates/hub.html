@@ -28,23 +28,6 @@ body { display: flex; flex-direction: column; }
   align-items: center;
   margin-bottom: 40px;
 }
-.hub-live-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 10px 4px 8px;
-  background: var(--surface);
-  border-radius: 99px;
-  font-size: 11.5px;
-  color: var(--text-dim);
-  border: 1px solid var(--border);
-  margin-bottom: 20px;
-}
-.hub-live-dot {
-  width: 6px; height: 6px;
-  border-radius: 99px;
-  background: var(--up);
-}
 .hub-greeting {
   font-family: var(--font-display);
   font-size: 44px;
@@ -114,6 +97,11 @@ body { display: flex; flex-direction: column; }
   font-size: 12px;
   color: var(--text-dim);
 }
+.hub-live-dot {
+  width: 6px; height: 6px;
+  border-radius: 99px;
+  background: var(--up);
+}
 .hub-snapshot-live {
   display: flex;
   align-items: center;
@@ -152,18 +140,37 @@ body { display: flex; flex-direction: column; }
   margin-top: 1px;
 }
 .hub-snapshot-footer {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: var(--text-dim);
   padding-top: 14px;
   border-top: 1px solid var(--border);
 }
-.hub-snapshot-link {
-  color: var(--accent);
+
+/* ── Top mover chips ── */
+.hub-mover-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.hub-mover-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.hub-mover-chip {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
   font-weight: 500;
-  cursor: pointer;
-  text-decoration: none;
+  padding: 3px 8px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+.hub-mover-chip.up {
+  background: color-mix(in srgb, var(--up) 14%, transparent);
+  color: var(--up);
+}
+.hub-mover-chip.down {
+  background: color-mix(in srgb, var(--down) 14%, transparent);
+  color: var(--down);
 }
 
 /* ── Modules ── */
@@ -258,18 +265,20 @@ body { display: flex; flex-direction: column; }
   font-weight: 500;
 }
 
-/* ── Today's accumulation ── */
+/* ── Accumulation carousel ── */
 .hub-accum {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 18px 22px;
+  padding: 18px 0 18px 22px;
+  overflow: hidden;
 }
 .hub-accum-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  padding-right: 22px;
 }
 .hub-accum-title {
   font-size: 14px;
@@ -281,18 +290,64 @@ body { display: flex; flex-direction: column; }
   color: var(--text-dim);
   margin-top: 2px;
 }
-.hub-accum-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 12px;
+.hub-snapshot-link {
+  color: var(--accent);
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 12px;
 }
+
+/* Carousel outer — clips track + fades edges */
+.hub-accum-outer {
+  overflow: hidden;
+  position: relative;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 4%, black 96%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, black 4%, black 96%, transparent 100%);
+}
+
+/* Scrolling track — doubled items for seamless loop */
+.hub-accum-track {
+  display: flex;
+  gap: 12px;
+  width: max-content;
+  animation: hub-scroll 32s linear infinite;
+  padding-right: 12px;
+}
+.hub-accum-track.paused {
+  animation-play-state: paused;
+}
+@keyframes hub-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hub-accum-track { animation: none; }
+}
+
+/* Individual card */
 .hub-accum-item {
+  min-width: 178px;
+  max-width: 178px;
   padding: 12px 14px;
   background: var(--surface2);
   border-radius: 10px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  border: 1px solid transparent;
+  transition: box-shadow .2s, transform .18s, border-color .2s;
+  cursor: default;
+}
+.hub-accum-item.accum:hover {
+  transform: translateY(-3px);
+  border-color: var(--up);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--up) 22%, transparent);
+}
+.hub-accum-item.distrib:hover {
+  transform: translateY(-3px);
+  border-color: var(--down);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--down) 22%, transparent);
 }
 .hub-accum-ticker-row {
   display: flex;
@@ -303,6 +358,22 @@ body { display: flex; flex-direction: column; }
   font-size: 13px;
   font-weight: 600;
   color: var(--ink);
+}
+.hub-accum-type {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  padding: 1.5px 6px;
+  border-radius: 4px;
+}
+.hub-accum-type.accum {
+  background: color-mix(in srgb, var(--up) 14%, transparent);
+  color: var(--up);
+}
+.hub-accum-type.distrib {
+  background: color-mix(in srgb, var(--down) 14%, transparent);
+  color: var(--down);
 }
 .hub-accum-chg {
   font-family: var(--font-mono);
@@ -322,9 +393,10 @@ body { display: flex; flex-direction: column; }
 }
 .hub-accum-bar-fill {
   height: 100%;
-  background: var(--accent);
   border-radius: 99px;
 }
+.hub-accum-bar-fill.accum { background: var(--up); }
+.hub-accum-bar-fill.distrib { background: var(--down); }
 .hub-accum-meta {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -343,7 +415,7 @@ body { display: flex; flex-direction: column; }
 /* ── Responsive ── */
 @media (max-width: 1100px) { .hub-modules { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 900px)  { .hub-hero { grid-template-columns: 1fr; } .hub-greeting { font-size: 34px; } }
-@media (max-width: 700px)  { .hub-modules { grid-template-columns: 1fr; } .hub-accum-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 700px)  { .hub-modules { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body class="sidebar-layout" data-page="hub">
@@ -364,12 +436,8 @@ body { display: flex; flex-direction: column; }
     <!-- Hero -->
     <div class="hub-hero">
       <div>
-        <div class="hub-live-badge">
-          <div class="hub-live-dot"></div>
-          Market live · <span id="hubTime">--:-- WIB</span>
-        </div>
-        <h1 class="hub-greeting">Good day, {{ session.get('user','Trader') | capitalize }}.</h1>
-        <p class="hub-greeting-sub">Smart money is rotating. Here's where to look first today.</p>
+        <h1 class="hub-greeting" id="hubGreeting">Good morning, {{ session.get('user','Trader') | capitalize }}.</h1>
+        <p class="hub-greeting-sub" id="hubSub">Smart money is rotating. Here's where to look first today.</p>
         <div class="hub-cta-row">
           <a href="/flow" class="btn-ink">Open Flow →</a>
           <a href="/wyckoff" class="btn-outline">Wyckoff analysis</a>
@@ -408,8 +476,12 @@ body { display: flex; flex-direction: column; }
           </div>
         </div>
         <div class="hub-snapshot-footer">
-          <span id="snapTopMover">Top mover · —</span>
-          <a href="/flow" class="hub-snapshot-link">Open ledger →</a>
+          <div class="hub-mover-row">
+            <span class="hub-mover-label">Top mover</span>
+            <div id="snapMoverChips" style="display:flex;gap:6px;flex-wrap:wrap;">
+              <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--muted)">—</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -482,36 +554,23 @@ body { display: flex; flex-direction: column; }
       </a>
     </div>
 
-    <!-- Today's accumulation -->
+    <!-- Today's accumulation · distribution carousel -->
     <div class="hub-accum">
       <div class="hub-accum-header">
         <div>
           <div class="hub-accum-title">Today's accumulation</div>
-          <div class="hub-accum-sub">Top emiten by Clean Money</div>
+          <div class="hub-accum-sub">Top 5 accumulation · Top 5 distribution</div>
         </div>
         <a href="/flow" class="hub-snapshot-link">View all →</a>
       </div>
-      <div class="hub-accum-grid" id="accumGrid">
-        <!-- filled by JS -->
-        <div class="hub-accum-item" style="opacity:.4">
-          <div class="hub-accum-ticker-row"><div class="hub-accum-ticker skeleton"></div></div>
-          <div class="hub-accum-cm skeleton wide"></div>
-        </div>
-        <div class="hub-accum-item" style="opacity:.3">
-          <div class="hub-accum-ticker-row"><div class="hub-accum-ticker skeleton"></div></div>
-          <div class="hub-accum-cm skeleton wide"></div>
-        </div>
-        <div class="hub-accum-item" style="opacity:.2">
-          <div class="hub-accum-ticker-row"><div class="hub-accum-ticker skeleton"></div></div>
-          <div class="hub-accum-cm skeleton wide"></div>
-        </div>
-        <div class="hub-accum-item" style="opacity:.15">
-          <div class="hub-accum-ticker-row"><div class="hub-accum-ticker skeleton"></div></div>
-          <div class="hub-accum-cm skeleton wide"></div>
-        </div>
-        <div class="hub-accum-item" style="opacity:.1">
-          <div class="hub-accum-ticker-row"><div class="hub-accum-ticker skeleton"></div></div>
-          <div class="hub-accum-cm skeleton wide"></div>
+      <div class="hub-accum-outer">
+        <div class="hub-accum-track" id="accumTrack">
+          <!-- skeleton placeholders -->
+          <div class="hub-accum-item" style="opacity:.4"><div class="hub-accum-cm skeleton wide" style="height:14px;background:var(--border);border-radius:4px;"></div></div>
+          <div class="hub-accum-item" style="opacity:.3"><div class="hub-accum-cm skeleton wide" style="height:14px;background:var(--border);border-radius:4px;"></div></div>
+          <div class="hub-accum-item" style="opacity:.2"><div class="hub-accum-cm skeleton wide" style="height:14px;background:var(--border);border-radius:4px;"></div></div>
+          <div class="hub-accum-item" style="opacity:.15"><div class="hub-accum-cm skeleton wide" style="height:14px;background:var(--border);border-radius:4px;"></div></div>
+          <div class="hub-accum-item" style="opacity:.1"><div class="hub-accum-cm skeleton wide" style="height:14px;background:var(--border);border-radius:4px;"></div></div>
         </div>
       </div>
     </div>
@@ -524,12 +583,53 @@ body { display: flex; flex-direction: column; }
 <script src="/static/animations.js" defer></script>
 <script src="/static/shortcuts.js" defer></script>
 <script>
+/* ── Greeting + subtitle rotation ── */
+(function () {
+  var user = '{{ session.get("user","Trader") | capitalize }}';
+  var now  = new Date(Date.now() + 7 * 3600 * 1000); // WIB
+  var h    = now.getUTCHours();
+
+  var greet =
+    h >= 5  && h < 12 ? 'Good morning' :
+    h >= 12 && h < 15 ? 'Good afternoon' :
+    h >= 15 && h < 19 ? 'Good evening' :
+    h >= 19 && h < 22 ? 'Good evening' :
+                        'Good night';
+
+  var subs = [
+    'Smart money is rotating. Here’s where to look first today.',
+    'The tape is speaking. Follow where institutional conviction builds.',
+    'Big players have made their move. Now it’s your turn to read it.',
+    'Distribution or accumulation? The data has the answer.',
+    'Volume doesn’t lie. Track where real conviction is forming.',
+    'Today’s signal is live. Find the edge before the crowd does.',
+  ];
+  // rotate subtitle by hour so it changes every hour but stays stable within it
+  var sub = subs[h % subs.length];
+
+  var gEl = document.getElementById('hubGreeting');
+  var sEl = document.getElementById('hubSub');
+  if (gEl) gEl.textContent = greet + ', ' + user + '.';
+  if (sEl) sEl.textContent = sub;
+})();
+
+/* ── Clock ── */
+function tick() {
+  var now = new Date(Date.now() + 7 * 3600 * 1000);
+  var hms = String(now.getUTCHours()).padStart(2,'0') + ':' +
+            String(now.getUTCMinutes()).padStart(2,'0') + ':' +
+            String(now.getUTCSeconds()).padStart(2,'0');
+  document.getElementById('snapTime').textContent = hms;
+}
+tick(); setInterval(tick, 1000);
+
+/* ── Formatters ── */
 function fmtM(v) {
   if (v === null || v === undefined) return '—';
   var a = Math.abs(v), s = v < 0 ? '-' : '+';
-  if (a >= 1000) return s + (a/1000).toFixed(1) + 'B';
-  if (a >= 1) return s + a.toFixed(1) + 'M';
-  if (a > 0) return s + (a*1000).toFixed(0) + 'K';
+  if (a >= 1000) return s + (a / 1000).toFixed(1) + 'B';
+  if (a >= 1)    return s + a.toFixed(1) + 'M';
+  if (a > 0)     return s + (a * 1000).toFixed(0) + 'K';
   return '0';
 }
 function fmtPct(v) {
@@ -537,94 +637,121 @@ function fmtPct(v) {
   return (v > 0 ? '+' : '') + v.toFixed(2) + '%';
 }
 
-function tick() {
-  var now = new Date(Date.now() + 7*3600*1000);
-  var hms = String(now.getUTCHours()).padStart(2,'0') + ':' +
-            String(now.getUTCMinutes()).padStart(2,'0') + ':' +
-            String(now.getUTCSeconds()).padStart(2,'0');
-  var hm  = hms.substring(0, 5) + ' WIB';
-  document.getElementById('snapTime').textContent = hms;
-  document.getElementById('hubTime').textContent  = hm;
+/* ── Build one carousel card ── */
+function makeCard(r, type) {
+  var cm   = r.clean_money || 0;
+  var chg  = r.gain_pct || 0;
+  var maxV = r._max || 1;
+  var barPct = Math.min(100, Math.abs(cm) / maxV * 100);
+  return '<div class="hub-accum-item ' + type + '">' +
+    '<div class="hub-accum-ticker-row">' +
+      '<span class="hub-accum-ticker">' + r.ticker + '</span>' +
+      '<span class="hub-accum-type ' + type + '">' + (type === 'accum' ? 'ACC' : 'DIS') + '</span>' +
+    '</div>' +
+    '<div class="hub-accum-chg" style="color:' + (chg >= 0 ? 'var(--up)' : 'var(--down)') + '">' + fmtPct(chg) + '</div>' +
+    '<div class="hub-accum-cm">' + fmtM(cm) + '</div>' +
+    '<div class="hub-accum-bar-track"><div class="hub-accum-bar-fill ' + type + '" style="width:' + barPct + '%"></div></div>' +
+    '<div class="hub-accum-meta">RSM ' + (r.rsm || 0).toFixed(1) + '% · TX ' + (r.tx || 0) + '</div>' +
+  '</div>';
 }
-tick(); setInterval(tick, 1000);
 
+/* ── Main data fetch ── */
 async function init() {
   /* IHSG */
   try {
-    var r = await fetch('/api/ihsg');
-    var d = await r.json();
-    if (d.price) {
-      var p = d.price.toLocaleString('id-ID', {minimumFractionDigits:2, maximumFractionDigits:2});
-      document.getElementById('snapIHSG').textContent = p;
-      var g = d.gain_pct;
-      if (g !== null && g !== undefined) {
+    var ri = await fetch('/api/ihsg');
+    var di = await ri.json();
+    if (di.price) {
+      document.getElementById('snapIHSG').textContent =
+        di.price.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      var g = di.gain_pct;
+      if (g != null) {
         var el = document.getElementById('snapIHSGChg');
         el.textContent = (g > 0 ? '+' : '') + g.toFixed(2) + '%';
         el.style.color = g >= 0 ? 'var(--up)' : 'var(--down)';
       }
     }
-  } catch(_) {}
+  } catch (_) {}
 
   /* Flow data */
   try {
-    var r2 = await fetch('/api/last-date');
-    var ld = await r2.json();
-    if (ld.date) {
-      var dt = ld.date.replace(/\//g, '-');
-      var r3 = await fetch('/api/flow?date_from=' + dt + '&date_to=' + dt);
-      var fd = await r3.json();
-      var tickers = fd.tickers || [];
-      if (fd.totals) {
-        /* Clean Money from pre-computed totals */
-        var netCM = fd.totals.net_cm || 0;
-        document.getElementById('snapCM').textContent = fmtM(netCM);
-        document.getElementById('snapCM').style.color = netCM >= 0 ? 'var(--up)' : 'var(--down)';
-        /* Smart-active: tickers with both SM > 0 AND BM > 0 */
-        var smartActive = tickers.filter(function(t){ return (t.sm_val||0) > 0 && (t.bm_val||0) > 0; }).length;
-        document.getElementById('snapSMCount').textContent = smartActive;
-        /* Net MF */
-        var netMF = fd.totals.net_mf;
-        var netMFEl = document.getElementById('snapNetMF');
-        netMFEl.textContent = netMF != null ? fmtM(netMF) : '—';
-        netMFEl.style.color = (netMF != null && netMF >= 0) ? 'var(--up)' : 'var(--down)';
-      }
-      if (tickers.length > 0) {
-        /* Top 3 movers by gain_pct */
-        var withGain = tickers.filter(function(t){ return t.gain_pct != null; });
-        withGain.sort(function(a, b){ return (b.gain_pct||0) - (a.gain_pct||0); });
-        var top3 = withGain.slice(0, 3);
-        if (top3.length > 0) {
-          document.getElementById('snapTopMover').textContent =
-            'Top mover · ' + top3.map(function(t){
-              return t.ticker + ' ' + (t.gain_pct >= 0 ? '+' : '') + t.gain_pct.toFixed(2) + '%';
-            }).join(' · ');
-        }
-        /* Accumulation strip — top 5 by clean_money */
-        var sorted = tickers.slice().sort(function(a, b){ return (b.clean_money||0) - (a.clean_money||0); }).slice(0, 5);
-        var maxCM = Math.max.apply(null, sorted.map(function(r){ return Math.abs(r.clean_money||0); })) || 1;
-        var html = sorted.map(function(r) {
-          var cm = r.clean_money || 0, chg = r.gain_pct || 0;
-          var barPct = Math.min(100, Math.abs(cm) / maxCM * 100);
-          return '<div class="hub-accum-item">' +
-            '<div class="hub-accum-ticker-row">' +
-              '<span class="hub-accum-ticker">' + r.ticker + '</span>' +
-              '<span class="hub-accum-chg" style="color:' + (chg>=0?'var(--up)':'var(--down)') + '">' + fmtPct(chg) + '</span>' +
-            '</div>' +
-            '<div class="hub-accum-cm">' + fmtM(cm) + '</div>' +
-            '<div class="hub-accum-bar-track"><div class="hub-accum-bar-fill" style="width:' + barPct + '%"></div></div>' +
-            '<div class="hub-accum-meta">RSM ' + (r.rsm||0).toFixed(1) + '% · TX ' + (r.tx||0) + '</div>' +
-          '</div>';
+    var rld  = await fetch('/api/last-date');
+    var ld   = await rld.json();
+    if (!ld.date) return;
+
+    var dt  = ld.date.replace(/\//g, '-');
+    var rf  = await fetch('/api/flow?date_from=' + dt + '&date_to=' + dt);
+    var fd  = await rf.json();
+    var tickers = fd.tickers || [];
+
+    /* Snapshot stats */
+    if (fd.totals) {
+      var netCM = fd.totals.net_cm || 0;
+      var cmEl  = document.getElementById('snapCM');
+      cmEl.textContent  = fmtM(netCM);
+      cmEl.style.color  = netCM >= 0 ? 'var(--up)' : 'var(--down)';
+
+      var active = tickers.filter(function (t) { return (t.sm_val || 0) > 0 && (t.bm_val || 0) > 0; }).length;
+      document.getElementById('snapSMCount').textContent = active;
+
+      var netMF   = fd.totals.net_mf;
+      var netMFEl = document.getElementById('snapNetMF');
+      netMFEl.textContent = netMF != null ? fmtM(netMF) : '—';
+      netMFEl.style.color = (netMF != null && netMF >= 0) ? 'var(--up)' : 'var(--down)';
+    }
+
+    /* Top mover chips */
+    if (tickers.length > 0) {
+      var withGain = tickers.filter(function (t) { return t.gain_pct != null; });
+      withGain.sort(function (a, b) { return Math.abs(b.gain_pct || 0) - Math.abs(a.gain_pct || 0); });
+      var top3 = withGain.slice(0, 3);
+      var chipsEl = document.getElementById('snapMoverChips');
+      if (top3.length > 0) {
+        chipsEl.innerHTML = top3.map(function (t) {
+          var cls = (t.gain_pct >= 0) ? 'up' : 'down';
+          return '<span class="hub-mover-chip ' + cls + '">' +
+            t.ticker + ' ' + (t.gain_pct >= 0 ? '+' : '') + t.gain_pct.toFixed(2) + '%' +
+          '</span>';
         }).join('');
-        document.getElementById('accumGrid').innerHTML = html;
       }
     }
-  } catch(_) {}
+
+    /* Carousel — top 5 accum + top 5 distrib */
+    if (tickers.length > 0) {
+      var sorted = tickers.slice().sort(function (a, b) { return (b.clean_money || 0) - (a.clean_money || 0); });
+      var top5Accum  = sorted.slice(0, 5);
+      var top5Distrib = sorted.slice().reverse().slice(0, 5);
+
+      var maxAccum  = Math.max.apply(null, top5Accum.map(function  (r) { return Math.abs(r.clean_money || 0); })) || 1;
+      var maxDistrib = Math.max.apply(null, top5Distrib.map(function(r) { return Math.abs(r.clean_money || 0); })) || 1;
+
+      top5Accum.forEach(function  (r) { r._max = maxAccum; });
+      top5Distrib.forEach(function(r) { r._max = maxDistrib; });
+
+      // Build items array (10 total), then duplicate for seamless loop
+      var items = [];
+      top5Accum.forEach(function  (r) { items.push(makeCard(r, 'accum')); });
+      top5Distrib.forEach(function(r) { items.push(makeCard(r, 'distrib')); });
+
+      // Duplicate for seamless infinite scroll
+      var html = items.join('') + items.join('');
+
+      var track = document.getElementById('accumTrack');
+      track.innerHTML = html;
+
+      // Pause animation when hovering any card
+      track.querySelectorAll('.hub-accum-item').forEach(function (card) {
+        card.addEventListener('mouseenter', function () { track.classList.add('paused'); });
+        card.addEventListener('mouseleave', function () { track.classList.remove('paused'); });
+      });
+    }
+  } catch (_) {}
 }
 
 window.addEventListener('DOMContentLoaded', init);
 
 /* Help modal */
-window.__showZenithHelp = function() {
+window.__showZenithHelp = function () {
   if (typeof ZenithModal !== 'undefined' && document.getElementById('infoBackdrop')) {
     ZenithModal.open('infoBackdrop', document.getElementById('sidebarHelpBtn'));
   }
