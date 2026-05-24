@@ -352,25 +352,24 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
     else:
         signal_dates = all_sorted_dates
 
-    # Fetch daily OHLC from price_history for exit simulation.
-    # price_history.date is YYYY-MM-DD; key: (ymd, ticker)
+    from algo.algo_bsjp import eval_exit_15m
+
+    # Fetch daily OHLC from price_history as fallback for tickers missing 15m data.
     ph_rows = fetchall(conn, """
         SELECT ticker, date, open, high, low, close
-        FROM price_history
-        WHERE close IS NOT NULL
+        FROM price_history WHERE close IS NOT NULL
     """)
-    ph_map = {}
-    for r in ph_rows:
-        ph_map[(str(r["date"]), r["ticker"])] = r  # price_history.date is YYYY-MM-DD
+    ph_map = {(str(r["date"]), r["ticker"]): r for r in ph_rows}
 
     TOP_N = 15
-    setup_trades = _dd(list)
 
+    # Pass 1: generate signals per day, record which (next_ymd, ticker) need 15m data.
+    day_results = []
+    ph15_needed = set()
     for date_str in signal_dates:
         next_date = date_to_next.get(date_str)
         if not next_date:
             continue
-
         day_sigs = []
         for ticker, row in all_days[date_str].items():
             if ticker in BLACKLIST:
@@ -381,63 +380,92 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
             if not sig:
                 continue
             day_sigs.append((_compute_score(row, sig["setup"]), ticker, sig))
-
         day_sigs.sort(key=lambda x: -x[0])
-
+        top = day_sigs[:TOP_N]
         next_ymd = _dmy_to_ymd(next_date)
-        for _, ticker, sig in day_sigs[:TOP_N]:
+        for _, ticker, _ in top:
+            ph15_needed.add((next_ymd, ticker))
+        day_results.append((date_str, next_date, next_ymd, top))
+
+    # Pass 2: batch-fetch 15m candles only for the tickers/dates we need.
+    candles_map: dict = _dd(list)
+    if ph15_needed:
+        next_ymds  = list({k[0] for k in ph15_needed})
+        tickers_15 = list({k[1] for k in ph15_needed})
+        ph15_rows  = fetchall(conn, """
+            SELECT datetime, ticker, open, high, low, close
+            FROM price_history_15m
+            WHERE LEFT(datetime, 10) = ANY(%s) AND ticker = ANY(%s)
+            ORDER BY ticker, datetime
+        """, [next_ymds, tickers_15])
+        for r in ph15_rows:
+            key = (str(r["datetime"])[:10], r["ticker"])
+            if key in ph15_needed:
+                candles_map[key].append(r)
+
+    # Pass 3: evaluate exits.
+    setup_trades = _dd(list)
+    for date_str, next_date, next_ymd, top in day_results:
+        for _, ticker, sig in top:
             entry = sig["entry"]
             tp1   = sig["tp1"]
             tp2   = sig["tp2"]
             sl    = sig["sl"]
 
-            ph = ph_map.get((next_ymd, ticker))
-            if ph:
-                next_close = float(ph["close"] or 0)
-                if not next_close:
-                    continue
-                next_open = float(ph["open"] or next_close)
-                next_high = float(ph["high"] or next_close)
-                next_low  = float(ph["low"]  or next_close)
+            candles = candles_map.get((next_ymd, ticker))
+            if candles:
+                res       = eval_exit_15m(entry, tp1, tp2, sl, candles)
+                status    = res["status"]
+                reason    = res["reason"]
+                exit_p    = res["exit_price"] or entry
+                exit_time = str(res.get("exit_time") or "")[-5:] or None  # HH:MM
+                pnl_pct   = res.get("pnl_pct")
             else:
-                # Fallback: use eod_summary close
-                nr = all_days.get(next_date, {}).get(ticker)
-                if not nr or not nr.get("price_close"):
-                    continue
-                next_close = next_open = next_high = next_low = float(nr["price_close"])
-
-            # Exit simulation: gap checks first, then intraday OHLC
-            if next_open <= sl:
-                status, reason, exit_p = "Gagal", "SL[gap]", round(next_open)
-            elif next_open >= tp2:
-                status, reason, exit_p = "Berhasil", "TP2[gap]", tp2
-            elif next_open >= tp1:
-                if next_high >= tp2:
-                    status, reason, exit_p = "Berhasil", "TP2", tp2
+                # Fallback: daily OHLC simulation when 15m data unavailable
+                ph = ph_map.get((next_ymd, ticker))
+                if ph:
+                    nc = float(ph["close"] or 0)
+                    if not nc:
+                        continue
+                    no_ = float(ph["open"] or nc)
+                    nh  = float(ph["high"] or nc)
+                    nl  = float(ph["low"]  or nc)
                 else:
-                    status, reason, exit_p = "Berhasil", "TP1[gap]", tp1
-            elif next_low <= sl and next_high >= tp1:
-                mid = (sl + tp1) / 2
-                if next_open <= mid:
+                    nr = all_days.get(next_date, {}).get(ticker)
+                    if not nr or not nr.get("price_close"):
+                        continue
+                    nc = no_ = nh = nl = float(nr["price_close"])
+
+                if no_ <= sl:
+                    status, reason, exit_p = "Gagal", "SL[gap]", round(no_)
+                elif no_ >= tp2:
+                    status, reason, exit_p = "Berhasil", "TP2[gap]", tp2
+                elif no_ >= tp1:
+                    status, reason, exit_p = ("Berhasil", "TP2", tp2) if nh >= tp2 else ("Berhasil", "TP1[gap]", tp1)
+                elif nl <= sl and nh >= tp1:
+                    mid = (sl + tp1) / 2
+                    if no_ <= mid:
+                        status, reason, exit_p = "Gagal", "SL", sl
+                    elif nh >= tp2:
+                        status, reason, exit_p = "Berhasil", "TP2", tp2
+                    else:
+                        status, reason, exit_p = "Berhasil", "TP1", tp1
+                elif nl <= sl:
                     status, reason, exit_p = "Gagal", "SL", sl
-                elif next_high >= tp2:
+                elif nh >= tp2:
                     status, reason, exit_p = "Berhasil", "TP2", tp2
-                else:
+                elif nh >= tp1:
                     status, reason, exit_p = "Berhasil", "TP1", tp1
-            elif next_low <= sl:
-                status, reason, exit_p = "Gagal", "SL", sl
-            elif next_high >= tp2:
-                status, reason, exit_p = "Berhasil", "TP2", tp2
-            elif next_high >= tp1:
-                status, reason, exit_p = "Berhasil", "TP1", tp1
-            else:
-                status, reason, exit_p = "Gagal", "NO_TARGET", round(next_close)
+                else:
+                    status, reason, exit_p = "Gagal", "NO_TARGET", round(nc)
+                exit_time = None
+                pnl_pct   = round((exit_p - entry) / entry * 100, 4) if entry else None
 
-            pnl_pct = round((exit_p - entry) / entry * 100, 4) if entry else None
             setup_trades[sig["setup"]].append({
                 "ticker":     ticker,
                 "date":       date_str,
                 "exit_date":  next_date,
+                "exit_time":  exit_time,
                 "entry":      entry,
                 "exit_price": exit_p,
                 "status":     status,

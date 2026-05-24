@@ -25,6 +25,19 @@ def _i(val, default=0):
 
 BLACKLIST = {"HATM", "JAST", "CYBR", "AYLS", "VAST", "VTNY"}
 
+
+def _to_tick(price: float) -> int:
+    """Round price to nearest valid IDX tick (fraksi harga BEI)."""
+    if price < 200:
+        tick = 1
+    elif price < 500:
+        tick = 2
+    elif price < 5000:
+        tick = 5
+    else:
+        tick = 25
+    return int(round(price / tick) * tick)
+
 def _is_ara(row: dict) -> bool:
     price  = _f(row.get("price_close"), 0)
     change = _f(row.get("price_change_pct"), 0)
@@ -103,13 +116,13 @@ class BSJPAlgo:
             ("SMA5_PULLBACK_V12", self._setup_sma5_pullback_v12),
         ]:
             if rpr <= self.SETUP_MAX_RPR[name] and fn(row):
-                entry   = round(price_close)
+                entry   = _to_tick(price_close)
                 sl_type = self.SL_MAP[name]
                 return {
                     "setup":   name,
                     "entry":   entry,
-                    "tp1":     round(price_close * 1.01),
-                    "tp2":     round(price_close * 1.02),
+                    "tp1":     _to_tick(price_close * 1.01),
+                    "tp2":     _to_tick(price_close * 1.02),
                     "sl":      self._compute_sl(row, entry, sl_type),
                     "sl_type": sl_type,
                 }
@@ -130,11 +143,11 @@ class BSJPAlgo:
     def _compute_sl(self, row: dict, entry: int, sl_type: str) -> int:
         if sl_type == "MA5":
             ma5 = _f(row.get("ma5"), 0)
-            return round(ma5) if ma5 > 0 else round(entry * 0.98)
+            return _to_tick(ma5) if ma5 > 0 else _to_tick(entry * 0.98)
         elif sl_type == "BB_MID":
             bb_mid = _f(row.get("bb_mid"), 0)
-            return round(bb_mid) if bb_mid > 0 else round(entry * 0.98)
-        return round(entry * 0.98)
+            return _to_tick(bb_mid) if bb_mid > 0 else _to_tick(entry * 0.98)
+        return _to_tick(entry * 0.98)
 
     def _setup_power_break_v21(self, row: dict) -> bool:
         return (

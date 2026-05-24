@@ -488,32 +488,37 @@ function renderBSJP(result) {
 }
 
 function renderBSJPDetail(r, col, bg, nm) {
-  var details = (r.details || []).slice(0, 8);
+  var details = r.details || [];
   var rowsHtml = details.map(function(t) {
     var pColor = t.pnl_pct > 0 ? 'var(--up)' : t.pnl_pct < 0 ? 'var(--down)' : 'var(--text-dim)';
     return '<tr class="detail-tr">'+
       '<td class="detail-td" style="text-align:left;color:var(--ink)">'+t.ticker+'</td>'+
       '<td class="detail-td">'+t.date+'</td>'+
       '<td class="detail-td">'+t.exit_date+'</td>'+
+      '<td class="detail-td" style="color:var(--muted)">'+(t.exit_time||'—')+'</td>'+
       '<td class="detail-td">'+t.entry.toLocaleString('id-ID')+'</td>'+
       '<td class="detail-td">'+(t.exit_price!=null?t.exit_price.toLocaleString('id-ID'):'—')+'</td>'+
       '<td class="detail-td" style="font-weight:700;color:'+pColor+'">'+(t.pnl_pct!=null?(t.pnl_pct>0?'+':'')+t.pnl_pct.toFixed(2)+'%':'—')+'</td>'+
       '<td class="detail-td" style="color:var(--text-dim);font-size:11px">'+(t.reason||'—')+'</td>'+
     '</tr>';
   }).join('');
-  if (!rowsHtml) rowsHtml = '<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--muted);font-size:12px">Tidak ada detail trade.</td></tr>';
+  if (!rowsHtml) rowsHtml = '<tr><td colspan="8" style="padding:16px;text-align:center;color:var(--muted);font-size:12px">Tidak ada detail trade.</td></tr>';
   return '<tr class="detail-row"><td colspan="7" style="padding:0 14px 14px;background:var(--surface)">'+
     '<div class="detail-inner" style="border:1.5px solid '+col+'">'+
       '<div class="detail-header" style="background:'+bg+'">'+
         '<span style="font-size:13px;font-weight:600;color:'+col+';font-family:var(--font-mono)">'+nm+' · '+r.total+' trades · '+r.win_rate+'% WR · exp '+(r.expectancy!=null?(r.expectancy>0?'+':'')+r.expectancy.toFixed(2):'—')+'%</span>'+
         '<div onclick="event.stopPropagation();clearBSJPDetail()" style="font-size:16px;color:var(--muted);cursor:pointer;line-height:1">✕</div>'+
       '</div>'+
-      '<div style="background:var(--surface)"><table class="detail-table">'+
+      '<div style="background:var(--surface);overflow-y:auto;max-height:380px"><table class="detail-table">'+
         '<thead><tr>'+
-          '<th class="detail-th" style="text-align:left">Ticker</th>'+
-          '<th class="detail-th">Sinyal</th><th class="detail-th">Exit</th>'+
-          '<th class="detail-th">Entry</th><th class="detail-th">Exit ₽</th>'+
-          '<th class="detail-th">P&amp;L</th><th class="detail-th">Reason</th>'+
+          '<th class="detail-th" style="text-align:left;position:sticky;top:0;background:var(--surface)">Ticker</th>'+
+          '<th class="detail-th" style="position:sticky;top:0;background:var(--surface)">Sinyal</th>'+
+          '<th class="detail-th" style="position:sticky;top:0;background:var(--surface)">Exit date</th>'+
+          '<th class="detail-th" style="position:sticky;top:0;background:var(--surface)">Exit time</th>'+
+          '<th class="detail-th" style="position:sticky;top:0;background:var(--surface)">Entry</th>'+
+          '<th class="detail-th" style="position:sticky;top:0;background:var(--surface)">Exit ₽</th>'+
+          '<th class="detail-th" style="position:sticky;top:0;background:var(--surface)">P&amp;L</th>'+
+          '<th class="detail-th" style="position:sticky;top:0;background:var(--surface)">Reason</th>'+
         '</tr></thead><tbody>'+rowsHtml+'</tbody>'+
       '</table></div>'+
     '</div></td></tr>';
