@@ -322,14 +322,22 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
     }
 
     # ── Fetch semua EOD data ─────────────────────────────────────────────────────
+    # JOIN price_history for BSJP setup columns that may not be in eod_summary yet
+    # (ph.date is YYYY-MM-DD; e.date is DD-MM-YYYY — convert via substring)
     all_rows = fetchall(conn, """
-        SELECT ticker, date, price_close, price_change_pct, phase,
-               sri, rpr, mf_ratio, sm_val, bm_val, ma5, bb_mid,
-               close_pos, prev_close_below_ma5, prev_high_break,
-               ma5_price_streak, is_sideways, daily_value, days_since_near_bb_mid
-        FROM eod_summary
-        WHERE price_close IS NOT NULL
-        ORDER BY ticker, date
+        SELECT e.ticker, e.date, e.price_close, e.price_change_pct, e.phase,
+               e.sri, e.rpr, e.mf_ratio, e.sm_val, e.bm_val, e.ma5, e.bb_mid,
+               e.close_pos, e.prev_high_break, e.is_sideways,
+               COALESCE(e.prev_close_below_ma5,  ph.prev_close_below_ma5)  AS prev_close_below_ma5,
+               COALESCE(e.ma5_price_streak,       ph.ma5_price_streak)      AS ma5_price_streak,
+               COALESCE(e.daily_value,             ph.daily_value)           AS daily_value,
+               COALESCE(e.days_since_near_bb_mid,  ph.days_since_near_bb_mid) AS days_since_near_bb_mid
+        FROM eod_summary e
+        LEFT JOIN price_history ph
+          ON ph.ticker = e.ticker
+          AND ph.date = substr(e.date,7,4)||'-'||substr(e.date,4,2)||'-'||substr(e.date,1,2)
+        WHERE e.price_close IS NOT NULL
+        ORDER BY e.ticker, e.date
     """)
     if not all_rows:
         with _bsjp_lock:

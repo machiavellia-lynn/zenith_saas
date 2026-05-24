@@ -150,6 +150,11 @@ def _create_eod_summary(conn):
         ("close_pos",       "REAL"),
         ("prev_high_break", "BOOLEAN"),
         ("mf_ratio",        "REAL"),
+        # BSJP setup condition columns (may live in price_history; mirrored here for single-table reads)
+        ("prev_close_below_ma5",  "BOOLEAN"),
+        ("ma5_price_streak",      "INTEGER"),
+        ("daily_value",           "REAL"),
+        ("days_since_near_bb_mid","INTEGER"),
     ]:
         conn.cursor().execute(
             f"ALTER TABLE eod_summary ADD COLUMN IF NOT EXISTS {col} {typedef}"
