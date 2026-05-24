@@ -188,3 +188,51 @@ class BSJPAlgo:
             and _f(row.get("price_close"), 0) >= _f(row.get("ma5"), 0)
             and _i(row.get("ma5_price_streak"), 0) >= 1
         )
+
+
+def eval_exit_15m(entry: int, tp1: int, tp2: int, sl: int, candles: list) -> dict:
+    """Evaluate BSJP exit via 15m candles (oldest-first).
+    candles: list of dicts with keys: datetime, open, high, low, close."""
+    if not candles:
+        return {"status": "Gagal", "reason": "NO_DATA", "exit_price": None, "pnl_pct": None}
+
+    for i, c in enumerate(candles):
+        o = _f(c.get("open"))
+        h = _f(c.get("high"))
+        l = _f(c.get("low"))
+        t = c.get("datetime")
+
+        if o is None:
+            continue
+
+        if i == 0:
+            if o <= sl:
+                return _exit_res("Gagal", "SL[gap]", o, t, entry)
+            if tp2 and o >= tp2:
+                return _exit_res("Berhasil", "TP2[gap]", o, t, entry)
+            if tp1 and o >= tp1:
+                if h and tp2 and h >= tp2:
+                    return _exit_res("Berhasil", "TP2", tp2, t, entry)
+                return _exit_res("Berhasil", "TP1[gap]", o, t, entry)
+        else:
+            if l is not None and l <= sl:
+                mid = (sl + tp1) / 2 if tp1 else sl
+                if h and tp2 and h >= tp2:
+                    return _exit_res("Gagal", "SL", sl, t, entry) if o <= mid else _exit_res("Berhasil", "TP2", tp2, t, entry)
+                if h and tp1 and h >= tp1:
+                    return _exit_res("Gagal", "SL", sl, t, entry) if o <= mid else _exit_res("Berhasil", "TP1", tp1, t, entry)
+                return _exit_res("Gagal", "SL", sl, t, entry)
+            if h and tp2 and h >= tp2:
+                return _exit_res("Berhasil", "TP2", tp2, t, entry)
+            if h and tp1 and h >= tp1:
+                return _exit_res("Berhasil", "TP1", tp1, t, entry)
+
+    last = candles[-1]
+    lc = _f(last.get("close")) or entry
+    return _exit_res("Gagal", "NO_TARGET", lc, last.get("datetime"), entry)
+
+
+def _exit_res(status, reason, exit_price, exit_time, entry):
+    ep  = round(exit_price) if exit_price else None
+    pnl = round((exit_price - entry) / entry * 100, 4) if entry and exit_price else None
+    return {"status": status, "reason": reason, "exit_price": ep, "exit_time": exit_time, "pnl_pct": pnl}

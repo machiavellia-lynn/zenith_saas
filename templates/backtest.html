@@ -54,6 +54,14 @@ body.sidebar-layout { overflow: hidden; }
 @keyframes adminSpin { to { transform: rotate(360deg); } }
 @keyframes bt-progress { from { width: 0; } to { width: 95%; } }
 .bt-progress-bar { height: 100%; background: var(--accent); border-radius: 99px; animation: bt-progress 2.2s ease-in-out forwards; }
+/* Algo toggle */
+.algo-toggle { display:flex; border:1.5px solid var(--border); border-radius:8px; overflow:hidden; }
+.algo-btn {
+  padding:6px 18px; font-size:12px; font-weight:600; border:none; cursor:pointer;
+  background:transparent; color:var(--text-dim); font-family:var(--font-sans); letter-spacing:.02em;
+  transition:background .15s, color .15s;
+}
+.algo-btn.active { background:var(--accent); color:#fff; }
 </style>
 </head>
 <body class="sidebar-layout">
@@ -62,10 +70,14 @@ body.sidebar-layout { overflow: hidden; }
 <div class="main-content">
   <div class="page-header">
     <div>
-      <div class="page-subtitle">Strategy leaderboard · Wyckoff signals</div>
+      <div class="page-subtitle" id="pageSubtitle">Strategy leaderboard · Wyckoff signals</div>
       <h1 class="page-title">Backtest</h1>
     </div>
     <div class="page-header-actions">
+      <div class="algo-toggle">
+        <button class="algo-btn active" id="btnWyckoff" onclick="setAlgo('wyckoff')">Wyckoff</button>
+        <button class="algo-btn" id="btnBSJP" onclick="setAlgo('bsjp')">BSJP</button>
+      </div>
       <button class="action-btn" id="runBtn" onclick="runBacktest()" style="font-weight:600;display:flex;align-items:center;gap:6px">Run backtest</button>
     </div>
   </div>
@@ -150,6 +162,71 @@ body.sidebar-layout { overflow: hidden; }
       </div>
     </div>
 
+    <!-- BSJP Summary cards -->
+    <div class="stat-cards-5" id="bsjpSummaryCards" style="display:none">
+      <div class="stat-card">
+        <div class="stat-card-label">Total trades</div>
+        <div class="stat-card-value ink" id="bsTotalTrades">—</div>
+        <div class="stat-card-sub" id="bsSetupCount">— setups</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Win / Loss</div>
+        <div class="stat-card-value" id="bsWinLoss">—</div>
+        <div class="stat-card-sub"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Win rate</div>
+        <div class="stat-card-value" id="bsWinRate">—</div>
+        <div class="stat-card-sub">≥60% = strong</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Expectancy</div>
+        <div class="stat-card-value" id="bsExpectancy">—</div>
+        <div class="stat-card-sub">avg P&amp;L per trade</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Periode</div>
+        <div class="stat-card-value ink" style="font-size:13px" id="bsDateRange">—</div>
+        <div class="stat-card-sub" id="bsComputedAt">—</div>
+      </div>
+    </div>
+
+    <!-- BSJP Leaderboard -->
+    <div class="data-table" id="bsjpLeaderWrap" style="display:none">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--ink)">BSJP Setup Leaderboard</div>
+          <div style="font-size:11.5px;color:var(--muted);margin-top:2px">Klik baris untuk lihat detail trade</div>
+        </div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted)" id="bsjpSortLabel">Sort: Expectancy ↓</div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="bt-table" id="bsjpTable">
+          <colgroup>
+            <col style="width:44px"/><col style="width:200px"/><col style="width:80px"/>
+            <col style="width:140px"/><col style="width:110px"/><col style="width:100px"/>
+            <col style="width:100px"/>
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="bt-th left">#</th>
+              <th class="bt-th left">Setup</th>
+              <th class="bt-th bsjp-sortable" data-col="total">Total</th>
+              <th class="bt-th bsjp-sortable" data-col="win_rate">Win rate</th>
+              <th class="bt-th bsjp-sortable active-sort" data-col="expectancy">Expectancy</th>
+              <th class="bt-th bsjp-sortable" data-col="avg_win">Avg win</th>
+              <th class="bt-th bsjp-sortable" data-col="avg_loss">Avg loss</th>
+            </tr>
+          </thead>
+          <tbody id="bsjpBody"></tbody>
+        </table>
+      </div>
+      <div class="data-table-foot">
+        <span id="bsjpCount">—</span>
+        <span class="foot-sort" id="bsjpSortLabelFoot">Sort: Expectancy ↓</span>
+      </div>
+    </div>
+
     <div id="emptyState" style="padding:64px 0;text-align:center;color:var(--muted);font-size:13px">
       Belum ada data. Klik <strong style="color:var(--ink)">Run backtest</strong> untuk memulai.
     </div>
@@ -160,7 +237,15 @@ body.sidebar-layout { overflow: hidden; }
 <script src="/static/zenith-utils.js"></script>
 <script>
 (function(){
-var S = { dateFrom:'', dateTo:'', data:null, sortCol:'win_rate', sortAsc:false, detail:null, loading:false };
+var S = {
+  algo: 'wyckoff',
+  dateFrom: '', dateTo: '',
+  data: null, bsjpData: null,
+  sortCol: 'win_rate', sortAsc: false,
+  bsjpSortCol: 'expectancy', bsjpSortAsc: false,
+  detail: null, bsjpDetail: null,
+  loading: false
+};
 var today = window.todayLocal();
 S.dateFrom = S.dateTo = today;
 
@@ -170,7 +255,32 @@ new window.StockbitDatePicker('btDatePicker', {
   onChange: function(from, to) { S.dateFrom = from; S.dateTo = to || from; }
 });
 
-/* Phase colors */
+/* ── Algo toggle ─────────────────────────────────────────────────────────── */
+window.setAlgo = function(algo) {
+  S.algo = algo;
+  document.getElementById('btnWyckoff').classList.toggle('active', algo === 'wyckoff');
+  document.getElementById('btnBSJP').classList.toggle('active', algo === 'bsjp');
+  document.getElementById('pageSubtitle').textContent =
+    algo === 'wyckoff' ? 'Strategy leaderboard · Wyckoff signals' : 'Strategy leaderboard · BSJP overnight swing';
+
+  var isWy = algo === 'wyckoff';
+  document.getElementById('leaderWrap').style.display      = isWy && S.data ? '' : 'none';
+  document.getElementById('summaryCards').style.display    = isWy && S.data ? '' : 'none';
+  document.getElementById('bsjpLeaderWrap').style.display  = !isWy && S.bsjpData ? '' : 'none';
+  document.getElementById('bsjpSummaryCards').style.display= !isWy && S.bsjpData ? '' : 'none';
+  var hasData = isWy ? !!S.data : !!S.bsjpData;
+  document.getElementById('emptyState').style.display = hasData ? 'none' : '';
+
+  if (!isWy && S.bsjpData) {
+    document.getElementById('btStatus').innerHTML = 'Computed: <strong style="color:var(--ink)">' + (S.bsjpData.computed_at||'—') + '</strong>';
+  } else if (isWy && S.data) {
+    document.getElementById('btStatus').innerHTML = 'Computed: <strong style="color:var(--ink)">' + (S.data.computed_at||'—') + '</strong>';
+  } else {
+    document.getElementById('btStatus').innerHTML = 'Belum ada data. Klik <strong style="color:var(--ink)">Run backtest</strong>.';
+  }
+};
+
+/* ── Phase colors (Wyckoff) ──────────────────────────────────────────────── */
 var PHASE_COLORS = {
   Spring: '#3a6b58', SOS: '#3a6b58', Accum: '#3a6b58',
   Absorb: '#4a7fdb', Upthrust: '#c87d3a', Distribution: '#c8633a', UNKNOWN: '#9a9080'
@@ -179,6 +289,29 @@ var PHASE_BG = {
   Spring: 'rgba(58,107,88,.11)', SOS: 'rgba(58,107,88,.08)', Accum: 'rgba(58,107,88,.07)',
   Absorb: 'rgba(74,127,219,.11)', Upthrust: 'rgba(200,125,58,.11)', Distribution: 'rgba(200,99,58,.08)', UNKNOWN: 'rgba(0,0,0,.05)'
 };
+
+/* ── Setup colors (BSJP) ─────────────────────────────────────────────────── */
+var SETUP_NAMES = {
+  POWER_BREAK_V22:   'BREAKOUT_MA5',
+  POWER_BREAK_V21:   'BREAKOUT_SIDEWAYS',
+  SMA5_BREAKOUT_V13: 'TRENDING_PREV_HIGH',
+  SMA5_BREAKOUT_V11: 'CROSS_MA5',
+  BB_PULLBACK:       'PULLBACK_BB',
+  SMA5_PULLBACK_V12: 'PULLBACK_MA5',
+};
+var SETUP_COL = {
+  BREAKOUT_MA5:      '#3a6b58', BREAKOUT_SIDEWAYS:  '#4a7fdb',
+  TRENDING_PREV_HIGH:'#2d7a9a', CROSS_MA5:          '#c87d3a',
+  PULLBACK_BB:       '#7a58a8', PULLBACK_MA5:        '#5a8a3a',
+};
+var SETUP_BG = {
+  BREAKOUT_MA5:      'rgba(58,107,88,.11)', BREAKOUT_SIDEWAYS:  'rgba(74,127,219,.11)',
+  TRENDING_PREV_HIGH:'rgba(45,122,154,.11)', CROSS_MA5:         'rgba(200,125,58,.11)',
+  PULLBACK_BB:       'rgba(122,88,168,.11)', PULLBACK_MA5:      'rgba(90,138,58,.11)',
+};
+function setupName(k) { return SETUP_NAMES[k] || k; }
+function setupCol(k)  { return SETUP_COL[setupName(k)] || '#9a9080'; }
+function setupBg(k)   { return SETUP_BG[setupName(k)] || 'rgba(0,0,0,.05)'; }
 
 function phaseColor(p) { return PHASE_COLORS[p] || PHASE_COLORS.UNKNOWN; }
 function phaseBg(p) { return PHASE_BG[p] || PHASE_BG.UNKNOWN; }
@@ -191,7 +324,7 @@ function wrBar(wr) {
   '</div>';
 }
 
-/* Sort */
+/* ── Wyckoff sort ────────────────────────────────────────────────────────── */
 document.querySelectorAll('.bt-th.sortable').forEach(function(th) {
   th.addEventListener('click', function() {
     var col = th.dataset.col;
@@ -199,19 +332,36 @@ document.querySelectorAll('.bt-th.sortable').forEach(function(th) {
     else { S.sortCol = col; S.sortAsc = false; }
     document.querySelectorAll('.bt-th.sortable').forEach(function(e){ e.classList.remove('active-sort'); });
     th.classList.add('active-sort');
-    document.getElementById('sortLabel').textContent = 'Sort: '+col.replace('_',' ')+(S.sortAsc?' ↑':' ↓');
-    document.getElementById('leaderSortLabel').textContent = 'Sort: '+col.replace('_',' ')+(S.sortAsc?' ↑':' ↓');
+    var lbl = 'Sort: '+col.replace('_',' ')+(S.sortAsc?' ↑':' ↓');
+    document.getElementById('sortLabel').textContent = lbl;
+    document.getElementById('leaderSortLabel').textContent = lbl;
     if (S.data) render(S.data);
   });
 });
 
+/* ── BSJP sort ───────────────────────────────────────────────────────────── */
+document.querySelectorAll('.bt-th.bsjp-sortable').forEach(function(th) {
+  th.addEventListener('click', function() {
+    var col = th.dataset.col;
+    if (S.bsjpSortCol === col) S.bsjpSortAsc = !S.bsjpSortAsc;
+    else { S.bsjpSortCol = col; S.bsjpSortAsc = false; }
+    document.querySelectorAll('.bt-th.bsjp-sortable').forEach(function(e){ e.classList.remove('active-sort'); });
+    th.classList.add('active-sort');
+    var lbl = 'Sort: '+col.replace('_',' ')+(S.bsjpSortAsc?' ↑':' ↓');
+    document.getElementById('bsjpSortLabel').textContent = lbl;
+    document.getElementById('bsjpSortLabelFoot').textContent = lbl;
+    if (S.bsjpData) renderBSJP(S.bsjpData);
+  });
+});
+
+/* ── Render Wyckoff ──────────────────────────────────────────────────────── */
 function render(result) {
   S.data = result;
   document.getElementById('emptyState').style.display = 'none';
+  if (S.algo !== 'wyckoff') return;
   document.getElementById('leaderWrap').style.display = '';
   document.getElementById('summaryCards').style.display = '';
 
-  /* Summary */
   var wr = result.overall_win_rate;
   var pf = result.overall_profit_factor;
   document.getElementById('sTotalTrades').textContent = (result.total_trades||0).toLocaleString('id-ID');
@@ -226,7 +376,6 @@ function render(result) {
   document.getElementById('sTickers').textContent = (result.tickers_tested||0).toLocaleString('id-ID');
   document.getElementById('sDateRange').textContent = result.date_range || '—';
 
-  /* Sort leaderboard */
   var rows = (result.leaderboard || []).slice().sort(function(a,b) {
     var av = a[S.sortCol] != null ? a[S.sortCol] : -999999;
     var bv = b[S.sortCol] != null ? b[S.sortCol] : -999999;
@@ -235,13 +384,11 @@ function render(result) {
 
   var medals = ['🥇','🥈','🥉'];
   document.getElementById('leaderBody').innerHTML = rows.map(function(r, i) {
-    var col  = phaseColor(r.entry);
-    var bg   = phaseBg(r.entry);
-    var pf_  = r.profit_factor;
+    var col = phaseColor(r.entry), bg = phaseBg(r.entry);
+    var pf_ = r.profit_factor;
     var pfCol = pf_!=null ? (pf_>=2?'var(--up)':pf_>=1?'#c87d3a':'var(--down)') : 'var(--text-dim)';
     var expanded = S.detail && S.detail.entry === r.entry;
-    var rowBg = expanded ? 'var(--surface2)' : '';
-    return '<tr class="bt-row'+(expanded?' expanded':'')+'" style="background:'+rowBg+'" data-entry="'+r.entry+'" onclick="toggleDetail(\''+r.entry+'\')">'+
+    return '<tr class="bt-row'+(expanded?' expanded':'')+'" style="background:'+(expanded?'var(--surface2)':'')+'" onclick="toggleDetail(\''+r.entry+'\')">'+
       '<td class="bt-td" style="font-size:'+(i<3?'16':'12')+'px;text-align:left;padding-left:14px">'+(i<3?medals[i]:'<span style="font-family:var(--font-mono);color:var(--muted)">'+String(i+1).padStart(2,'0')+'</span>')+'</td>'+
       '<td class="bt-td" style="text-align:left"><div class="ph-badge-inline" style="background:'+bg+';color:'+col+'"><div style="width:7px;height:7px;border-radius:99px;background:'+col+';flex-shrink:0"></div>'+r.entry+'</div></td>'+
       '<td class="bt-td" style="color:var(--text-dim)">'+(r.trades||0)+'</td>'+
@@ -251,15 +398,14 @@ function render(result) {
       '<td class="bt-td" style="color:var(--down)">'+(r.avg_loss!=null?r.avg_loss.toFixed(2)+'%':'—')+'</td>'+
       '<td class="bt-td" style="color:var(--muted)">'+(r.avg_duration!=null?r.avg_duration.toFixed(1)+'d':'—')+'</td>'+
       '<td class="bt-td" style="color:'+pfCol+'">'+(pf_!=null?pf_+'×':'—')+'</td>'+
-    '</tr>' +
-    (expanded ? renderDetail(r, col, bg) : '');
+    '</tr>' + (expanded ? renderDetail(r, col, bg) : '');
   }).join('');
   document.getElementById('leaderCount').textContent = rows.length + ' phases · '+result.computed_at;
 }
 
 function renderDetail(r, col, bg) {
   var details = (r.details || []).slice(0, 8);
-  var rowsHtml = details.map(function(t, j) {
+  var rowsHtml = details.map(function(t) {
     var pColor = t.profit > 0 ? 'var(--up)' : t.profit < 0 ? 'var(--down)' : 'var(--text-dim)';
     return '<tr class="detail-tr">'+
       '<td class="detail-td" style="text-align:left;color:var(--ink)">'+t.ticker+'</td>'+
@@ -283,11 +429,9 @@ function renderDetail(r, col, bg) {
           '<th class="detail-th">Entry</th><th class="detail-th">Exit</th>'+
           '<th class="detail-th">Entry ₽</th><th class="detail-th">Exit ₽</th>'+
           '<th class="detail-th">P&amp;L</th>'+
-        '</tr></thead>'+
-        '<tbody>'+rowsHtml+'</tbody>'+
+        '</tr></thead><tbody>'+rowsHtml+'</tbody>'+
       '</table></div>'+
-    '</div>'+
-  '</td></tr>';
+    '</div></td></tr>';
 }
 
 window.toggleDetail = function(entry) {
@@ -296,8 +440,94 @@ window.toggleDetail = function(entry) {
 };
 window.clearDetail = function() { S.detail = null; if (S.data) render(S.data); };
 
+/* ── Render BSJP ─────────────────────────────────────────────────────────── */
+function renderBSJP(result) {
+  S.bsjpData = result;
+  document.getElementById('emptyState').style.display = 'none';
+  if (S.algo !== 'bsjp') return;
+  document.getElementById('bsjpLeaderWrap').style.display = '';
+  document.getElementById('bsjpSummaryCards').style.display = '';
+
+  var wr  = result.overall_win_rate;
+  var exp = result.overall_expectancy;
+  document.getElementById('bsTotalTrades').textContent = (result.total_trades||0).toLocaleString('id-ID');
+  document.getElementById('bsSetupCount').textContent  = (result.setup_count||0) + ' setups';
+  document.getElementById('bsWinLoss').textContent     = (result.total_wins||0) + ' / ' + (result.total_losses||0);
+  var wrEl = document.getElementById('bsWinRate');
+  wrEl.textContent = wr != null ? wr + '%' : '—';
+  wrEl.className = 'stat-card-value ' + (wr!=null?(wr>=60?'up':'down'):'');
+  var expEl = document.getElementById('bsExpectancy');
+  expEl.textContent = exp != null ? (exp >= 0 ? '+' : '') + exp.toFixed(2) + '%' : '—';
+  expEl.className = 'stat-card-value ' + (exp!=null?(exp>=0?'up':'down'):'');
+  document.getElementById('bsDateRange').textContent   = result.date_range || '—';
+  document.getElementById('bsComputedAt').textContent  = result.computed_at || '—';
+
+  var rows = (result.leaderboard || []).slice().sort(function(a,b) {
+    var av = a[S.bsjpSortCol] != null ? a[S.bsjpSortCol] : -999999;
+    var bv = b[S.bsjpSortCol] != null ? b[S.bsjpSortCol] : -999999;
+    return S.bsjpSortAsc ? av - bv : bv - av;
+  });
+
+  var medals = ['🥇','🥈','🥉'];
+  document.getElementById('bsjpBody').innerHTML = rows.map(function(r, i) {
+    var col = setupCol(r.setup), bg = setupBg(r.setup);
+    var nm  = setupName(r.setup);
+    var expanded = S.bsjpDetail && S.bsjpDetail.setup === r.setup;
+    var exp_ = r.expectancy;
+    return '<tr class="bt-row'+(expanded?' expanded':'')+'" style="background:'+(expanded?'var(--surface2)':'')+'" onclick="toggleBSJPDetail(\''+r.setup+'\')">'+
+      '<td class="bt-td" style="font-size:'+(i<3?'16':'12')+'px;text-align:left;padding-left:14px">'+(i<3?medals[i]:'<span style="font-family:var(--font-mono);color:var(--muted)">'+String(i+1).padStart(2,'0')+'</span>')+'</td>'+
+      '<td class="bt-td" style="text-align:left"><div class="ph-badge-inline" style="background:'+bg+';color:'+col+'"><div style="width:7px;height:7px;border-radius:99px;background:'+col+';flex-shrink:0"></div>'+nm+'</div></td>'+
+      '<td class="bt-td" style="color:var(--text-dim)">'+r.total+'<span style="color:var(--muted);font-size:11px"> ('+r.wins+'W/'+r.losses+'L)</span></td>'+
+      '<td class="bt-td">'+wrBar(r.win_rate||0)+'</td>'+
+      '<td class="bt-td" style="font-weight:600;color:'+(exp_>=0?'var(--up)':'var(--down)')+'">'+(exp_!=null?(exp_>0?'+':'')+exp_.toFixed(2)+'%':'—')+'</td>'+
+      '<td class="bt-td" style="color:var(--up)">'+(r.avg_win!=null?'+'+r.avg_win.toFixed(2)+'%':'—')+'</td>'+
+      '<td class="bt-td" style="color:var(--down)">'+(r.avg_loss!=null?r.avg_loss.toFixed(2)+'%':'—')+'</td>'+
+    '</tr>' + (expanded ? renderBSJPDetail(r, col, bg, nm) : '');
+  }).join('');
+  document.getElementById('bsjpCount').textContent = rows.length + ' setups · ' + result.computed_at;
+}
+
+function renderBSJPDetail(r, col, bg, nm) {
+  var details = (r.details || []).slice(0, 8);
+  var rowsHtml = details.map(function(t) {
+    var pColor = t.pnl_pct > 0 ? 'var(--up)' : t.pnl_pct < 0 ? 'var(--down)' : 'var(--text-dim)';
+    return '<tr class="detail-tr">'+
+      '<td class="detail-td" style="text-align:left;color:var(--ink)">'+t.ticker+'</td>'+
+      '<td class="detail-td">'+t.date+'</td>'+
+      '<td class="detail-td">'+t.exit_date+'</td>'+
+      '<td class="detail-td">'+t.entry.toLocaleString('id-ID')+'</td>'+
+      '<td class="detail-td">'+(t.exit_price!=null?t.exit_price.toLocaleString('id-ID'):'—')+'</td>'+
+      '<td class="detail-td" style="font-weight:700;color:'+pColor+'">'+(t.pnl_pct!=null?(t.pnl_pct>0?'+':'')+t.pnl_pct.toFixed(2)+'%':'—')+'</td>'+
+      '<td class="detail-td" style="color:var(--text-dim);font-size:11px">'+(t.reason||'—')+'</td>'+
+    '</tr>';
+  }).join('');
+  if (!rowsHtml) rowsHtml = '<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--muted);font-size:12px">Tidak ada detail trade.</td></tr>';
+  return '<tr class="detail-row"><td colspan="7" style="padding:0 14px 14px;background:var(--surface)">'+
+    '<div class="detail-inner" style="border:1.5px solid '+col+'">'+
+      '<div class="detail-header" style="background:'+bg+'">'+
+        '<span style="font-size:13px;font-weight:600;color:'+col+';font-family:var(--font-mono)">'+nm+' · '+r.total+' trades · '+r.win_rate+'% WR · exp '+(r.expectancy!=null?(r.expectancy>0?'+':'')+r.expectancy.toFixed(2):'—')+'%</span>'+
+        '<div onclick="event.stopPropagation();clearBSJPDetail()" style="font-size:16px;color:var(--muted);cursor:pointer;line-height:1">✕</div>'+
+      '</div>'+
+      '<div style="background:var(--surface)"><table class="detail-table">'+
+        '<thead><tr>'+
+          '<th class="detail-th" style="text-align:left">Ticker</th>'+
+          '<th class="detail-th">Sinyal</th><th class="detail-th">Exit</th>'+
+          '<th class="detail-th">Entry</th><th class="detail-th">Exit ₽</th>'+
+          '<th class="detail-th">P&amp;L</th><th class="detail-th">Reason</th>'+
+        '</tr></thead><tbody>'+rowsHtml+'</tbody>'+
+      '</table></div>'+
+    '</div></td></tr>';
+}
+
+window.toggleBSJPDetail = function(setup) {
+  S.bsjpDetail = (S.bsjpDetail && S.bsjpDetail.setup === setup) ? null : { setup: setup };
+  if (S.bsjpData) renderBSJP(S.bsjpData);
+};
+window.clearBSJPDetail = function() { S.bsjpDetail = null; if (S.bsjpData) renderBSJP(S.bsjpData); };
+
+/* ── Run / poll / fetch ──────────────────────────────────────────────────── */
 var pollInterval = null;
-function runBacktest() {
+window.runBacktest = function() {
   if (S.loading) return;
   S.loading = true;
   var btn = document.getElementById('runBtn');
@@ -305,34 +535,36 @@ function runBacktest() {
   btn.innerHTML = '<span style="width:11px;height:11px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:99px;display:inline-block;animation:adminSpin .6s linear infinite"></span> Running...';
   document.getElementById('btStatus').innerHTML = '';
   document.getElementById('btProgressWrap').style.display = '';
-  /* Reset progress bar animation */
   var pb = document.getElementById('btProgressBar');
   pb.style.animation = 'none'; pb.offsetHeight; pb.style.animation = '';
 
   var from = window.isoToDD_MM_YYYY(S.dateFrom), to = window.isoToDD_MM_YYYY(S.dateTo);
-  fetch('/api/backtest?run=1&date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to))
-    .then(function(r){ return r.json(); })
+  var api = S.algo === 'bsjp'
+    ? '/api/backtest/bsjp?run=1&date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to)
+    : '/api/backtest?run=1&date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to);
+
+  fetch(api).then(function(r){ return r.json(); })
     .then(function() { pollStatus(); })
     .catch(function() { finishRun('error'); });
-}
+};
 
 function pollStatus() {
+  var statusUrl = S.algo === 'bsjp' ? '/api/backtest/bsjp?status=1' : '/api/backtest?status=1';
   pollInterval = setInterval(function() {
-    fetch('/api/backtest?status=1')
-      .then(function(r){ return r.json(); })
+    fetch(statusUrl).then(function(r){ return r.json(); })
       .then(function(d) {
-        if (!d.running) { clearInterval(pollInterval); fetchResult(); }
+        if (d.status !== 'running') { clearInterval(pollInterval); fetchResult(); }
       }).catch(function(){ clearInterval(pollInterval); fetchResult(); });
   }, 1200);
 }
 
 function fetchResult() {
-  fetch('/api/backtest')
-    .then(function(r){ return r.json(); })
+  var url = S.algo === 'bsjp' ? '/api/backtest/bsjp' : '/api/backtest';
+  fetch(url).then(function(r){ return r.json(); })
     .then(function(d) {
       if (d.error) { finishRun('error'); return; }
       finishRun('ok');
-      render(d);
+      if (S.algo === 'bsjp') renderBSJP(d); else render(d);
     }).catch(function(){ finishRun('error'); });
 }
 
@@ -342,22 +574,23 @@ function finishRun(status) {
   btn.disabled = false;
   btn.innerHTML = 'Run backtest';
   document.getElementById('btProgressWrap').style.display = 'none';
-  if (status === 'ok') {
-    document.getElementById('btStatus').innerHTML = '<span style="color:var(--up);font-weight:500">✓ Selesai</span>';
-  } else {
-    document.getElementById('btStatus').innerHTML = '<span style="color:var(--down)">⚠ Gagal menjalankan backtest</span>';
-  }
+  document.getElementById('btStatus').innerHTML = status === 'ok'
+    ? '<span style="color:var(--up);font-weight:500">✓ Selesai</span>'
+    : '<span style="color:var(--down)">⚠ Gagal menjalankan backtest</span>';
 }
 
-/* Load existing result on page open */
-fetch('/api/backtest')
-  .then(function(r){ return r.json(); })
-  .then(function(d) {
-    if (!d.error && d.leaderboard) {
-      document.getElementById('btStatus').innerHTML = 'Computed: <strong style="color:var(--ink)">' + (d.computed_at||'—') + '</strong>';
-      render(d);
-    }
-  }).catch(function(){});
+/* ── Load cached results on page open ────────────────────────────────────── */
+fetch('/api/backtest').then(function(r){ return r.json(); }).then(function(d) {
+  if (!d.error && d.leaderboard) {
+    document.getElementById('btStatus').innerHTML = 'Computed: <strong style="color:var(--ink)">' + (d.computed_at||'—') + '</strong>';
+    render(d);
+  }
+}).catch(function(){});
+
+fetch('/api/backtest/bsjp').then(function(r){ return r.json(); }).then(function(d) {
+  if (!d.error && d.leaderboard) renderBSJP(d);
+}).catch(function(){});
+
 })();
 </script>
 </body>

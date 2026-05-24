@@ -40,6 +40,27 @@ def api_backtest():
     return jsonify(result)
 
 
+@bp_backtest.route("/api/backtest/bsjp")
+def api_backtest_bsjp():
+    if not is_authed():
+        return redirect("/")
+    from algo.algo_backtest import get_bsjp_result, get_bsjp_status, request_bsjp_backtest
+
+    if request.args.get("run") == "1":
+        date_from = request.args.get("date_from") or None
+        date_to   = request.args.get("date_to") or None
+        triggered = request_bsjp_backtest(date_from=date_from, date_to=date_to)
+        return jsonify({"triggered": triggered})
+
+    if request.args.get("status") == "1":
+        return jsonify(get_bsjp_status())
+
+    result = get_bsjp_result()
+    if not result:
+        return jsonify({"error": "Belum ada data. Klik RUN BACKTEST."})
+    return jsonify(result)
+
+
 @bp_backtest.route("/api/ticker-fitness")
 def api_ticker_fitness():
     if not is_authed():

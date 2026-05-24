@@ -18,6 +18,11 @@ _backtest_result  = None
 _backtest_running = False
 _backtest_error   = None
 
+_bsjp_lock    = threading.Lock()
+_bsjp_result  = None
+_bsjp_running = False
+_bsjp_error   = None
+
 
 def _to_cmp(date_str: str) -> str:
     """Convert DD-MM-YYYY to YYYYMMDD for correct string comparison."""
@@ -279,6 +284,195 @@ def get_backtest_status() -> dict:
 def get_backtest_result() -> dict | None:
     with _backtest_lock:
         return _backtest_result
+
+
+def _dmy_to_ymd(date_dmy: str) -> str:
+    """Convert DD-MM-YYYY → YYYY-MM-DD."""
+    if not date_dmy or len(date_dmy) != 10:
+        return date_dmy
+    return f"{date_dmy[6:10]}-{date_dmy[3:5]}-{date_dmy[:2]}"
+
+
+def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
+    """
+    BSJP backtest: loads pre-computed signals from bsjp_signals,
+    evaluates exits using next-day price_history_15m candles.
+    date_from, date_to: DD-MM-YYYY
+    """
+    global _bsjp_result
+    from algo.algo_bsjp import eval_exit_15m
+    from collections import defaultdict as _dd
+
+    if date_from and date_to:
+        df = _dmy_to_ymd(date_from)
+        dt = _dmy_to_ymd(date_to)
+        signals = fetchall(conn, """
+            SELECT TO_CHAR(date, 'DD-MM-YYYY') AS date_dmy, date::text AS date_ymd,
+                   ticker, setup, entry, tp1, tp2, sl
+            FROM bsjp_signals
+            WHERE date BETWEEN %s::date AND %s::date
+            ORDER BY date, id
+        """, [df, dt])
+    else:
+        signals = fetchall(conn, """
+            SELECT TO_CHAR(date, 'DD-MM-YYYY') AS date_dmy, date::text AS date_ymd,
+                   ticker, setup, entry, tp1, tp2, sl
+            FROM bsjp_signals
+            ORDER BY date, id
+        """)
+
+    _empty = {
+        "leaderboard": [], "total_trades": 0, "total_wins": 0, "total_losses": 0,
+        "overall_win_rate": None, "overall_expectancy": None,
+        "date_range": "-", "computed_at": datetime.now(WIB).strftime("%d-%m-%Y %H:%M"),
+    }
+    if not signals:
+        with _bsjp_lock:
+            _bsjp_result = _empty
+        return _empty
+
+    all_tickers = list({s["ticker"] for s in signals})
+    sig_dates   = sorted({s["date_ymd"] for s in signals})
+
+    # Distinct 15m dates to build next-day lookup
+    all_15m_dates_raw = fetchall(conn, """
+        SELECT DISTINCT LEFT(datetime, 10) AS dt FROM price_history_15m
+        WHERE LEFT(datetime, 10) >= %s
+        ORDER BY dt
+    """, [sig_dates[0]])
+    all_15m_dates = [r["dt"] for r in all_15m_dates_raw]
+    date_to_next = {d: all_15m_dates[i + 1] for i, d in enumerate(all_15m_dates) if i + 1 < len(all_15m_dates)}
+
+    next_days_needed = sorted({date_to_next[d] for d in sig_dates if d in date_to_next})
+    if not next_days_needed:
+        with _bsjp_lock:
+            _bsjp_result = _empty
+        return _empty
+
+    # Batch-load all 15m candles for exit days
+    candles_raw = fetchall(conn, """
+        SELECT ticker, datetime, open, high, low, close
+        FROM price_history_15m
+        WHERE ticker = ANY(%s)
+          AND LEFT(datetime, 10) = ANY(%s)
+          AND SUBSTRING(datetime, 12, 5) >= '09:00'
+          AND SUBSTRING(datetime, 12, 5) <= '16:00'
+        ORDER BY ticker, datetime
+    """, [all_tickers, next_days_needed])
+
+    candles_idx = _dd(lambda: _dd(list))
+    for c in candles_raw:
+        candles_idx[c["ticker"]][c["datetime"][:10]].append(c)
+
+    # Evaluate each signal
+    setup_trades = _dd(list)
+    for sig in signals:
+        ticker   = sig["ticker"]
+        date_ymd = sig["date_ymd"]
+        setup    = sig["setup"]
+        entry    = int(sig["entry"])
+        tp1      = int(sig["tp1"])
+        tp2      = int(sig["tp2"])
+        sl       = int(sig["sl"])
+
+        next_date = date_to_next.get(date_ymd)
+        if not next_date:
+            continue
+
+        res = eval_exit_15m(entry, tp1, tp2, sl, candles_idx[ticker].get(next_date, []))
+        if res.get("pnl_pct") is None:
+            continue
+
+        setup_trades[setup].append({
+            "ticker":      ticker,
+            "date":        sig["date_dmy"],
+            "exit_date":   next_date,
+            "entry":       entry,
+            "exit_price":  res["exit_price"],
+            "status":      res["status"],
+            "reason":      res["reason"],
+            "pnl_pct":     res["pnl_pct"],
+        })
+
+    leaderboard = []
+    for setup, trades in setup_trades.items():
+        wins   = [t for t in trades if t["status"] == "Berhasil"]
+        losses = [t for t in trades if t["status"] == "Gagal"]
+        total  = len(trades)
+        leaderboard.append({
+            "setup":       setup,
+            "total":       total,
+            "wins":        len(wins),
+            "losses":      len(losses),
+            "win_rate":    round(len(wins) / total * 100, 1) if total else 0,
+            "expectancy":  round(sum(t["pnl_pct"] for t in trades) / total, 2) if total else 0,
+            "avg_win":     round(sum(t["pnl_pct"] for t in wins) / len(wins), 2) if wins else None,
+            "avg_loss":    round(sum(t["pnl_pct"] for t in losses) / len(losses), 2) if losses else None,
+            "details":     trades,
+        })
+    leaderboard.sort(key=lambda x: x["expectancy"], reverse=True)
+
+    all_trades   = [t for tl in setup_trades.values() for t in tl]
+    total        = len(all_trades)
+    total_wins   = sum(1 for t in all_trades if t["status"] == "Berhasil")
+    sorted_dates = sorted({s["date_dmy"] for s in signals}, key=_to_cmp)
+
+    result = {
+        "leaderboard":        leaderboard,
+        "total_trades":       total,
+        "total_wins":         total_wins,
+        "total_losses":       total - total_wins,
+        "overall_win_rate":   round(total_wins / total * 100, 1) if total else None,
+        "overall_expectancy": round(sum(t["pnl_pct"] for t in all_trades) / total, 2) if total else None,
+        "setup_count":        len(leaderboard),
+        "date_range":         f"{sorted_dates[0]} - {sorted_dates[-1]}" if sorted_dates else "-",
+        "computed_at":        datetime.now(WIB).strftime("%d-%m-%Y %H:%M"),
+    }
+
+    with _bsjp_lock:
+        _bsjp_result = result
+
+    return result
+
+
+def request_bsjp_backtest(date_from: str = None, date_to: str = None):
+    """Non-blocking BSJP backtest trigger."""
+    global _bsjp_running, _bsjp_error
+
+    def _run():
+        global _bsjp_running, _bsjp_error
+        try:
+            from core.db import get_db
+            run_bsjp_backtest(get_db(), date_from=date_from, date_to=date_to)
+            _bsjp_error = None
+        except Exception as e:
+            log.error("BSJP backtest error: %s", e)
+            _bsjp_error = str(e)
+        finally:
+            _bsjp_running = False
+
+    with _bsjp_lock:
+        if _bsjp_running:
+            return False
+        _bsjp_running = True
+        _bsjp_error   = None
+
+    threading.Thread(target=_run, daemon=True, name="bsjp-backtest").start()
+    return True
+
+
+def get_bsjp_status() -> dict:
+    with _bsjp_lock:
+        if _bsjp_running:
+            return {"status": "running"}
+        if _bsjp_error:
+            return {"status": "error", "result": _bsjp_error}
+        return {"status": "done"}
+
+
+def get_bsjp_result() -> dict | None:
+    with _bsjp_lock:
+        return _bsjp_result
 
 
 def get_ticker_fitness(conn, ticker: str, days: int = 90) -> dict:
