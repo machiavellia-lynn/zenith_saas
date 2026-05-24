@@ -322,12 +322,10 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
     }
 
     # ── Fetch semua EOD data ─────────────────────────────────────────────────────
-    # Mirror EXACT SELECT dari scraper_daily.py:
-    # - Wyckoff cols (sm_val, bm_val, sri, rpr, mf_ratio, phase) → eod_summary only
-    # - Technical cols (ma5, bb_mid, is_sideways, close_pos, prev_high_break) → COALESCE e+ph
-    # - BSJP setup cols (prev_close_below_ma5, ma5_price_streak, daily_value,
-    #   days_since_near_bb_mid) → price_history only
-    # ph.date YYYY-MM-DD; e.date DD-MM-YYYY → convert via substr
+    # Local bsjp_view.py reads from eod_summary only (no JOIN).
+    # eod_summary.days_since_near_bb_mid is always NULL (column added via ALTER TABLE
+    # but never populated) → Python None → PULLBACK_BB first-touch filter always passes.
+    # We must NOT use ph.days_since_near_bb_mid (has real values → blocks candidates).
     all_rows = fetchall(conn, """
         SELECT e.ticker, e.date,
                e.sm_val, e.bm_val, e.sri, e.rpr, e.mf_ratio,
@@ -339,10 +337,10 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
                COALESCE(e.is_sideways,  ph.is_sideways)   AS is_sideways,
                COALESCE(e.close_pos,    ph.close_pos)     AS close_pos,
                COALESCE(e.prev_high_break, ph.prev_high_break) AS prev_high_break,
-               ph.prev_close_below_ma5,
-               ph.ma5_price_streak,
-               ph.daily_value,
-               ph.days_since_near_bb_mid
+               COALESCE(e.prev_close_below_ma5, ph.prev_close_below_ma5) AS prev_close_below_ma5,
+               COALESCE(e.ma5_price_streak,     ph.ma5_price_streak)     AS ma5_price_streak,
+               COALESCE(e.daily_value,          ph.daily_value)          AS daily_value,
+               e.days_since_near_bb_mid
         FROM eod_summary e
         LEFT JOIN price_history ph
           ON ph.ticker = e.ticker
