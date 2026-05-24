@@ -297,7 +297,7 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
     Indicators from eod_summary directly; days_since_near_bb_mid from price_history.
     15:45 candle used for condition check only; entry = eod_summary.price_close.
     """
-    from algo.algo_bsjp import BSJPAlgo, BLACKLIST, _is_ara, _compute_score
+    from algo.algo_bsjp import BSJPAlgo, BLACKLIST, _is_ara, _compute_score, _to_tick
 
     WIB_TZ  = timezone(timedelta(hours=7))
     today   = date_dmy or datetime.now(WIB_TZ).strftime("%d-%m-%Y")
@@ -310,8 +310,7 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
     algo = BSJPAlgo()
 
     # SM/BM/Wyckoff from eod_summary; BSJP indicators from price_history (same day).
-    # analytics_daily writes ma5/bb_mid to eod_summary; analytics_bsjp writes
-    # ma5_price_streak/daily_value/prev_close_below_ma5/days_since_near_bb_mid to price_history only.
+    # Use today_ymd (YYYY-MM-DD) as direct parameter so PostgreSQL can use idx_ph_ticker.
     with conn.cursor() as cur:
         cur.execute("""
             SELECT
@@ -331,26 +330,27 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
                 p.days_since_near_bb_mid
             FROM eod_summary e
             LEFT JOIN price_history p
-                ON p.ticker = e.ticker
-                AND p.date = TO_CHAR(TO_DATE(e.date,'DD-MM-YYYY'),'YYYY-MM-DD')
+                ON p.ticker = e.ticker AND p.date = %s
             WHERE e.date = %s
-        """, (today,))
+        """, (today_ymd, today))
         eod_rows = [dict(r) for r in cur.fetchall()]
 
     if not eod_rows:
         log.info(f"[BSJP] {today}: eod_summary kosong, tidak ada kandidat.")
         return 0
 
-    # 15:45 candle — used for condition check only, not for entry price
+    # Fetch 15:45 and 09:00 candles in one query
     with conn.cursor() as cur:
-        cur.execute("SELECT ticker, close FROM price_history_15m WHERE datetime = %s",
-                    (today_ymd + " 15:45",))
-        prices_1545 = {r["ticker"]: float(r["close"]) for r in cur.fetchall() if r["close"]}
-
-    with conn.cursor() as cur:
-        cur.execute("SELECT ticker, open FROM price_history_15m WHERE datetime = %s",
-                    (today_ymd + " 09:00",))
-        prices_open = {r["ticker"]: float(r["open"]) for r in cur.fetchall() if r["open"]}
+        cur.execute("""
+            SELECT ticker, datetime, open, close FROM price_history_15m
+            WHERE datetime IN (%s, %s)
+        """, (today_ymd + " 15:45", today_ymd + " 09:00"))
+        prices_1545, prices_open = {}, {}
+        for r in cur.fetchall():
+            if str(r["datetime"]).endswith("15:45") and r["close"]:
+                prices_1545[r["ticker"]] = float(r["close"])
+            elif str(r["datetime"]).endswith("09:00") and r["open"]:
+                prices_open[r["ticker"]] = float(r["open"])
 
     scored = []
     for row in eod_rows:
@@ -379,10 +379,10 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
         if not sig:
             continue
 
-        # Entry = EOD close from eod_summary, not 15:45 candle
-        sig["entry"] = round(eod_price_close)
-        sig["tp1"]   = round(eod_price_close * 1.01)
-        sig["tp2"]   = round(eod_price_close * 1.02)
+        # Entry = EOD close from eod_summary (tick-rounded), not 15:45 candle
+        sig["entry"] = _to_tick(eod_price_close)
+        sig["tp1"]   = _to_tick(eod_price_close * 1.01)
+        sig["tp2"]   = _to_tick(eod_price_close * 1.02)
 
         score = _compute_score(row_scan, sig["setup"])
         lot   = int(10_000_000 / eod_price_close)
@@ -393,19 +393,19 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
 
     with conn.cursor() as cur:
         cur.execute("DELETE FROM bsjp_signals WHERE date = %s", (today,))
-    conn.commit()
-
-    for rank, (score, ticker, sig, row, lot) in enumerate(top, 1):
-        with conn.cursor() as cur:
-            cur.execute("""
+        if top:
+            cur.executemany("""
                 INSERT INTO bsjp_signals
                     (date, ticker, setup, entry, tp1, tp2, sl, sl_type,
                      score, day_rank, lot_size)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            """, (today, ticker, sig["setup"], sig["entry"],
-                  sig["tp1"], sig["tp2"], sig["sl"], sig["sl_type"],
-                  score, rank, lot))
-        conn.commit()
+            """, [
+                (today, ticker, sig["setup"], sig["entry"],
+                 sig["tp1"], sig["tp2"], sig["sl"], sig["sl_type"],
+                 score, rank, lot)
+                for rank, (score, ticker, sig, row, lot) in enumerate(top, 1)
+            ])
+    conn.commit()
 
     log.info(f"[BSJP] {today}: {len(top)} sinyal (dari {len(scored)} kandidat). 15m: {len(prices_1545)} ticker.")
     return len(top)
