@@ -310,7 +310,7 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
         SELECT ticker, date, price_close, price_change_pct, phase,
                sri, rpr, mf_ratio, sm_val, bm_val, ma5, bb_mid,
                close_pos, prev_close_below_ma5, prev_high_break,
-               ma5_price_streak, is_sideways, daily_value, days_since_near_bb_mid
+               ma5_price_streak, is_sideways, daily_value
         FROM eod_summary
         WHERE price_close IS NOT NULL
         ORDER BY ticker, date
