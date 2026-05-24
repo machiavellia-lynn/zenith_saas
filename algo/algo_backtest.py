@@ -31,6 +31,13 @@ def _to_cmp(date_str: str) -> str:
     return f"{date_str[6:10]}{date_str[3:5]}{date_str[:2]}"
 
 
+def _dmy_to_ymd(d: str) -> str:
+    """Convert DD-MM-YYYY to YYYY-MM-DD (price_history date format)."""
+    if not d or len(d) != 10:
+        return d
+    return f"{d[6:10]}-{d[3:5]}-{d[:2]}"
+
+
 def _days_between(d1: str, d2: str) -> int:
     """Days between two DD-MM-YYYY strings."""
     try:
@@ -345,6 +352,17 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
     else:
         signal_dates = all_sorted_dates
 
+    # Fetch daily OHLC from price_history for exit simulation.
+    # price_history.date is YYYY-MM-DD; key: (ymd, ticker)
+    ph_rows = fetchall(conn, """
+        SELECT ticker, date, open, high, low, close
+        FROM price_history
+        WHERE close IS NOT NULL
+    """)
+    ph_map = {}
+    for r in ph_rows:
+        ph_map[(str(r["date"]), r["ticker"])] = r  # price_history.date is YYYY-MM-DD
+
     TOP_N = 15
     setup_trades = _dd(list)
 
@@ -353,9 +371,7 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
         if not next_date:
             continue
 
-        next_day = all_days.get(next_date, {})
         day_sigs = []
-
         for ticker, row in all_days[date_str].items():
             if ticker in BLACKLIST:
                 continue
@@ -368,23 +384,52 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
 
         day_sigs.sort(key=lambda x: -x[0])
 
+        next_ymd = _dmy_to_ymd(next_date)
         for _, ticker, sig in day_sigs[:TOP_N]:
-            next_row = next_day.get(ticker)
-            if not next_row or not next_row.get("price_close"):
-                continue
+            entry = sig["entry"]
+            tp1   = sig["tp1"]
+            tp2   = sig["tp2"]
+            sl    = sig["sl"]
 
-            entry      = sig["entry"]
-            tp1        = sig["tp1"]
-            tp2        = sig["tp2"]
-            sl         = sig["sl"]
-            next_close = float(next_row["price_close"])
+            ph = ph_map.get((next_ymd, ticker))
+            if ph:
+                next_close = float(ph["close"] or 0)
+                if not next_close:
+                    continue
+                next_open = float(ph["open"] or next_close)
+                next_high = float(ph["high"] or next_close)
+                next_low  = float(ph["low"]  or next_close)
+            else:
+                # Fallback: use eod_summary close
+                nr = all_days.get(next_date, {}).get(ticker)
+                if not nr or not nr.get("price_close"):
+                    continue
+                next_close = next_open = next_high = next_low = float(nr["price_close"])
 
-            if next_close >= tp2:
-                status, reason, exit_p = "Berhasil", "TP2", tp2
-            elif next_close >= tp1:
-                status, reason, exit_p = "Berhasil", "TP1", tp1
-            elif next_close <= sl:
+            # Exit simulation: gap checks first, then intraday OHLC
+            if next_open <= sl:
+                status, reason, exit_p = "Gagal", "SL[gap]", round(next_open)
+            elif next_open >= tp2:
+                status, reason, exit_p = "Berhasil", "TP2[gap]", tp2
+            elif next_open >= tp1:
+                if next_high >= tp2:
+                    status, reason, exit_p = "Berhasil", "TP2", tp2
+                else:
+                    status, reason, exit_p = "Berhasil", "TP1[gap]", tp1
+            elif next_low <= sl and next_high >= tp1:
+                mid = (sl + tp1) / 2
+                if next_open <= mid:
+                    status, reason, exit_p = "Gagal", "SL", sl
+                elif next_high >= tp2:
+                    status, reason, exit_p = "Berhasil", "TP2", tp2
+                else:
+                    status, reason, exit_p = "Berhasil", "TP1", tp1
+            elif next_low <= sl:
                 status, reason, exit_p = "Gagal", "SL", sl
+            elif next_high >= tp2:
+                status, reason, exit_p = "Berhasil", "TP2", tp2
+            elif next_high >= tp1:
+                status, reason, exit_p = "Berhasil", "TP1", tp1
             else:
                 status, reason, exit_p = "Gagal", "NO_TARGET", round(next_close)
 
