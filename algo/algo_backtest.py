@@ -408,7 +408,7 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
 
     dates_with_pre = {k[0] for k in pre_1545}
 
-    # ── Pass 1: PRE + FINAL signals, assign stamp, skip FINAL_ONLY ──────────────
+    # ── Pass 1: PRE signals only — ticker wajib punya 15:45 dan 09:00 candle ──────
     day_results: list = []
     ph15_needed: set  = set()
 
@@ -417,72 +417,48 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
         if not next_date:
             continue
         date_ymd = _dmy_to_ymd(date_str)
-        has_pre  = date_ymd in dates_with_pre
+        if date_ymd not in dates_with_pre:
+            continue  # tidak ada data 15m sama sekali untuk tanggal ini
 
-        # FINAL signals (EOD close)
-        final_sigs: dict = {}
+        pre_pool = []
         for ticker, row in all_days[date_str].items():
-            if ticker in BLACKLIST or _is_ara(row):
+            if ticker in BLACKLIST:
                 continue
-            sig = algo.signal_detail(ticker, row)
-            if sig:
-                final_sigs[ticker] = (_compute_score(row, sig["setup"]), sig)
+            close_1545 = pre_1545.get((date_ymd, ticker))
+            open_0900  = pre_0900.get((date_ymd, ticker))
+            if not close_1545 or not open_0900 or open_0900 <= 0:
+                continue  # wajib ada 15:45 dan 09:00 — tidak ada = skip
 
-        final_tickers = {t for t, _ in sorted(final_sigs.items(), key=lambda x: -x[1][0])[:TOP_N]}
+            pre_row = dict(row)
+            pre_row["price_close"]      = close_1545
+            pre_row["price_change_pct"] = (close_1545 - open_0900) / open_0900 * 100
 
-        # PRE signals (15:45 close sebagai proxy)
-        pre_tickers: set  = set()
-        pre_sigs:    dict = {}
-        if has_pre:
-            pre_pool = []
-            for ticker, row in all_days[date_str].items():
-                if ticker in BLACKLIST:
-                    continue
-                close_1545 = pre_1545.get((date_ymd, ticker))
-                open_0900  = pre_0900.get((date_ymd, ticker))
-                pre_row    = dict(row)
-                if close_1545 and open_0900 and open_0900 > 0:
-                    pre_row["price_close"]      = close_1545
-                    pre_row["price_change_pct"] = (close_1545 - open_0900) / open_0900 * 100
-                if _is_ara(pre_row):
-                    continue
-                sig = algo.signal_detail(ticker, pre_row)
-                if not sig:
-                    continue
-                # Entry tetap EOD close (IEP); tp/sl dihitung ulang
-                eod_close = float(row.get("price_close") or 0)
-                if eod_close > 0:
-                    entry_new    = _to_tick(eod_close)
-                    sig["entry"] = entry_new
-                    sig["tp1"]   = _to_tick(eod_close * 1.01)
-                    sig["tp2"]   = _to_tick(eod_close * 1.02)
-                    sig["sl"]    = algo._compute_sl(row, entry_new, sig["sl_type"])
-                pre_pool.append((_compute_score(pre_row, sig["setup"]), ticker, sig))
+            if _is_ara(pre_row):
+                continue
+            sig = algo.signal_detail(ticker, pre_row)
+            if not sig:
+                continue
 
-            pre_pool.sort(key=lambda x: -x[0])
-            top_pre     = pre_pool[:TOP_N]
-            pre_tickers = {t for _, t, _ in top_pre}
-            pre_sigs    = {t: sg for _, t, sg in top_pre}
+            eod_close = float(row.get("price_close") or 0)
+            if not eod_close > 0:
+                continue
+            entry_new    = _to_tick(eod_close)
+            sig["entry"] = entry_new
+            sig["tp1"]   = _to_tick(eod_close * 1.01)
+            sig["tp2"]   = _to_tick(eod_close * 1.02)
+            sig["sl"]    = algo._compute_sl(row, entry_new, sig["sl_type"])
+            score        = _compute_score(pre_row, sig["setup"])
+            pre_pool.append((score, ticker, sig))
 
-        # Gabung, assign stamp, skip FINAL_ONLY
+        if not pre_pool:
+            continue
+
+        pre_pool.sort(key=lambda x: -x[0])
         next_ymd   = _dmy_to_ymd(next_date)
-        day_trades = []
-        for ticker in (final_tickers | pre_tickers) if has_pre else set():
-            in_pre, in_final = ticker in pre_tickers, ticker in final_tickers
-            if in_pre and in_final:
-                stamp = "PRE+FINAL"
-            elif in_pre:
-                stamp = "PRE_ONLY"
-            else:
-                continue  # FINAL_ONLY — tidak realistis, skip
-            # Local bsjp_view.py: PRE+FINAL → pakai FINAL sig (setup dari EOD price)
-            # PRE_ONLY → pakai PRE sig (setup dari 15:45 price)
-            sig = final_sigs[ticker][1] if in_final else pre_sigs[ticker]
+        day_trades = [(ticker, sig) for _, ticker, sig in pre_pool[:TOP_N]]
+        for ticker, _ in day_trades:
             ph15_needed.add((next_ymd, ticker))
-            day_trades.append((ticker, sig, stamp))
-
-        if day_trades:
-            day_results.append((date_str, next_date, next_ymd, day_trades))
+        day_results.append((date_str, next_date, next_ymd, day_trades))
 
     # ── Pass 2: batch-fetch 15m candles untuk exit ───────────────────────────────
     candles_map: dict = _dd(list)
@@ -502,7 +478,7 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
     # ── Pass 3: evaluate exits ───────────────────────────────────────────────────
     setup_trades: dict = _dd(list)
     for date_str, next_date, next_ymd, day_trades in day_results:
-        for ticker, sig, stamp in day_trades:
+        for ticker, sig in day_trades:
             candles = candles_map.get((next_ymd, ticker))
             if not candles:
                 continue
@@ -519,7 +495,6 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
                 "status":     res["status"],
                 "reason":     res["reason"],
                 "pnl_pct":    res.get("pnl_pct"),
-                "stamp":      stamp,
             })
 
     # ── Build leaderboard ────────────────────────────────────────────────────────
