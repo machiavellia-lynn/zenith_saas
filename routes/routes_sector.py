@@ -3,13 +3,12 @@ routes_sector.py — Blueprint: /sector, /api/sector
 RULE: Routing only. All aggregation done via DB query here (sector is pure aggregation).
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from flask import Blueprint, render_template, jsonify, request, redirect
 from core.auth import is_authed
 from config import WIB, SECTORS
 from core.utils import parse_date, date_range
 from core.db import get_db, fetchall
-from data.price_fetch import get_gains_batch
 
 bp_sector = Blueprint("sector", __name__)
 log = logging.getLogger("zenith.routes.sector")
@@ -77,7 +76,37 @@ def sector_api():
         elif row["channel"] == "mf_minus":
             tdata[t]["mfm"] += abs(row["mf"] or 0)
 
-    gains = get_gains_batch(all_tickers, date_from, date_to)
+    # Gain dari DB (price_close / price_change_pct sudah diisi analytics_daily) —
+    # tidak perlu hit Yahoo Finance live untuk 962 ticker setiap request.
+    if date_from == date_to:
+        gains_rows = fetchall(conn, """
+            SELECT ticker, price_close, price_change_pct
+            FROM eod_summary
+            WHERE ticker = ANY(%s) AND date = %s
+        """, [all_tickers, date_from])
+        gains = {r["ticker"]: {"gain": r["price_change_pct"], "price": r["price_close"]}
+                 for r in gains_rows}
+    else:
+        date_to_yyyy   = f"{date_to[6:10]}-{date_to[3:5]}-{date_to[:2]}"
+        date_from_yyyy = f"{date_from[6:10]}-{date_from[3:5]}-{date_from[:2]}"
+        close_end = {r["ticker"]: r["close"] for r in fetchall(conn, """
+            SELECT DISTINCT ON (ticker) ticker, close
+            FROM price_history
+            WHERE ticker = ANY(%s) AND date <= %s
+            ORDER BY ticker, date DESC
+        """, [all_tickers, date_to_yyyy])}
+        close_ref = {r["ticker"]: r["close"] for r in fetchall(conn, """
+            SELECT DISTINCT ON (ticker) ticker, close
+            FROM price_history
+            WHERE ticker = ANY(%s) AND date < %s
+            ORDER BY ticker, date DESC
+        """, [all_tickers, date_from_yyyy])}
+        gains = {}
+        for t in all_tickers:
+            p_end = close_end.get(t)
+            p_ref = close_ref.get(t)
+            gain = round((p_end - p_ref) / p_ref * 100, 2) if p_end and p_ref and p_ref > 0 else None
+            gains[t] = {"gain": gain, "price": int(round(p_end)) if p_end else None}
 
     sectors = []
     for name, members in SECTORS.items():
