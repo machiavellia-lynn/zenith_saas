@@ -354,13 +354,6 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
 
     from algo.algo_bsjp import eval_exit_15m
 
-    # Fetch daily OHLC from price_history as fallback for tickers missing 15m data.
-    ph_rows = fetchall(conn, """
-        SELECT ticker, date, open, high, low, close
-        FROM price_history WHERE close IS NOT NULL
-    """)
-    ph_map = {(str(r["date"]), r["ticker"]): r for r in ph_rows}
-
     TOP_N = 15
 
     # Pass 1: generate signals per day, record which (next_ymd, ticker) need 15m data.
@@ -403,63 +396,25 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
             if key in ph15_needed:
                 candles_map[key].append(r)
 
-    # Pass 3: evaluate exits.
+    # Pass 3: evaluate exits — only trades with 15m candles are valid.
     setup_trades = _dd(list)
     for date_str, next_date, next_ymd, top in day_results:
         for _, ticker, sig in top:
+            candles = candles_map.get((next_ymd, ticker))
+            if not candles:
+                continue  # no 15m data → exclude; daily OHLC fallback is invalid
+
             entry = sig["entry"]
             tp1   = sig["tp1"]
             tp2   = sig["tp2"]
             sl    = sig["sl"]
 
-            candles = candles_map.get((next_ymd, ticker))
-            if candles:
-                res       = eval_exit_15m(entry, tp1, tp2, sl, candles)
-                status    = res["status"]
-                reason    = res["reason"]
-                exit_p    = res["exit_price"] or entry
-                exit_time = str(res.get("exit_time") or "")[-5:] or None  # HH:MM
-                pnl_pct   = res.get("pnl_pct")
-            else:
-                # Fallback: daily OHLC simulation when 15m data unavailable
-                ph = ph_map.get((next_ymd, ticker))
-                if ph:
-                    nc = float(ph["close"] or 0)
-                    if not nc:
-                        continue
-                    no_ = float(ph["open"] or nc)
-                    nh  = float(ph["high"] or nc)
-                    nl  = float(ph["low"]  or nc)
-                else:
-                    nr = all_days.get(next_date, {}).get(ticker)
-                    if not nr or not nr.get("price_close"):
-                        continue
-                    nc = no_ = nh = nl = float(nr["price_close"])
-
-                if no_ <= sl:
-                    status, reason, exit_p = "Gagal", "SL[gap]", round(no_)
-                elif no_ >= tp2:
-                    status, reason, exit_p = "Berhasil", "TP2[gap]", tp2
-                elif no_ >= tp1:
-                    status, reason, exit_p = ("Berhasil", "TP2", tp2) if nh >= tp2 else ("Berhasil", "TP1[gap]", tp1)
-                elif nl <= sl and nh >= tp1:
-                    mid = (sl + tp1) / 2
-                    if no_ <= mid:
-                        status, reason, exit_p = "Gagal", "SL", sl
-                    elif nh >= tp2:
-                        status, reason, exit_p = "Berhasil", "TP2", tp2
-                    else:
-                        status, reason, exit_p = "Berhasil", "TP1", tp1
-                elif nl <= sl:
-                    status, reason, exit_p = "Gagal", "SL", sl
-                elif nh >= tp2:
-                    status, reason, exit_p = "Berhasil", "TP2", tp2
-                elif nh >= tp1:
-                    status, reason, exit_p = "Berhasil", "TP1", tp1
-                else:
-                    status, reason, exit_p = "Gagal", "NO_TARGET", round(nc)
-                exit_time = None
-                pnl_pct   = round((exit_p - entry) / entry * 100, 4) if entry else None
+            res       = eval_exit_15m(entry, tp1, tp2, sl, candles)
+            status    = res["status"]
+            reason    = res["reason"]
+            exit_p    = res["exit_price"] or entry
+            exit_time = str(res.get("exit_time") or "")[-5:] or None  # HH:MM
+            pnl_pct   = res.get("pnl_pct")
 
             setup_trades[sig["setup"]].append({
                 "ticker":     ticker,
