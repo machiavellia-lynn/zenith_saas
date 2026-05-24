@@ -47,3 +47,24 @@ def api_bsjp_compute():
     from algo.analytics_bsjp import generate_bsjp_signals
     n = generate_bsjp_signals(get_db(), date_str)
     return jsonify({"date": date_str, "signals_generated": n})
+
+
+@bp_bsjp.route("/api/bsjp/backfill", methods=["POST"])
+@require_auth
+def api_bsjp_backfill():
+    """Backfill bsjp_signals untuk date range (DD-MM-YYYY). Runs in background."""
+    body      = request.get_json(silent=True) or {}
+    date_from = body.get("date_from")
+    date_to   = body.get("date_to")
+    if not date_from or not date_to:
+        return jsonify({"error": "date_from and date_to required (DD-MM-YYYY)"}), 400
+    from algo.analytics_bsjp import request_bsjp_backfill
+    triggered = request_bsjp_backfill(date_from, date_to)
+    return jsonify({"triggered": triggered, "date_from": date_from, "date_to": date_to})
+
+
+@bp_bsjp.route("/api/bsjp/backfill/status")
+@require_auth
+def api_bsjp_backfill_status():
+    from algo.analytics_bsjp import get_backfill_status
+    return jsonify(get_backfill_status())

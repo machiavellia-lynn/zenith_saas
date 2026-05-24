@@ -231,6 +231,26 @@ body.sidebar-layout { overflow: hidden; }
       Belum ada data. Klik <strong style="color:var(--ink)">Run backtest</strong> untuk memulai.
     </div>
 
+    <!-- BSJP backfill panel (shown when BSJP result is empty) -->
+    <div id="bsjpBackfillPanel" style="display:none;margin-top:0">
+      <div class="section-card" style="padding:20px 24px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:13px;font-weight:600;color:var(--ink)">Generate Historical Signals</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6">
+          Backtest BSJP membutuhkan sinyal yang sudah digenerate di <code>bsjp_signals</code>.<br>
+          Klik tombol di bawah untuk generate sinyal historis dari <code>eod_summary</code> sesuai date range yang dipilih.
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <button class="action-btn" id="backfillBtn" onclick="runBackfill()" style="font-size:12px;padding:7px 16px">
+            Generate signals untuk range ini
+          </button>
+          <div id="backfillStatus" style="font-size:12px;color:var(--muted)"></div>
+        </div>
+        <div id="backfillProgressWrap" style="display:none;height:4px;background:var(--surface2);border-radius:99px;overflow:hidden;max-width:320px">
+          <div id="backfillProgressBar" style="height:100%;background:var(--accent);border-radius:99px;width:0;transition:width .4s"></div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -564,7 +584,8 @@ function fetchResult() {
     .then(function(d) {
       if (d.error) { finishRun('error'); return; }
       finishRun('ok');
-      if (S.algo === 'bsjp') renderBSJP(d); else render(d);
+      if (S.algo === 'bsjp') { renderBSJP(d); maybeShowBackfill(d); }
+      else render(d);
     }).catch(function(){ finishRun('error'); });
 }
 
@@ -577,6 +598,60 @@ function finishRun(status) {
   document.getElementById('btStatus').innerHTML = status === 'ok'
     ? '<span style="color:var(--up);font-weight:500">✓ Selesai</span>'
     : '<span style="color:var(--down)">⚠ Gagal menjalankan backtest</span>';
+}
+
+/* ── BSJP Backfill ───────────────────────────────────────────────────────── */
+var backfillPoll = null;
+window.runBackfill = function() {
+  var btn = document.getElementById('backfillBtn');
+  btn.disabled = true;
+  document.getElementById('backfillProgressWrap').style.display = '';
+  document.getElementById('backfillStatus').textContent = 'Memulai...';
+
+  var from = window.isoToDD_MM_YYYY(S.dateFrom), to = window.isoToDD_MM_YYYY(S.dateTo);
+  fetch('/api/bsjp/backfill', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({date_from: from, date_to: to})
+  }).then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (d.triggered) {
+        backfillPoll = setInterval(pollBackfill, 2000);
+      } else {
+        document.getElementById('backfillStatus').textContent = 'Backfill sudah berjalan.';
+        btn.disabled = false;
+      }
+    }).catch(function() {
+      document.getElementById('backfillStatus').innerHTML = '<span style="color:var(--down)">Error</span>';
+      btn.disabled = false;
+    });
+};
+
+function pollBackfill() {
+  fetch('/api/bsjp/backfill/status').then(function(r){ return r.json(); })
+    .then(function(d) {
+      var done  = d.done  || 0;
+      var total = d.total || 0;
+      var pct   = total > 0 ? Math.round(done / total * 100) : 0;
+      document.getElementById('backfillProgressBar').style.width = pct + '%';
+      document.getElementById('backfillStatus').textContent =
+        d.status === 'running'
+          ? done + ' / ' + total + ' tanggal (' + pct + '%)'
+          : d.status === 'error'
+            ? '⚠ Error: ' + (d.error || '')
+            : '✓ Selesai — klik Run backtest';
+      if (d.status !== 'running') {
+        clearInterval(backfillPoll);
+        document.getElementById('backfillBtn').disabled = false;
+        document.getElementById('backfillProgressBar').style.width = '100%';
+      }
+    }).catch(function(){ clearInterval(backfillPoll); });
+}
+
+/* helper: show backfill panel only in BSJP mode when result is empty */
+function maybeShowBackfill(result) {
+  var show = S.algo === 'bsjp' && result && result.total_trades === 0;
+  document.getElementById('bsjpBackfillPanel').style.display = show ? '' : 'none';
 }
 
 /* ── Load cached results on page open ────────────────────────────────────── */

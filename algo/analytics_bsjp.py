@@ -6,6 +6,7 @@ RULE: No Telegram data. Pure price-derived indicators only.
       Per-ticker exception handling — one failure does not stop the batch.
 """
 import logging
+import threading
 
 from core.db import fetchall, execute
 from algo.indicators import (
@@ -194,6 +195,64 @@ def generate_bsjp_signals(conn, date_dmy: str) -> int:
     """Delegate ke run_bsjp_scan di scraper — satu source of truth."""
     from scraper.scraper_daily import run_bsjp_scan
     return run_bsjp_scan(conn, date_dmy)
+
+
+_backfill_lock    = threading.Lock()
+_backfill_running = False
+_backfill_progress = {"done": 0, "total": 0, "error": None}
+
+
+def request_bsjp_backfill(date_from_dmy: str, date_to_dmy: str) -> bool:
+    """Trigger background backfill of bsjp_signals for a date range (DD-MM-YYYY)."""
+    global _backfill_running
+    with _backfill_lock:
+        if _backfill_running:
+            return False
+        _backfill_running = True
+        _backfill_progress["done"]  = 0
+        _backfill_progress["total"] = 0
+        _backfill_progress["error"] = None
+
+    def _run():
+        global _backfill_running
+        try:
+            from core.db import get_db
+            from scraper.scraper_daily import run_bsjp_scan
+            conn = get_db()
+
+            from_cmp = date_from_dmy[6:10] + date_from_dmy[3:5] + date_from_dmy[:2]
+            to_cmp   = date_to_dmy[6:10]   + date_to_dmy[3:5]   + date_to_dmy[:2]
+
+            dates = fetchall(conn, """
+                SELECT DISTINCT date FROM eod_summary
+                WHERE SUBSTRING(date,7,4)||SUBSTRING(date,4,2)||SUBSTRING(date,1,2)
+                      BETWEEN %s AND %s
+                ORDER BY SUBSTRING(date,7,4)||SUBSTRING(date,4,2)||SUBSTRING(date,1,2)
+            """, [from_cmp, to_cmp])
+
+            _backfill_progress["total"] = len(dates)
+            for i, row in enumerate(dates):
+                run_bsjp_scan(conn, row["date"])
+                _backfill_progress["done"] = i + 1
+
+            log.info("bsjp backfill done: %d dates processed", len(dates))
+        except Exception as e:
+            log.error("bsjp backfill error: %s", e)
+            _backfill_progress["error"] = str(e)
+        finally:
+            _backfill_running = False
+
+    threading.Thread(target=_run, daemon=True, name="bsjp-backfill").start()
+    return True
+
+
+def get_backfill_status() -> dict:
+    with _backfill_lock:
+        if _backfill_running:
+            return {"status": "running", **_backfill_progress}
+        if _backfill_progress.get("error"):
+            return {"status": "error", "error": _backfill_progress["error"]}
+        return {"status": "done", **_backfill_progress}
 
 
 def _compute_atr_pct(ph_asc: list) -> float:
