@@ -75,12 +75,19 @@ def _start_scraper():
 
 def _start_backtest():
     def _run():
-        from algo.algo_backtest import run_backtest
+        from algo.algo_backtest import run_backtest, run_bsjp_backtest
         from core.db import get_db
         try:
-            run_backtest(get_db(), days=0)
-            log.info("Startup backtest OK")
+            conn = get_db()
+            run_backtest(conn, days=0)
+            log.info("Startup Wyckoff backtest OK")
         except Exception as e:
-            log.warning("Startup backtest failed: %s", e)
+            log.warning("Startup Wyckoff backtest failed: %s", e)
+        try:
+            conn = get_db()
+            run_bsjp_backtest(conn)
+            log.info("Startup BSJP backtest OK")
+        except Exception as e:
+            log.warning("Startup BSJP backtest failed: %s", e)
 
     threading.Thread(target=_run, daemon=True, name="startup-backtest").start()

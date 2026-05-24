@@ -302,39 +302,41 @@ def _dmy_to_ymd(date_dmy: str) -> str:
 
 def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
     """
-    BSJP backtest: generate signals on-the-fly from eod_summary (like Wyckoff).
-    Exit evaluated using next trading day's EOD close from eod_summary.
-    No dependency on bsjp_signals or price_history_15m.
+    BSJP backtest: PRE-based signals, paritas penuh dengan bsjp_view.py --rank.
+    - Signal dari harga 15:45 (PRE proxy); entry tetap EOD close (IEP)
+    - Exit via 15m candles kronologis (eval_exit_15m)
+    - Hanya PRE+FINAL dan PRE_ONLY dihitung; FINAL_ONLY dibuang
     date_from, date_to: DD-MM-YYYY
     """
     global _bsjp_result
-    from algo.algo_bsjp import BSJPAlgo, BLACKLIST, _is_ara, _compute_score
+    from algo.algo_bsjp import BSJPAlgo, BLACKLIST, _is_ara, _compute_score, _to_tick, eval_exit_15m
     from collections import defaultdict as _dd
 
-    algo = BSJPAlgo()
-
-    all_rows = fetchall(conn, """
-        SELECT ticker, date, price_close, price_change_pct, phase,
-               sri, rpr, mf_ratio, sm_val, bm_val, ma5, bb_mid,
-               close_pos, prev_close_below_ma5, prev_high_break,
-               ma5_price_streak, is_sideways, daily_value
-        FROM eod_summary
-        WHERE price_close IS NOT NULL
-        ORDER BY ticker, date
-    """)
+    algo  = BSJPAlgo()
+    TOP_N = 15
 
     _empty = {
         "leaderboard": [], "total_trades": 0, "total_wins": 0, "total_losses": 0,
         "overall_win_rate": None, "overall_expectancy": None, "setup_count": 0,
         "date_range": "-", "computed_at": datetime.now(WIB).strftime("%d-%m-%Y %H:%M"),
     }
+
+    # ── Fetch semua EOD data ─────────────────────────────────────────────────────
+    all_rows = fetchall(conn, """
+        SELECT ticker, date, price_close, price_change_pct, phase,
+               sri, rpr, mf_ratio, sm_val, bm_val, ma5, bb_mid,
+               close_pos, prev_close_below_ma5, prev_high_break,
+               ma5_price_streak, is_sideways, daily_value, days_since_near_bb_mid
+        FROM eod_summary
+        WHERE price_close IS NOT NULL
+        ORDER BY ticker, date
+    """)
     if not all_rows:
         with _bsjp_lock:
             _bsjp_result = _empty
         return _empty
 
-    # Build full date index (needed to find next-day close outside filter range)
-    all_days = _dd(dict)
+    all_days: dict = _dd(dict)
     for r in all_rows:
         all_days[r["date"]][r["ticker"]] = r
 
@@ -352,96 +354,173 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
     else:
         signal_dates = all_sorted_dates
 
-    from algo.algo_bsjp import eval_exit_15m
+    if not signal_dates:
+        with _bsjp_lock:
+            _bsjp_result = _empty
+        return _empty
 
-    TOP_N = 15
+    # ── Batch-fetch harga 15:45 dan 09:00 untuk PRE signal ──────────────────────
+    signal_ymds = list({_dmy_to_ymd(d) for d in signal_dates})
+    pre_1545: dict = {}  # {(date_ymd, ticker): close}
+    pre_0900: dict = {}  # {(date_ymd, ticker): open}
 
-    # Pass 1: generate signals per day, record which (next_ymd, ticker) need 15m data.
-    day_results = []
-    ph15_needed = set()
+    if signal_ymds:
+        for r in fetchall(conn, """
+            SELECT LEFT(datetime, 10) AS date_ymd, ticker, close
+            FROM price_history_15m
+            WHERE LEFT(datetime, 10) = ANY(%s) AND RIGHT(datetime, 5) = '15:45'
+        """, [signal_ymds]):
+            v = r.get("close")
+            if v is not None:
+                try:
+                    pre_1545[(str(r["date_ymd"]), r["ticker"])] = float(v)
+                except (ValueError, TypeError):
+                    pass
+
+        for r in fetchall(conn, """
+            SELECT LEFT(datetime, 10) AS date_ymd, ticker, open
+            FROM price_history_15m
+            WHERE LEFT(datetime, 10) = ANY(%s) AND RIGHT(datetime, 5) = '09:00'
+        """, [signal_ymds]):
+            v = r.get("open")
+            if v is not None:
+                try:
+                    pre_0900[(str(r["date_ymd"]), r["ticker"])] = float(v)
+                except (ValueError, TypeError):
+                    pass
+
+    dates_with_pre = {k[0] for k in pre_1545}
+
+    # ── Pass 1: PRE + FINAL signals, assign stamp, skip FINAL_ONLY ──────────────
+    day_results: list = []
+    ph15_needed: set  = set()
+
     for date_str in signal_dates:
         next_date = date_to_next.get(date_str)
         if not next_date:
             continue
-        day_sigs = []
+        date_ymd = _dmy_to_ymd(date_str)
+        has_pre  = date_ymd in dates_with_pre
+
+        # FINAL signals (EOD close)
+        final_sigs: dict = {}
         for ticker, row in all_days[date_str].items():
-            if ticker in BLACKLIST:
-                continue
-            if _is_ara(row):
+            if ticker in BLACKLIST or _is_ara(row):
                 continue
             sig = algo.signal_detail(ticker, row)
-            if not sig:
-                continue
-            day_sigs.append((_compute_score(row, sig["setup"]), ticker, sig))
-        day_sigs.sort(key=lambda x: -x[0])
-        top = day_sigs[:TOP_N]
-        next_ymd = _dmy_to_ymd(next_date)
-        for _, ticker, _ in top:
-            ph15_needed.add((next_ymd, ticker))
-        day_results.append((date_str, next_date, next_ymd, top))
+            if sig:
+                final_sigs[ticker] = (_compute_score(row, sig["setup"]), sig)
 
-    # Pass 2: batch-fetch 15m candles only for the tickers/dates we need.
+        final_tickers = {t for t, _ in sorted(final_sigs.items(), key=lambda x: -x[1][0])[:TOP_N]}
+
+        # PRE signals (15:45 close sebagai proxy)
+        pre_tickers: set  = set()
+        pre_sigs:    dict = {}
+        if has_pre:
+            pre_pool = []
+            for ticker, row in all_days[date_str].items():
+                if ticker in BLACKLIST:
+                    continue
+                close_1545 = pre_1545.get((date_ymd, ticker))
+                open_0900  = pre_0900.get((date_ymd, ticker))
+                pre_row    = dict(row)
+                if close_1545 and open_0900 and open_0900 > 0:
+                    pre_row["price_close"]      = close_1545
+                    pre_row["price_change_pct"] = (close_1545 - open_0900) / open_0900 * 100
+                if _is_ara(pre_row):
+                    continue
+                sig = algo.signal_detail(ticker, pre_row)
+                if not sig:
+                    continue
+                # Entry tetap EOD close (IEP); tp/sl dihitung ulang
+                eod_close = float(row.get("price_close") or 0)
+                if eod_close > 0:
+                    entry_new    = _to_tick(eod_close)
+                    sig["entry"] = entry_new
+                    sig["tp1"]   = _to_tick(eod_close * 1.01)
+                    sig["tp2"]   = _to_tick(eod_close * 1.02)
+                    sig["sl"]    = algo._compute_sl(row, entry_new, sig["sl_type"])
+                pre_pool.append((_compute_score(pre_row, sig["setup"]), ticker, sig))
+
+            pre_pool.sort(key=lambda x: -x[0])
+            top_pre     = pre_pool[:TOP_N]
+            pre_tickers = {t for _, t, _ in top_pre}
+            pre_sigs    = {t: sg for _, t, sg in top_pre}
+
+        # Gabung, assign stamp, skip FINAL_ONLY
+        next_ymd   = _dmy_to_ymd(next_date)
+        day_trades = []
+        for ticker in (final_tickers | pre_tickers) if has_pre else set():
+            in_pre, in_final = ticker in pre_tickers, ticker in final_tickers
+            if in_pre and in_final:
+                stamp = "PRE+FINAL"
+            elif in_pre:
+                stamp = "PRE_ONLY"
+            else:
+                continue  # FINAL_ONLY — tidak realistis, skip
+            sig = pre_sigs[ticker] if in_pre else final_sigs[ticker][1]
+            ph15_needed.add((next_ymd, ticker))
+            day_trades.append((ticker, sig, stamp))
+
+        if day_trades:
+            day_results.append((date_str, next_date, next_ymd, day_trades))
+
+    # ── Pass 2: batch-fetch 15m candles untuk exit ───────────────────────────────
     candles_map: dict = _dd(list)
     if ph15_needed:
         next_ymds  = list({k[0] for k in ph15_needed})
         tickers_15 = list({k[1] for k in ph15_needed})
-        ph15_rows  = fetchall(conn, """
+        for r in fetchall(conn, """
             SELECT datetime, ticker, open, high, low, close
             FROM price_history_15m
             WHERE LEFT(datetime, 10) = ANY(%s) AND ticker = ANY(%s)
             ORDER BY ticker, datetime
-        """, [next_ymds, tickers_15])
-        for r in ph15_rows:
+        """, [next_ymds, tickers_15]):
             key = (str(r["datetime"])[:10], r["ticker"])
             if key in ph15_needed:
                 candles_map[key].append(r)
 
-    # Pass 3: evaluate exits — only trades with 15m candles are valid.
-    setup_trades = _dd(list)
-    for date_str, next_date, next_ymd, top in day_results:
-        for _, ticker, sig in top:
+    # ── Pass 3: evaluate exits ───────────────────────────────────────────────────
+    setup_trades: dict = _dd(list)
+    for date_str, next_date, next_ymd, day_trades in day_results:
+        for ticker, sig, stamp in day_trades:
             candles = candles_map.get((next_ymd, ticker))
             if not candles:
-                continue  # no 15m data → exclude; daily OHLC fallback is invalid
-
-            entry = sig["entry"]
-            tp1   = sig["tp1"]
-            tp2   = sig["tp2"]
-            sl    = sig["sl"]
-
-            res       = eval_exit_15m(entry, tp1, tp2, sl, candles)
-            status    = res["status"]
-            reason    = res["reason"]
-            exit_p    = res["exit_price"] or entry
-            exit_time = str(res.get("exit_time") or "")[-5:] or None  # HH:MM
-            pnl_pct   = res.get("pnl_pct")
-
+                continue
+            res       = eval_exit_15m(sig["entry"], sig["tp1"], sig["tp2"], sig["sl"], candles)
+            t_str     = str(res.get("exit_time") or "")
+            exit_time = t_str[-5:] if len(t_str) >= 5 else None
             setup_trades[sig["setup"]].append({
                 "ticker":     ticker,
                 "date":       date_str,
                 "exit_date":  next_date,
                 "exit_time":  exit_time,
-                "entry":      entry,
-                "exit_price": exit_p,
-                "status":     status,
-                "reason":     reason,
-                "pnl_pct":   pnl_pct,
+                "entry":      sig["entry"],
+                "exit_price": res.get("exit_price") or sig["entry"],
+                "status":     res["status"],
+                "reason":     res["reason"],
+                "pnl_pct":    res.get("pnl_pct"),
+                "stamp":      stamp,
             })
 
+    # ── Build leaderboard ────────────────────────────────────────────────────────
     leaderboard = []
     for setup, trades in setup_trades.items():
-        wins   = [t for t in trades if t["status"] == "Berhasil"]
-        losses = [t for t in trades if t["status"] == "Gagal"]
-        total  = len(trades)
+        wins      = [t for t in trades if t["status"] == "Berhasil"]
+        losses    = [t for t in trades if t["status"] == "Gagal"]
+        total     = len(trades)
+        all_pnl   = [t["pnl_pct"] for t in trades  if t["pnl_pct"] is not None]
+        win_pnl   = [t["pnl_pct"] for t in wins     if t["pnl_pct"] is not None]
+        loss_pnl  = [t["pnl_pct"] for t in losses   if t["pnl_pct"] is not None]
         leaderboard.append({
             "setup":      setup,
             "total":      total,
             "wins":       len(wins),
             "losses":     len(losses),
             "win_rate":   round(len(wins) / total * 100, 1) if total else 0,
-            "expectancy": round(sum(t["pnl_pct"] for t in trades) / total, 2) if total else 0,
-            "avg_win":    round(sum(t["pnl_pct"] for t in wins) / len(wins), 2) if wins else None,
-            "avg_loss":   round(sum(t["pnl_pct"] for t in losses) / len(losses), 2) if losses else None,
+            "expectancy": round(sum(all_pnl)  / total,       2) if all_pnl  else 0,
+            "avg_win":    round(sum(win_pnl)  / len(win_pnl),  2) if win_pnl  else None,
+            "avg_loss":   round(sum(loss_pnl) / len(loss_pnl), 2) if loss_pnl else None,
             "details":    trades,
         })
     leaderboard.sort(key=lambda x: x["expectancy"], reverse=True)
@@ -449,6 +528,7 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
     all_trades = [t for tl in setup_trades.values() for t in tl]
     total      = len(all_trades)
     total_wins = sum(1 for t in all_trades if t["status"] == "Berhasil")
+    all_pnl    = [t["pnl_pct"] for t in all_trades if t["pnl_pct"] is not None]
 
     result = {
         "leaderboard":        leaderboard,
@@ -456,7 +536,7 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
         "total_wins":         total_wins,
         "total_losses":       total - total_wins,
         "overall_win_rate":   round(total_wins / total * 100, 1) if total else None,
-        "overall_expectancy": round(sum(t["pnl_pct"] for t in all_trades) / total, 2) if total else None,
+        "overall_expectancy": round(sum(all_pnl) / total, 2)     if all_pnl else None,
         "setup_count":        len(leaderboard),
         "date_range":         f"{signal_dates[0]} - {signal_dates[-1]}" if signal_dates else "-",
         "computed_at":        datetime.now(WIB).strftime("%d-%m-%Y %H:%M"),

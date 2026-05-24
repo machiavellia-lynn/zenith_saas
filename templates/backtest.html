@@ -301,6 +301,7 @@ window.setAlgo = function(algo) {
 
   if (!isWy && S.bsjpData) {
     document.getElementById('btStatus').innerHTML = 'Computed: <strong style="color:var(--ink)">' + (S.bsjpData.computed_at||'—') + '</strong>';
+    renderBSJP(S.bsjpData);
   } else if (isWy && S.data) {
     document.getElementById('btStatus').innerHTML = 'Computed: <strong style="color:var(--ink)">' + (S.data.computed_at||'—') + '</strong>';
   } else {
@@ -320,8 +321,8 @@ var PHASE_BG = {
 
 /* ── Setup colors (BSJP) ─────────────────────────────────────────────────── */
 var SETUP_NAMES = {
-  POWER_BREAK_V22:   'BREAKOUT_MA5',
-  POWER_BREAK_V21:   'BREAKOUT_SIDEWAYS',
+  POWER_BREAK_V21:   'BREAKOUT_MA5',
+  POWER_BREAK_V22:   'BREAKOUT_SIDEWAYS',
   SMA5_BREAKOUT_V13: 'TRENDING_PREV_HIGH',
   SMA5_BREAKOUT_V11: 'CROSS_MA5',
   BB_PULLBACK:       'PULLBACK_BB',
