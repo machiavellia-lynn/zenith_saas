@@ -322,16 +322,27 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
     }
 
     # ── Fetch semua EOD data ─────────────────────────────────────────────────────
-    # JOIN price_history for BSJP setup columns that may not be in eod_summary yet
-    # (ph.date is YYYY-MM-DD; e.date is DD-MM-YYYY — convert via substring)
+    # Mirror EXACT SELECT dari scraper_daily.py:
+    # - Wyckoff cols (sm_val, bm_val, sri, rpr, mf_ratio, phase) → eod_summary only
+    # - Technical cols (ma5, bb_mid, is_sideways, close_pos, prev_high_break) → COALESCE e+ph
+    # - BSJP setup cols (prev_close_below_ma5, ma5_price_streak, daily_value,
+    #   days_since_near_bb_mid) → price_history only
+    # ph.date YYYY-MM-DD; e.date DD-MM-YYYY → convert via substr
     all_rows = fetchall(conn, """
-        SELECT e.ticker, e.date, e.price_close, e.price_change_pct, e.phase,
-               e.sri, e.rpr, e.mf_ratio, e.sm_val, e.bm_val, e.ma5, e.bb_mid,
-               e.close_pos, e.prev_high_break, e.is_sideways,
-               COALESCE(e.prev_close_below_ma5,  ph.prev_close_below_ma5)  AS prev_close_below_ma5,
-               COALESCE(e.ma5_price_streak,       ph.ma5_price_streak)      AS ma5_price_streak,
-               COALESCE(e.daily_value,             ph.daily_value)           AS daily_value,
-               COALESCE(e.days_since_near_bb_mid,  ph.days_since_near_bb_mid) AS days_since_near_bb_mid
+        SELECT e.ticker, e.date,
+               e.sm_val, e.bm_val, e.sri, e.rpr, e.mf_ratio,
+               e.price_close, e.price_change_pct, e.phase,
+               COALESCE(e.ma5,          ph.ma5)          AS ma5,
+               COALESCE(e.bb_mid,       ph.bb_mid)        AS bb_mid,
+               COALESCE(e.bb_upper,     ph.bb_upper)      AS bb_upper,
+               COALESCE(e.bb_lower,     ph.bb_lower)      AS bb_lower,
+               COALESCE(e.is_sideways,  ph.is_sideways)   AS is_sideways,
+               COALESCE(e.close_pos,    ph.close_pos)     AS close_pos,
+               COALESCE(e.prev_high_break, ph.prev_high_break) AS prev_high_break,
+               ph.prev_close_below_ma5,
+               ph.ma5_price_streak,
+               ph.daily_value,
+               ph.days_since_near_bb_mid
         FROM eod_summary e
         LEFT JOIN price_history ph
           ON ph.ticker = e.ticker
