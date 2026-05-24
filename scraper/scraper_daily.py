@@ -334,8 +334,6 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
                 ON p.ticker = e.ticker
                 AND p.date = TO_CHAR(TO_DATE(e.date,'DD-MM-YYYY'),'YYYY-MM-DD')
             WHERE e.date = %s
-              AND e.sm_val > 0
-              AND e.sri IS NOT NULL
         """, (today,))
         eod_rows = [dict(r) for r in cur.fetchall()]
 
