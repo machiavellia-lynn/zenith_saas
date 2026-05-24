@@ -223,12 +223,13 @@ def request_bsjp_backfill(date_from_dmy: str, date_to_dmy: str) -> bool:
             from_cmp = date_from_dmy[6:10] + date_from_dmy[3:5] + date_from_dmy[:2]
             to_cmp   = date_to_dmy[6:10]   + date_to_dmy[3:5]   + date_to_dmy[:2]
 
-            dates = fetchall(conn, """
+            raw_dates = fetchall(conn, """
                 SELECT DISTINCT date FROM eod_summary
                 WHERE SUBSTRING(date,7,4)||SUBSTRING(date,4,2)||SUBSTRING(date,1,2)
                       BETWEEN %s AND %s
-                ORDER BY SUBSTRING(date,7,4)||SUBSTRING(date,4,2)||SUBSTRING(date,1,2)
             """, [from_cmp, to_cmp])
+
+            dates = sorted(raw_dates, key=lambda r: r["date"][6:10] + r["date"][3:5] + r["date"][:2])
 
             _backfill_progress["total"] = len(dates)
             for i, row in enumerate(dates):
