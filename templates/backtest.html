@@ -62,6 +62,21 @@ body.sidebar-layout { overflow: hidden; }
   transition:background .15s, color .15s;
 }
 .algo-btn.active { background:var(--accent); color:#fff; }
+/* Monthly timeline accordion */
+.tl-month-wrap { border-bottom: 1px solid var(--border); }
+.tl-month-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:12px 18px; cursor:pointer; transition:background .12s;
+}
+.tl-month-row:hover { background:var(--surface2); }
+.tl-day-wrap { border-top: 1px solid var(--border); }
+.tl-day-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:9px 18px 9px 40px; cursor:pointer; background:var(--surface2); transition:background .12s;
+}
+.tl-day-row:hover { background:var(--surface3, #f3f3f5); }
+.tl-arrow { font-size:10px; color:var(--muted); display:inline-block; transition:transform .15s; line-height:1; }
+.tl-arrow.open { transform:rotate(90deg); }
 </style>
 </head>
 <body class="sidebar-layout">
@@ -227,6 +242,17 @@ body.sidebar-layout { overflow: hidden; }
       </div>
     </div>
 
+    <!-- BSJP Monthly Timeline -->
+    <div class="data-table" id="bsjpTimelineWrap" style="display:none;margin-top:12px">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--ink)">Monthly Timeline</div>
+          <div style="font-size:11.5px;color:var(--muted);margin-top:2px">Bulan → hari → detail trade</div>
+        </div>
+      </div>
+      <div id="bsjpTimelineBody" style="overflow-y:auto;max-height:600px"></div>
+    </div>
+
     <div id="emptyState" style="padding:64px 0;text-align:center;color:var(--muted);font-size:13px">
       Belum ada data. Klik <strong style="color:var(--ink)">Run backtest</strong> untuk memulai.
     </div>
@@ -244,6 +270,7 @@ var S = {
   sortCol: 'win_rate', sortAsc: false,
   bsjpSortCol: 'expectancy', bsjpSortAsc: false,
   detail: null, bsjpDetail: null,
+  bsjpMonthOpen: {}, bsjpDayOpen: {},
   loading: false
 };
 var today = window.todayLocal();
@@ -266,8 +293,9 @@ window.setAlgo = function(algo) {
   var isWy = algo === 'wyckoff';
   document.getElementById('leaderWrap').style.display      = isWy && S.data ? '' : 'none';
   document.getElementById('summaryCards').style.display    = isWy && S.data ? '' : 'none';
-  document.getElementById('bsjpLeaderWrap').style.display  = !isWy && S.bsjpData ? '' : 'none';
-  document.getElementById('bsjpSummaryCards').style.display= !isWy && S.bsjpData ? '' : 'none';
+  document.getElementById('bsjpLeaderWrap').style.display   = !isWy && S.bsjpData ? '' : 'none';
+  document.getElementById('bsjpSummaryCards').style.display = !isWy && S.bsjpData ? '' : 'none';
+  document.getElementById('bsjpTimelineWrap').style.display = !isWy && S.bsjpData ? '' : 'none';
   var hasData = isWy ? !!S.data : !!S.bsjpData;
   document.getElementById('emptyState').style.display = hasData ? 'none' : '';
 
@@ -445,7 +473,7 @@ function renderBSJP(result) {
   S.bsjpData = result;
   document.getElementById('emptyState').style.display = 'none';
   if (S.algo !== 'bsjp') return;
-  document.getElementById('bsjpLeaderWrap').style.display = '';
+  document.getElementById('bsjpLeaderWrap').style.display  = '';
   document.getElementById('bsjpSummaryCards').style.display = '';
 
   var wr  = result.overall_win_rate;
@@ -485,6 +513,7 @@ function renderBSJP(result) {
     '</tr>' + (expanded ? renderBSJPDetail(r, col, bg, nm) : '');
   }).join('');
   document.getElementById('bsjpCount').textContent = rows.length + ' setups · ' + result.computed_at;
+  renderBSJPTimeline(result);
 }
 
 function renderBSJPDetail(r, col, bg, nm) {
@@ -529,6 +558,153 @@ window.toggleBSJPDetail = function(setup) {
   if (S.bsjpData) renderBSJP(S.bsjpData);
 };
 window.clearBSJPDetail = function() { S.bsjpDetail = null; if (S.bsjpData) renderBSJP(S.bsjpData); };
+
+/* ── BSJP Monthly Timeline ───────────────────────────────────────────────── */
+var TL_MONTHS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+
+function tlMonthLabel(mk) {
+  var p = mk.split('-');
+  return TL_MONTHS[parseInt(p[0], 10) - 1] + ' ' + p[1];
+}
+
+function tlStats(trades) {
+  var W = 0, sumPnl = 0;
+  trades.forEach(function(t) {
+    if (t.status === 'Berhasil') W++;
+    sumPnl += (t.pnl_pct || 0);
+  });
+  var n = trades.length;
+  return { total: n, W: W, L: n - W, wr: n ? Math.round(W / n * 100) : 0, exp: n ? sumPnl / n : 0 };
+}
+
+function tlStatHtml(st, small) {
+  var fs = small ? '11px' : '12px';
+  var ec = st.exp >= 0 ? 'var(--up)' : 'var(--down)';
+  return '<div style="display:flex;align-items:center;gap:14px">'+
+    '<span style="font-size:'+fs+';color:var(--text-dim)">'+st.total+' trades</span>'+
+    '<span style="font-size:'+fs+';color:var(--muted)">'+st.W+'W/'+st.L+'L</span>'+
+    '<span style="font-size:'+fs+';font-weight:600">'+st.wr+'%</span>'+
+    '<span style="font-size:'+fs+';font-weight:600;color:'+ec+'">'+(st.exp>=0?'+':'')+st.exp.toFixed(2)+'%</span>'+
+  '</div>';
+}
+
+function tlTradeTable(trades) {
+  var rows = trades.map(function(t) {
+    var pc = (t.pnl_pct || 0) > 0 ? 'var(--up)' : (t.pnl_pct || 0) < 0 ? 'var(--down)' : 'var(--text-dim)';
+    var col = setupCol(t.setup), bg = setupBg(t.setup);
+    return '<tr class="detail-tr">'+
+      '<td class="detail-td" style="text-align:left;color:var(--ink)">'+t.ticker+'</td>'+
+      '<td class="detail-td"><div class="ph-badge-inline" style="background:'+bg+';color:'+col+';font-size:10.5px;padding:2px 8px">'+setupName(t.setup)+'</div></td>'+
+      '<td class="detail-td">'+t.exit_date+'</td>'+
+      '<td class="detail-td" style="color:var(--muted)">'+(t.exit_time||'—')+'</td>'+
+      '<td class="detail-td">'+t.entry.toLocaleString('id-ID')+'</td>'+
+      '<td class="detail-td">'+(t.exit_price!=null?t.exit_price.toLocaleString('id-ID'):'—')+'</td>'+
+      '<td class="detail-td" style="font-weight:700;color:'+pc+'">'+(t.pnl_pct!=null?(t.pnl_pct>0?'+':'')+t.pnl_pct.toFixed(2)+'%':'—')+'</td>'+
+      '<td class="detail-td" style="font-size:11px;color:var(--text-dim)">'+(t.reason||'—')+'</td>'+
+    '</tr>';
+  }).join('');
+  return '<div style="overflow-x:auto;background:var(--surface)">'+
+    '<table class="detail-table" style="width:100%">'+
+      '<thead><tr>'+
+        '<th class="detail-th" style="text-align:left">Ticker</th>'+
+        '<th class="detail-th">Setup</th>'+
+        '<th class="detail-th">Exit date</th>'+
+        '<th class="detail-th">Exit time</th>'+
+        '<th class="detail-th">Entry</th>'+
+        '<th class="detail-th">Exit ₽</th>'+
+        '<th class="detail-th">P&amp;L</th>'+
+        '<th class="detail-th">Reason</th>'+
+      '</tr></thead><tbody>'+rows+'</tbody>'+
+    '</table>'+
+  '</div>';
+}
+
+function renderBSJPTimeline(result) {
+  var wrap = document.getElementById('bsjpTimelineWrap');
+  if (!wrap) return;
+
+  // Collect all trades with setup field attached
+  var all = [];
+  (result.leaderboard || []).forEach(function(s) {
+    (s.details || []).forEach(function(t) {
+      all.push(Object.assign({setup: s.setup}, t));
+    });
+  });
+  if (!all.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+
+  // Group: month-key (MM-YYYY) → day-key (DD-MM-YYYY) → trades[]
+  var months = {};
+  all.forEach(function(t) {
+    var p = t.date.split('-');           // [DD, MM, YYYY]
+    var mk = p[1] + '-' + p[2];         // MM-YYYY
+    var dk = t.date;
+    if (!months[mk]) months[mk] = {};
+    if (!months[mk][dk]) months[mk][dk] = [];
+    months[mk][dk].push(t);
+  });
+
+  // Sort months newest first
+  var mKeys = Object.keys(months).sort(function(a, b) {
+    var ap = a.split('-'), bp = b.split('-');
+    return (bp[1]*100 + parseInt(bp[0])) - (ap[1]*100 + parseInt(ap[0]));
+  });
+
+  var html = mKeys.map(function(mk) {
+    var dayMap = months[mk];
+    // Sort days ascending within month
+    var dKeys = Object.keys(dayMap).sort(function(a, b) {
+      var ap = a.split('-'), bp = b.split('-');
+      return (ap[2]*10000 + ap[1]*100 + parseInt(ap[0])) - (bp[2]*10000 + bp[1]*100 + parseInt(bp[0]));
+    });
+    var mAll = [];
+    dKeys.forEach(function(dk){ mAll = mAll.concat(dayMap[dk]); });
+    var ms   = tlStats(mAll);
+    var mOpen = !!S.bsjpMonthOpen[mk];
+
+    var daysHtml = '';
+    if (mOpen) {
+      daysHtml = '<div>' + dKeys.map(function(dk) {
+        var trades = dayMap[dk];
+        var ds    = tlStats(trades);
+        var dOpen = !!S.bsjpDayOpen[dk];
+        var table = dOpen ? tlTradeTable(trades) : '';
+        return '<div class="tl-day-wrap">'+
+          '<div class="tl-day-row" onclick="event.stopPropagation();toggleBSJPDay(\''+dk+'\')">'+
+            '<div style="display:flex;align-items:center;gap:8px">'+
+              '<span class="tl-arrow'+(dOpen?' open':'')+'">▸</span>'+
+              '<span style="font-size:12px;color:var(--ink);font-family:var(--font-mono)">'+dk+'</span>'+
+            '</div>'+
+            tlStatHtml(ds, true)+
+          '</div>'+
+          table+
+        '</div>';
+      }).join('') + '</div>';
+    }
+
+    return '<div class="tl-month-wrap">'+
+      '<div class="tl-month-row" onclick="toggleBSJPMonth(\''+mk+'\')">'+
+        '<div style="display:flex;align-items:center;gap:10px">'+
+          '<span class="tl-arrow'+(mOpen?' open':'')+'">▸</span>'+
+          '<span style="font-size:13px;font-weight:600;color:var(--ink)">'+tlMonthLabel(mk)+'</span>'+
+        '</div>'+
+        tlStatHtml(ms, false)+
+      '</div>'+
+      daysHtml+
+    '</div>';
+  }).join('');
+
+  document.getElementById('bsjpTimelineBody').innerHTML = html;
+}
+
+window.toggleBSJPMonth = function(mk) {
+  S.bsjpMonthOpen[mk] = !S.bsjpMonthOpen[mk];
+  if (S.bsjpData) renderBSJPTimeline(S.bsjpData);
+};
+window.toggleBSJPDay = function(dk) {
+  S.bsjpDayOpen[dk] = !S.bsjpDayOpen[dk];
+  if (S.bsjpData) renderBSJPTimeline(S.bsjpData);
+};
 
 /* ── Run / poll / fetch ──────────────────────────────────────────────────── */
 var pollInterval = null;
