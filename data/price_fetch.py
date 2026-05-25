@@ -703,6 +703,14 @@ def fetch_intraday_15m_datasectors(conn, tickers: list, date_from: str, date_to:
                 params={"from": date_ymd_from, "to": date_ymd_to},
                 timeout=20,
             )
+            if r.status_code == 500:
+                time.sleep(3)
+                r = requests.get(
+                    f"{DS_BASE_URL}/api/chart-saham/{ticker}/15m",
+                    headers=headers,
+                    params={"from": date_ymd_from, "to": date_ymd_to},
+                    timeout=20,
+                )
             if r.status_code != 200:
                 log.warning("DS 15m %s: HTTP %s", ticker, r.status_code)
                 failed.append(ticker)
