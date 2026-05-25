@@ -84,10 +84,12 @@ TOPIC_CHANNELS = {
 }
 
 # ── BSJP constants ────────────────────────────────────────────────────────────
-BSJP_15M_HOUR   = 15
-BSJP_15M_MINUTE = 46
-BSJP_HOUR       = 15
-BSJP_MINUTE     = 48
+BSJP_PREFETCH_HOUR   = 12
+BSJP_PREFETCH_MINUTE = 30
+BSJP_15M_HOUR        = 15
+BSJP_15M_MINUTE      = 46
+BSJP_HOUR            = 15
+BSJP_MINUTE          = 48
 TOP_N_BSJP = 15
 
 # ── Analytics throttle — recompute at most once per 60s per date ───────────────
@@ -412,6 +414,29 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
     return len(top)
 
 
+# ── BSJP pre-filter ───────────────────────────────────────────────────────────
+
+def pre_filter_bsjp_candidates(conn, date_dmy: str) -> list:
+    """Return tickers that pass the BSJP SM gate from eod_summary.
+    date_dmy in DD-MM-YYYY. Used to minimize DataSectors API calls at 15:46."""
+    from algo.algo_bsjp import BLACKLIST
+    rows = fetchall(conn, """
+        SELECT ticker
+        FROM eod_summary
+        WHERE date = %s
+          AND phase NOT IN ('UPTHRUST', 'DISTRI')
+          AND sri >= 1.2
+          AND mf_ratio >= 50.0
+          AND price_close > 0
+          AND sm_val IS NOT NULL
+          AND bm_val IS NOT NULL
+          AND sm_val > 0
+          AND (sm_val + ABS(bm_val)) > 0
+          AND sm_val * 100.0 / (sm_val + ABS(bm_val)) >= 60
+    """, [date_dmy])
+    return [r["ticker"] for r in rows if r["ticker"] not in BLACKLIST]
+
+
 # ── Main async loop ────────────────────────────────────────────────────────────
 async def scraper_main():
     try:
@@ -456,7 +481,7 @@ async def scraper_main():
         log.info(f"👂 Listening | midday {MIDDAY_HOUR:02d}:{MIDDAY_MINUTE:02d} / backfill {BACKFILL_HOUR:02d}:{BACKFILL_MINUTE:02d} / recompute {RECOMPUTE_HOUR:02d}:{RECOMPUTE_MINUTE:02d} WIB")
 
         midday_pass_done = first_pass_done = second_pass_done = backtest_done_today = False
-        bsjp_15m_done = bsjp_scan_done = False
+        bsjp_prefetch_done = bsjp_15m_done = bsjp_scan_done = False
         last_check_date = None
 
         while True:
@@ -468,7 +493,7 @@ async def scraper_main():
 
             if today_str != last_check_date:
                 midday_pass_done = first_pass_done = second_pass_done = backtest_done_today = False
-                bsjp_15m_done = bsjp_scan_done = False
+                bsjp_prefetch_done = bsjp_15m_done = bsjp_scan_done = False
                 last_check_date = today_str
 
             if not midday_pass_done and (now_wib.hour > MIDDAY_HOUR or (now_wib.hour == MIDDAY_HOUR and now_wib.minute >= MIDDAY_MINUTE)):
@@ -501,15 +526,33 @@ async def scraper_main():
                     second_pass_done = True
                     trim_memory()
 
-            # 15:46 — Fetch today's 15m candles (so 15:45 close is ready for BSJP scan)
+            # 12:30 — Pre-fetch 15m candles for all tickers (09:00–12:xx stored in DB)
+            if not bsjp_prefetch_done and now_wib.hour == BSJP_PREFETCH_HOUR and now_wib.minute >= BSJP_PREFETCH_MINUTE:
+                try:
+                    log.info("📡 BSJP 15m prefetch (12:30) — all active tickers")
+                    from data.price_fetch import fetch_intraday_15m_datasectors
+                    today_dmy   = now_wib.strftime("%d-%m-%Y")
+                    all_tickers = [r["ticker"] for r in fetchall(conn,
+                        "SELECT ticker FROM ticker_universe WHERE is_active = TRUE")]
+                    res = fetch_intraday_15m_datasectors(conn, all_tickers, today_dmy)
+                    conn.commit()
+                    log.info(f"📡 15m prefetch done: {res.get('rows_inserted', 0)} rows for {res.get('tickers', 0)} tickers")
+                except Exception as e:
+                    log.error(f"❌ BSJP 15m prefetch: {e}")
+                finally:
+                    bsjp_prefetch_done = True
+
+            # 15:46 — Fetch 15m candles for BSJP candidates only (15:45 candle must be ready)
             if not bsjp_15m_done and now_wib.hour == BSJP_15M_HOUR and now_wib.minute >= BSJP_15M_MINUTE:
                 try:
                     log.info("📡 BSJP 15m enrich (15:46)")
-                    from data.price_fetch import backfill_intraday_15m
-                    today_dmy = now_wib.strftime("%d-%m-%Y")
-                    res = backfill_intraday_15m(conn, today_dmy, today_dmy)
+                    from data.price_fetch import fetch_intraday_15m_datasectors
+                    today_dmy  = now_wib.strftime("%d-%m-%Y")
+                    candidates = pre_filter_bsjp_candidates(conn, today_dmy)
+                    log.info(f"📡 BSJP candidates: {len(candidates)} tickers")
+                    res = fetch_intraday_15m_datasectors(conn, candidates, today_dmy)
                     conn.commit()
-                    log.info(f"📡 15m enrich done: {res.get('rows_inserted', 0)} rows")
+                    log.info(f"📡 15m enrich done: {res.get('rows_inserted', 0)} rows for {len(candidates)} tickers")
                 except Exception as e:
                     log.error(f"❌ BSJP 15m enrich: {e}")
                 finally:

@@ -667,6 +667,79 @@ def backfill_intraday_15m(conn, date_from: str, date_to: str) -> dict:
     }
 
 
+def fetch_intraday_15m_datasectors(conn, tickers: list, date_str: str) -> dict:
+    """Fetch 15m OHLCV from DataSectors for given tickers on date_str (DD-MM-YYYY).
+    Rate-limited to 1 req/sec. Converts UTC→WIB before storing.
+    Caller is responsible for commit."""
+    from config import DS_API_KEY, DS_BASE_URL
+    from datetime import timezone as _tz
+
+    if not DS_API_KEY:
+        log.error("fetch_intraday_15m_datasectors: DATASECTORS_API_KEY not set")
+        return {"ok": False, "error": "DS_API_KEY not set"}
+
+    if not tickers:
+        return {"ok": True, "tickers": 0, "rows_inserted": 0, "failed_count": 0}
+
+    d, m, y   = date_str.split("-")
+    date_ymd  = f"{y}-{m}-{d}"
+    headers   = {"Authorization": f"Bearer {DS_API_KEY}"}
+    inserted  = 0
+    failed    = []
+
+    for i, ticker in enumerate(tickers):
+        if i > 0:
+            time.sleep(1)
+        try:
+            r = requests.get(
+                f"{DS_BASE_URL}/api/chart-saham/{ticker}/15m",
+                headers=headers,
+                params={"from": date_ymd, "to": date_ymd},
+                timeout=10,
+            )
+            if r.status_code != 200:
+                log.warning("DS 15m %s: HTTP %s", ticker, r.status_code)
+                failed.append(ticker)
+                continue
+
+            candles = (r.json()
+                       .get("data", {})
+                       .get("data", {})
+                       .get("data", {})
+                       .get("chartbit", []))
+
+            for c in candles:
+                try:
+                    dt_utc = datetime.strptime(c["datetime"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=_tz.utc)
+                    dt_wib = dt_utc.astimezone(WIB).strftime("%Y-%m-%d %H:%M:%S")
+                    vol    = int(c.get("volume") or 0)
+                    execute(conn, """
+                        INSERT INTO price_history_15m (datetime, ticker, open, high, low, close, volume)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (datetime, ticker) DO UPDATE SET
+                            open = EXCLUDED.open, high = EXCLUDED.high,
+                            low  = EXCLUDED.low,  close = EXCLUDED.close,
+                            volume = EXCLUDED.volume
+                    """, [dt_wib, ticker, c["open"], c["high"], c["low"], c["close"], vol])
+                    inserted += 1
+                except Exception as e:
+                    log.warning("DS 15m insert fail ticker=%s: %s", ticker, e)
+
+        except Exception as e:
+            log.warning("DS 15m fetch fail ticker=%s: %s", ticker, e)
+            failed.append(ticker)
+
+    log.info("fetch_intraday_15m_datasectors: %d rows for %d tickers, %d failed",
+             inserted, len(tickers), len(failed))
+    return {
+        "ok":           True,
+        "tickers":      len(tickers),
+        "rows_inserted": inserted,
+        "failed_count": len(failed),
+        "failed":       failed[:20],
+    }
+
+
 def fetch_all_gains_to_db(conn, date_str: str, delay_ms: int = 333):
     """Fetch gains for all tickers in eod_summary for date_str and write to DB.
     Caller is responsible for commit."""
