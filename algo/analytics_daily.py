@@ -141,7 +141,7 @@ def _compute_one(ticker: str, date_str: str, row: dict,
     tx_sm    = row.get("tx_sm") or 0
     tx_bm    = row.get("tx_bm") or 0
     tx_total = (row.get("tx_count") or 0) or (tx_sm + tx_bm)
-    price_close  = row.get("price_close")
+    price_close  = row.get("price_close") or (ph[-1]["close"] if ph else None)
     price_change = (
         round((price_close - prev_close) / prev_close * 100, 2)
         if price_close and prev_close and prev_close > 0 else None
