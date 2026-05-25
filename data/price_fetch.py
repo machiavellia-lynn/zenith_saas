@@ -667,11 +667,12 @@ def backfill_intraday_15m(conn, date_from: str, date_to: str) -> dict:
     }
 
 
-def fetch_intraday_15m_datasectors(conn, tickers: list, date_from: str, date_to: str = None) -> dict:
+def fetch_intraday_15m_datasectors(conn, tickers: list, date_from: str, date_to: str = None, progress_cb=None) -> dict:
     """Fetch 15m OHLCV from DataSectors for given tickers.
     date_from / date_to in DD-MM-YYYY. date_to defaults to date_from (single day).
     Supports multi-day ranges — one request per ticker covers the full range.
     Rate-limited to 1 req/sec. Converts UTC→WIB before storing.
+    progress_cb(done, total, current_ticker, inserted, failed) — called per ticker.
     Caller is responsible for commit."""
     from config import DS_API_KEY, DS_BASE_URL
     from datetime import timezone as _tz
@@ -749,6 +750,12 @@ def fetch_intraday_15m_datasectors(conn, tickers: list, date_from: str, date_to:
         except Exception as e:
             log.warning("DS 15m fetch fail ticker=%s: %s", ticker, e)
             failed.append(ticker)
+
+        if progress_cb:
+            try:
+                progress_cb(i + 1, len(tickers), ticker, inserted, len(failed))
+            except Exception:
+                pass
 
     log.info("fetch_intraday_15m_datasectors %s→%s: %d rows, %d tickers, %d failed",
              date_from, date_to or date_from, inserted, len(tickers), len(failed))

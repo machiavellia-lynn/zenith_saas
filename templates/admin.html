@@ -344,18 +344,69 @@ function toast(msg, type) {
   setTimeout(function() { el.style.display = 'none'; }, 2800);
 }
 
+/* Per-action progress polling config */
+var PROGRESS_CONFIGS = {
+  fetch_15m: {
+    statusUrl: '/admin/intraday-progress',
+    runningText: function(s) {
+      return s.done + ' / ' + s.total + (s.current ? ' · ' + s.current : '')
+           + ' · ' + s.rows_inserted + ' rows'
+           + (s.failed_count ? ' · ' + s.failed_count + ' failed' : '');
+    },
+    doneText: function(s) {
+      return '✓ Selesai · ' + s.rows_inserted + ' rows · ' + s.failed_count + ' failed';
+    },
+    toastLabel: 'Fetch 15M'
+  },
+  recompute_w: {
+    statusUrl: '/admin/wyckoff-recompute-status',
+    runningText: function(s) {
+      return s.done + ' / ' + s.total + (s.current_date ? ' · ' + s.current_date : '');
+    },
+    doneText: function(s) { return '✓ Selesai · ' + s.done + ' dates'; },
+    toastLabel: 'Recompute Analytics'
+  },
+  recompute_b: {
+    statusUrl: '/admin/bsjp-recompute-status',
+    runningText: function(s) {
+      return s.done + ' / ' + s.total + (s.current_date ? ' · ' + s.current_date : '')
+           + (s.signals ? ' · ' + s.signals + ' signals' : '');
+    },
+    doneText: function(s) { return '✓ Selesai · ' + s.done + ' dates · ' + (s.signals || 0) + ' signals'; },
+    toastLabel: 'Recompute BSJP'
+  },
+  fetch_daily: {
+    statusUrl: '/admin/prices-progress',
+    runningText: function(s) {
+      return s.done + ' / ' + s.total + (s.current ? ' · ' + s.current : '')
+           + (s.step ? ' · ' + s.step : '');
+    },
+    doneText: function(s) { return '✓ Selesai · ' + (s.prices_updated || 0) + ' prices · ' + (s.analytics_recomputed || 0) + ' analytics'; },
+    toastLabel: 'Fetch OHLCV Daily'
+  }
+};
+
 /* Action buttons */
 window.runAction = function(action) {
   if (loadingAction) return;
   loadingAction = action;
   var btnMap = { fetch_daily:'btnFetchDaily', recompute_w:'btnRecomputeW', rebuild:'btnRebuild', fetch_15m:'btnFetch15m', recompute_b:'btnRecomputeB' };
   var progId  = (action === 'fetch_15m' || action === 'recompute_b') ? 'progBSJP' : 'progWyckoff';
+  var statusId = (action === 'fetch_15m' || action === 'recompute_b') ? 'enrichBStatus' : 'enrichWStatus';
   var btn = document.getElementById(btnMap[action]);
   if (btn) { btn.disabled = true; btn.innerHTML = '<span style="display:inline-block;width:11px;height:11px;border:2px solid rgba(0,0,0,.3);border-top-color:currentColor;border-radius:99px;animation:adminSpin .6s linear infinite"></span> Processing...'; }
   document.getElementById(progId).style.display = '';
-  /* Reset animation */
   var fill = document.getElementById(progId+'Fill');
-  fill.className = 'a-progress-fill'; fill.offsetHeight; fill.className = 'a-progress-fill anim';
+
+  var cfg = PROGRESS_CONFIGS[action];
+  if (cfg) {
+    fill.className = 'a-progress-fill';
+    fill.style.width = '0%';
+  } else {
+    /* Reset fake animation for actions without real progress */
+    fill.className = 'a-progress-fill'; fill.offsetHeight; fill.className = 'a-progress-fill anim';
+    fill.style.width = '';
+  }
 
   var dates = (action === 'fetch_15m' || action === 'recompute_b') ? bsjpDates : wyckoffDates;
   var from = window.isoToDD_MM_YYYY(dates.from), to = window.isoToDD_MM_YYYY(dates.to);
@@ -366,19 +417,59 @@ window.runAction = function(action) {
   else if (action === 'fetch_15m') url = '/admin/backfill-intraday?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to);
   else if (action === 'recompute_b') url = '/admin/bsjp-recompute?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to);
 
+  var statEl = document.getElementById(statusId);
+
+  function finishAction(msgType, msg) {
+    loadingAction = null;
+    document.getElementById(progId).style.display = 'none';
+    if (statEl) statEl.textContent = '';
+    resetBtn(btnMap[action]);
+    toast(msg, msgType);
+  }
+
+  function startPolling() {
+    var pollIv = setInterval(function() {
+      fetch(cfg.statusUrl)
+        .then(function(r){ return r.json(); })
+        .then(function(s) {
+          if (s.status === 'running') {
+            var pct = s.total > 0 ? Math.min(99, (s.done / s.total * 100)) : 2;
+            fill.style.width = pct + '%';
+            if (statEl) statEl.textContent = cfg.runningText(s);
+          } else if (s.status === 'done') {
+            clearInterval(pollIv);
+            fill.style.width = '100%';
+            if (statEl) statEl.textContent = cfg.doneText(s);
+            toast(cfg.toastLabel + ' selesai ✓', 'success');
+            setTimeout(function() {
+              document.getElementById(progId).style.display = 'none';
+              if (statEl) statEl.textContent = '';
+            }, 4000);
+            loadingAction = null;
+            resetBtn(btnMap[action]);
+          } else if (s.status === 'error') {
+            clearInterval(pollIv);
+            if (statEl) statEl.textContent = 'Error: ' + (s.error || '?');
+            finishAction('error', 'Error: ' + (s.error || '?'));
+          }
+        }).catch(function(){});
+    }, 1500);
+  }
+
   fetch(url)
     .then(function(r){ return r.json(); })
     .then(function(d) {
-      loadingAction = null;
-      document.getElementById(progId).style.display = 'none';
-      if (btn) { btn.disabled = false; btn.textContent = btn.textContent.replace('Processing...', btn.getAttribute('data-label') || btn.textContent); }
-      resetBtn(btnMap[action]);
-      toast(d.message || (d.ok ? 'Selesai ✓' : 'Error: '+(d.error||'?')), d.ok===false?'error':'success');
+      if (!d.ok) {
+        finishAction('error', 'Error: ' + (d.error || '?'));
+        return;
+      }
+      if (cfg) {
+        startPolling();
+      } else {
+        finishAction(d.ok===false?'error':'success', d.message || (d.ok ? 'Selesai ✓' : 'Error: '+(d.error||'?')));
+      }
     }).catch(function(e) {
-      loadingAction = null;
-      document.getElementById(progId).style.display = 'none';
-      resetBtn(btnMap[action]);
-      toast('Gagal: '+e.message, 'error');
+      finishAction('error', 'Gagal: '+e.message);
     });
 };
 

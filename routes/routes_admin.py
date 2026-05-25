@@ -216,61 +216,99 @@ def recompute_analytics():
         conn.close()
 
 
+_prices_progress = {
+    "status": "idle",
+    "step":   None,        # prices | 200d | analytics | None
+    "done":   0,
+    "total":  0,
+    "current": None,
+    "prices_updated":       0,
+    "analytics_recomputed": 0,
+    "date_from": None,
+    "date_to":   None,
+    "error":     None,
+}
+
+
 @bp_admin.route("/admin/backfill-prices")
 def admin_backfill_prices():
     if not is_authed():
         return redirect("/")
+    if _prices_progress["status"] == "running":
+        return jsonify({"ok": False, "error": "Backfill prices sedang berjalan, tunggu selesai."})
     days      = int(request.args.get("days", 30))
     date_from = request.args.get("date_from", "").strip() or None
     date_to   = request.args.get("date_to", "").strip() or None
 
-    from data.price_fetch import backfill_prices
+    import threading
+    from data.price_fetch import backfill_prices, backfill_price_history_200d
     from algo.analytics_daily import compute_analytics_for_date
     from core.db import get_scraper_db, fetchall
     from datetime import datetime
-    import logging
-    log = logging.getLogger("zenith.admin")
+    import logging as _logging
+    _log = _logging.getLogger("zenith.admin")
 
-    conn = get_scraper_db()
-    try:
-        prices_updated = backfill_prices(conn, days=days, date_from=date_from, date_to=date_to)
+    _prices_progress.update({
+        "status": "running", "step": "prices", "done": 0, "total": 0, "current": None,
+        "prices_updated": 0, "analytics_recomputed": 0,
+        "date_from": date_from, "date_to": date_to, "error": None,
+    })
 
-        from data.price_fetch import backfill_price_history_200d
-        backfill_price_history_200d(conn)
-        conn.commit()
+    def _run():
+        conn = get_scraper_db()
+        try:
+            # Phase 1: prices
+            _prices_progress["step"] = "prices"
+            prices_updated = backfill_prices(conn, days=days, date_from=date_from, date_to=date_to)
+            _prices_progress["prices_updated"] = prices_updated
 
-        analytics_recomputed = 0
-        if date_from:
-            fmt = "%d-%m-%Y"
-            dt_f = datetime.strptime(date_from, fmt)
-            dt_t = datetime.strptime(date_to, fmt) if date_to else datetime.now()
-            all_rows = fetchall(conn, "SELECT DISTINCT date FROM eod_summary ORDER BY date")
-            dates_to_recompute = sorted([
-                r["date"] for r in all_rows
-                if dt_f <= datetime.strptime(r["date"], fmt) <= dt_t
-            ])
-            for d in dates_to_recompute:
-                try:
-                    n = compute_analytics_for_date(conn, d)
-                    analytics_recomputed += n
-                    conn.commit()
-                except Exception as e:
-                    log.error(f"Analytics recompute failed for {d}: {e}")
-                    conn.rollback()
+            # Phase 2: 200d history
+            _prices_progress["step"] = "200d"
+            backfill_price_history_200d(conn)
+            conn.commit()
 
-        return jsonify({
-            "ok": True,
-            "prices_updated": prices_updated,
-            "analytics_recomputed": analytics_recomputed,
-            "date_from": date_from,
-            "date_to": date_to,
-            "days": days if not date_from else None,
-        })
-    except Exception as e:
-        log.error(f"Backfill prices failed: {e}")
-        return jsonify({"ok": False, "error": str(e)}), 500
-    finally:
-        conn.close()
+            # Phase 3: analytics
+            analytics_recomputed = 0
+            if date_from:
+                fmt = "%d-%m-%Y"
+                dt_f = datetime.strptime(date_from, fmt)
+                dt_t = datetime.strptime(date_to, fmt) if date_to else datetime.now()
+                all_rows = fetchall(conn, "SELECT DISTINCT date FROM eod_summary ORDER BY date")
+                dates_to_recompute = sorted([
+                    r["date"] for r in all_rows
+                    if dt_f <= datetime.strptime(r["date"], fmt) <= dt_t
+                ])
+                _prices_progress.update({"step": "analytics", "done": 0, "total": len(dates_to_recompute)})
+                for i, d in enumerate(dates_to_recompute):
+                    _prices_progress["current"] = d
+                    try:
+                        n = compute_analytics_for_date(conn, d)
+                        analytics_recomputed += n
+                        conn.commit()
+                    except Exception as e:
+                        _log.error(f"Analytics recompute failed for {d}: {e}")
+                        conn.rollback()
+                    _prices_progress["done"] = i + 1
+                _prices_progress["analytics_recomputed"] = analytics_recomputed
+
+            _prices_progress.update({"status": "done", "step": None, "current": None})
+            _log.info("backfill prices done: %s prices, %s analytics", prices_updated, analytics_recomputed)
+        except Exception as e:
+            conn.rollback()
+            _prices_progress.update({"status": "error", "error": str(e)})
+            _log.error(f"Backfill prices failed: {e}")
+        finally:
+            conn.close()
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"ok": True, "message": f"Backfill prices dimulai ({date_from} s/d {date_to})."})
+
+
+@bp_admin.route("/admin/prices-progress")
+def admin_prices_progress():
+    if not is_authed():
+        return redirect("/")
+    return jsonify(_prices_progress)
 
 
 @bp_admin.route("/admin/backfill-200d")
@@ -298,10 +336,25 @@ def admin_backfill_200d():
     return jsonify({"ok": True, "message": "200d price history backfill started"})
 
 
+_intraday_progress = {
+    "status":  "idle",   # idle | running | done | error
+    "done":    0,
+    "total":   0,
+    "current": None,
+    "rows_inserted": 0,
+    "failed_count":  0,
+    "date_from": None,
+    "date_to":   None,
+    "error":     None,
+}
+
+
 @bp_admin.route("/admin/backfill-intraday")
 def admin_backfill_intraday():
     if not is_authed():
         return redirect("/")
+    if _intraday_progress["status"] == "running":
+        return jsonify({"ok": False, "error": "Backfill intraday sedang berjalan, tunggu selesai."})
     date_from = request.args.get("date_from", "").strip()
     date_to   = request.args.get("date_to",   "").strip()
     if not date_from or not date_to:
@@ -313,6 +366,19 @@ def admin_backfill_intraday():
     import logging as _logging
     _log = _logging.getLogger("zenith.admin")
 
+    _intraday_progress.update({
+        "status": "running", "done": 0, "total": 0, "current": None,
+        "rows_inserted": 0, "failed_count": 0,
+        "date_from": date_from, "date_to": date_to, "error": None,
+    })
+
+    def _progress_cb(done, total, current, inserted, failed):
+        _intraday_progress["done"]    = done
+        _intraday_progress["total"]   = total
+        _intraday_progress["current"] = current
+        _intraday_progress["rows_inserted"] = inserted
+        _intraday_progress["failed_count"]  = failed
+
     def _run():
         conn = get_scraper_db()
         try:
@@ -321,19 +387,29 @@ def admin_backfill_intraday():
             if not tickers:
                 tickers = [r["ticker"] for r in fetchall(conn,
                     "SELECT DISTINCT ticker FROM eod_summary")]
+            _intraday_progress["total"] = len(tickers)
             _log.info("backfill intraday DS: %d tickers, %s s/d %s", len(tickers), date_from, date_to)
-            res = fetch_intraday_15m_datasectors(conn, tickers, date_from, date_to)
+            res = fetch_intraday_15m_datasectors(conn, tickers, date_from, date_to, progress_cb=_progress_cb)
             conn.commit()
+            _intraday_progress["status"] = "done"
             _log.info("backfill intraday DS done: %s rows, %s failed",
                       res.get("rows_inserted"), res.get("failed_count"))
         except Exception as e:
             conn.rollback()
+            _intraday_progress.update({"status": "error", "error": str(e)})
             _log.error("backfill intraday DS failed: %s", e)
         finally:
             conn.close()
 
     threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"ok": True, "message": f"Intraday 15m backfill via DataSectors dimulai ({date_from} s/d {date_to}). Estimasi ~14 menit. Cek server log."})
+    return jsonify({"ok": True, "message": f"Intraday 15m backfill via DataSectors dimulai ({date_from} s/d {date_to})."})
+
+
+@bp_admin.route("/admin/intraday-progress")
+def admin_intraday_progress():
+    if not is_authed():
+        return redirect("/")
+    return jsonify(_intraday_progress)
 
 
 @bp_admin.route("/admin/backfill-intraday-all")
