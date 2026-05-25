@@ -238,10 +238,14 @@ window.StockbitDatePicker = class StockbitDatePicker {
     if (this._strip && this._popup) {
       const r  = this._strip.getBoundingClientRect();
       const PW = 280;
+      const PH = 330;
       let left = this.alignRight ? r.right - PW : r.left;
       if (left + PW > window.innerWidth - 8) left = window.innerWidth - PW - 8;
       if (left < 8) left = 8;
-      this._popup.style.top  = (r.bottom + 6) + 'px';
+      const top = (r.bottom + 6 + PH > window.innerHeight - 8)
+        ? Math.max(8, r.top - PH - 6)
+        : r.bottom + 6;
+      this._popup.style.top  = top + 'px';
       this._popup.style.left = left + 'px';
     }
     this._popup.classList.add('open');
