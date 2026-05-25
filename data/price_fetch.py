@@ -667,8 +667,10 @@ def backfill_intraday_15m(conn, date_from: str, date_to: str) -> dict:
     }
 
 
-def fetch_intraday_15m_datasectors(conn, tickers: list, date_str: str) -> dict:
-    """Fetch 15m OHLCV from DataSectors for given tickers on date_str (DD-MM-YYYY).
+def fetch_intraday_15m_datasectors(conn, tickers: list, date_from: str, date_to: str = None) -> dict:
+    """Fetch 15m OHLCV from DataSectors for given tickers.
+    date_from / date_to in DD-MM-YYYY. date_to defaults to date_from (single day).
+    Supports multi-day ranges — one request per ticker covers the full range.
     Rate-limited to 1 req/sec. Converts UTC→WIB before storing.
     Caller is responsible for commit."""
     from config import DS_API_KEY, DS_BASE_URL
@@ -681,11 +683,15 @@ def fetch_intraday_15m_datasectors(conn, tickers: list, date_str: str) -> dict:
     if not tickers:
         return {"ok": True, "tickers": 0, "rows_inserted": 0, "failed_count": 0}
 
-    d, m, y   = date_str.split("-")
-    date_ymd  = f"{y}-{m}-{d}"
-    headers   = {"Authorization": f"Bearer {DS_API_KEY}"}
-    inserted  = 0
-    failed    = []
+    def _to_ymd(dmy: str) -> str:
+        d, m, y = dmy.split("-")
+        return f"{y}-{m}-{d}"
+
+    date_ymd_from = _to_ymd(date_from)
+    date_ymd_to   = _to_ymd(date_to) if date_to else date_ymd_from
+    headers       = {"Authorization": f"Bearer {DS_API_KEY}"}
+    inserted      = 0
+    failed        = []
 
     for i, ticker in enumerate(tickers):
         if i > 0:
@@ -694,8 +700,8 @@ def fetch_intraday_15m_datasectors(conn, tickers: list, date_str: str) -> dict:
             r = requests.get(
                 f"{DS_BASE_URL}/api/chart-saham/{ticker}/15m",
                 headers=headers,
-                params={"from": date_ymd, "to": date_ymd},
-                timeout=10,
+                params={"from": date_ymd_from, "to": date_ymd_to},
+                timeout=20,
             )
             if r.status_code != 200:
                 log.warning("DS 15m %s: HTTP %s", ticker, r.status_code)
@@ -709,6 +715,9 @@ def fetch_intraday_15m_datasectors(conn, tickers: list, date_str: str) -> dict:
                        .get("chartbit", []))
 
             for c in candles:
+                # Skip candles with missing price data to avoid aborted transaction state
+                if not (c.get("open") and c.get("close")):
+                    continue
                 try:
                     dt_utc = datetime.strptime(c["datetime"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=_tz.utc)
                     dt_wib = dt_utc.astimezone(WIB).strftime("%Y-%m-%d %H:%M:%S")
@@ -723,20 +732,24 @@ def fetch_intraday_15m_datasectors(conn, tickers: list, date_str: str) -> dict:
                     """, [dt_wib, ticker, c["open"], c["high"], c["low"], c["close"], vol])
                     inserted += 1
                 except Exception as e:
-                    log.warning("DS 15m insert fail ticker=%s: %s", ticker, e)
+                    log.warning("DS 15m insert fail ticker=%s dt=%s: %s", ticker, c.get("datetime"), e)
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
 
         except Exception as e:
             log.warning("DS 15m fetch fail ticker=%s: %s", ticker, e)
             failed.append(ticker)
 
-    log.info("fetch_intraday_15m_datasectors: %d rows for %d tickers, %d failed",
-             inserted, len(tickers), len(failed))
+    log.info("fetch_intraday_15m_datasectors %s→%s: %d rows, %d tickers, %d failed",
+             date_from, date_to or date_from, inserted, len(tickers), len(failed))
     return {
-        "ok":           True,
-        "tickers":      len(tickers),
+        "ok":            True,
+        "tickers":       len(tickers),
         "rows_inserted": inserted,
-        "failed_count": len(failed),
-        "failed":       failed[:20],
+        "failed_count":  len(failed),
+        "failed":        failed[:20],
     }
 
 

@@ -308,25 +308,32 @@ def admin_backfill_intraday():
         return jsonify({"ok": False, "error": "date_from dan date_to wajib (DD-MM-YYYY)"}), 400
 
     import threading
-    from data.price_fetch import backfill_intraday_15m
-    from core.db import get_scraper_db
+    from data.price_fetch import fetch_intraday_15m_datasectors
+    from core.db import get_scraper_db, fetchall
     import logging as _logging
     _log = _logging.getLogger("zenith.admin")
 
     def _run():
         conn = get_scraper_db()
         try:
-            res = backfill_intraday_15m(conn, date_from, date_to)
+            tickers = [r["ticker"] for r in fetchall(conn,
+                "SELECT ticker FROM ticker_universe WHERE is_active = TRUE")]
+            if not tickers:
+                tickers = [r["ticker"] for r in fetchall(conn,
+                    "SELECT DISTINCT ticker FROM eod_summary")]
+            _log.info("backfill intraday DS: %d tickers, %s s/d %s", len(tickers), date_from, date_to)
+            res = fetch_intraday_15m_datasectors(conn, tickers, date_from, date_to)
             conn.commit()
-            _log.info("backfill_intraday_15m done: %s", res)
+            _log.info("backfill intraday DS done: %s rows, %s failed",
+                      res.get("rows_inserted"), res.get("failed_count"))
         except Exception as e:
             conn.rollback()
-            _log.error("backfill_intraday_15m failed: %s", e)
+            _log.error("backfill intraday DS failed: %s", e)
         finally:
             conn.close()
 
     threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"ok": True, "message": f"Intraday 15m backfill dimulai ({date_from} → {date_to}). Cek server log untuk progress."})
+    return jsonify({"ok": True, "message": f"Intraday 15m backfill via DataSectors dimulai ({date_from} s/d {date_to}). Estimasi ~14 menit. Cek server log."})
 
 
 @bp_admin.route("/admin/backfill-intraday-all")
