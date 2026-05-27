@@ -312,6 +312,103 @@ def fetch_ohlcv(ticker: str, tf: str, interval_map: dict) -> dict:
         return {"error": str(e)}
 
 
+# DataSectors interval mapping: tf → (ds_interval, days_back)
+_DS_TF_MAP = {
+    "5m":  ("5m",     10),
+    "15m": ("15m",    30),
+    "30m": ("30m",    60),
+    "1h":  ("1h",    180),
+    "1d":  ("daily", 730),
+}
+
+
+def fetch_ohlcv_datasectors(ticker: str, tf: str) -> dict:
+    """Fetch OHLCV candles from DataSectors. Returns same format as fetch_ohlcv.
+    Intraday datetimes are UTC from DS — converted to WIB before returning.
+    Daily uses 'date' field (YYYY-MM-DD) and 'unixdate' (WIB midnight unix)."""
+    from config import DS_API_KEY, DS_BASE_URL
+    from datetime import timezone as _tz
+
+    if tf not in _DS_TF_MAP:
+        return {"error": f"Timeframe tidak valid: {tf}"}
+
+    interval_str, days_back = _DS_TF_MAP[tf]
+    now_wib   = datetime.now(WIB)
+    date_to   = now_wib.strftime("%Y-%m-%d")
+    date_from = (now_wib - timedelta(days=days_back)).strftime("%Y-%m-%d")
+
+    try:
+        r = requests.get(
+            f"{DS_BASE_URL}/api/chart-saham/{ticker}/{interval_str}",
+            headers={"Authorization": f"Bearer {DS_API_KEY}"},
+            params={"from": date_from, "to": date_to},
+            timeout=20,
+        )
+        if r.status_code != 200:
+            return {"error": f"DataSectors HTTP {r.status_code} for {ticker}"}
+
+        # DS returns nested data.data.data.chartbit (intraday) or data.data.data.chartbit (daily)
+        chartbit = (r.json()
+                    .get("data", {})
+                    .get("data", {})
+                    .get("data", {})
+                    .get("chartbit", []))
+
+        if not chartbit:
+            return {"error": f"No data for {ticker} {tf}"}
+
+        candles = []
+        is_daily = (tf == "1d")
+
+        # DS returns newest-first — reverse to oldest-first
+        for c in reversed(chartbit):
+            try:
+                o = c.get("open")
+                h = c.get("high")
+                l = c.get("low")
+                cl = c.get("close")
+                if not (o and cl):
+                    continue
+
+                if is_daily:
+                    dt_wib = datetime.strptime(c["date"], "%Y-%m-%d").replace(tzinfo=WIB)
+                    time_val    = int(dt_wib.timestamp())
+                    datetime_wib = c["date"]
+                else:
+                    dt_utc   = datetime.strptime(c["datetime"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=_tz.utc)
+                    dt_wib   = dt_utc.astimezone(WIB)
+                    time_val    = int(dt_wib.timestamp())
+                    datetime_wib = dt_wib.strftime("%Y-%m-%d %H:%M")
+
+                candles.append({
+                    "time":         time_val,
+                    "open":         int(o),
+                    "high":         int(h),
+                    "low":          int(l),
+                    "close":        int(cl),
+                    "volume":       int(c.get("volume") or 0),
+                    "datetime_wib": datetime_wib,
+                })
+            except Exception:
+                continue
+
+        if not candles:
+            return {"error": f"No valid candles for {ticker} {tf}"}
+
+        return {
+            "ticker":     ticker,
+            "tf":         tf,
+            "candles":    candles,
+            "count":      len(candles),
+            "name":       ticker,
+            "price":      candles[-1]["close"],
+            "data_range": f"{candles[0]['datetime_wib']} → {candles[-1]['datetime_wib']} WIB",
+        }
+    except Exception as e:
+        log.warning("fetch_ohlcv_datasectors %s %s: %s", ticker, tf, e)
+        return {"error": str(e)}
+
+
 def enrich_daily_prices(conn, date_str: str) -> int:
     """Fetch close prices for all tickers in eod_summary for a given date.
     Caller is responsible for commit."""
