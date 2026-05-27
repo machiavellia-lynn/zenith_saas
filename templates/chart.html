@@ -68,11 +68,12 @@ body.sidebar-layout { overflow: hidden; }
 .ohlc-bar {
   display: flex; align-items: center; gap: 18px; padding: 10px 18px;
   border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 11.5px;
+  flex-wrap: wrap;
 }
 .ohlc-sep { color: var(--border2); }
 .ohlc-l { color: var(--muted); margin-right: 4px; }
 .ohlc-v { color: var(--ink); font-weight: 600; }
-#chartArea { background: var(--bg); min-height: 200px; }
+#chartArea { background: var(--bg); min-height: 200px; position: relative; }
 .ovl-cnt { font-size: 9.5px; opacity: 0.65; margin-left: 2px; }
 .metrics-strip {
   display: flex; background: var(--surface); border: 1px solid var(--border);
@@ -109,6 +110,48 @@ body.sidebar-layout { overflow: hidden; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes adminSpin { to { transform: rotate(360deg); } }
+
+/* Indicator panel */
+.ind-panel {
+  display: none; position: absolute; top: calc(100% + 8px); right: 0;
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 10px; padding: 6px 0; min-width: 196px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.18); z-index: 200;
+}
+.ind-sect {
+  padding: 5px 14px 2px; font-family: var(--font-mono); font-size: 9px;
+  font-weight: 700; letter-spacing: .15em; color: var(--muted); text-transform: uppercase;
+}
+.ind-item {
+  display: flex; align-items: center; gap: 8px; padding: 6px 14px;
+  cursor: pointer; font-size: 12px; color: var(--text-dim);
+  font-family: var(--font-display); font-weight: 500; user-select: none; transition: background .1s;
+}
+.ind-item:hover { background: var(--surface2); }
+.ind-item.active { color: var(--ink); }
+.ind-stripe { width: 16px; height: 2.5px; border-radius: 2px; flex-shrink: 0; opacity: .35; transition: opacity .1s; }
+.ind-item.active .ind-stripe { opacity: 1; }
+.ind-chk {
+  width: 14px; height: 14px; border: 1.5px solid var(--border2); border-radius: 3px;
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 9px; margin-left: auto; transition: all .1s;
+}
+.ind-item.active .ind-chk { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Sub-pane header */
+.ind-pane-hdr {
+  padding: 3px 12px; font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  letter-spacing: .12em; color: var(--muted); text-transform: uppercase;
+  background: var(--surface2); display: flex; align-items: center; gap: 10px;
+}
+.ind-pane-val { font-weight: 400; font-size: 9px; opacity: .85; }
+
+/* Indicator legend overlay (top-left of chartArea) */
+#indLegend {
+  position: absolute; top: 8px; left: 10px; z-index: 5;
+  pointer-events: none; display: flex; flex-wrap: wrap; gap: 0 14px;
+  font-family: var(--font-mono); font-size: 10.5px; line-height: 1.8;
+}
 </style>
 </head>
 <body class="sidebar-layout">
@@ -167,6 +210,25 @@ body.sidebar-layout { overflow: hidden; }
         <div class="ovl-btn" id="ovlBtnSM" onclick="toggleOverlay('sm')" style="--ovl-col:#4a7fdb"><div class="ovl-dot" style="background:#4a7fdb"></div>SM<span class="ovl-cnt" id="ovlCntSM"></span></div>
         <div class="ovl-btn" id="ovlBtnBM" onclick="toggleOverlay('bm')" style="--ovl-col:#c87d3a"><div class="ovl-dot" style="background:#c87d3a"></div>BM<span class="ovl-cnt" id="ovlCntBM"></span></div>
         <div style="flex:1"></div>
+        <!-- Indicators dropdown -->
+        <div style="position:relative" id="indWrap">
+          <div class="ovl-btn" id="indBtn" style="gap:6px;padding:4px 11px;cursor:pointer">
+            <span style="font-size:10px;line-height:1">◈</span>Indicators<span id="indActiveCnt" style="font-size:9px;font-weight:700;opacity:.7;margin-left:1px"></span>
+          </div>
+          <div id="indPanel" class="ind-panel">
+            <div class="ind-sect">Moving Averages</div>
+            <div class="ind-item active" id="indItem_ma5"><div class="ind-stripe" style="background:#2196f3"></div>MA 5<div class="ind-chk">✓</div></div>
+            <div class="ind-item active" id="indItem_ma13"><div class="ind-stripe" style="background:#ff9800"></div>MA 13<div class="ind-chk">✓</div></div>
+            <div class="ind-item" id="indItem_ma50"><div class="ind-stripe" style="background:#4caf50"></div>MA 50<div class="ind-chk"></div></div>
+            <div class="ind-item" id="indItem_ma200"><div class="ind-stripe" style="background:#888"></div>MA 200<div class="ind-chk"></div></div>
+            <div class="ind-sect" style="margin-top:4px">Bands</div>
+            <div class="ind-item" id="indItem_bb"><div class="ind-stripe" style="background:#2196f3"></div>Bollinger (20, 2)<div class="ind-chk"></div></div>
+            <div class="ind-sect" style="margin-top:4px">Oscillators</div>
+            <div class="ind-item" id="indItem_rsi"><div class="ind-stripe" style="background:#9c27b0"></div>RSI (14)<div class="ind-chk"></div></div>
+            <div class="ind-item" id="indItem_macd"><div class="ind-stripe" style="background:#4caf50"></div>MACD (12, 26, 9)<div class="ind-chk"></div></div>
+          </div>
+        </div>
+        <div style="width:6px"></div>
         <div class="scale-toggle">
           <div class="scale-btn active" id="btnAuto" onclick="setScale('auto')" title="Auto scale">A</div>
           <div class="scale-btn" id="btnLog"  onclick="setScale('log')"  title="Log scale">L</div>
@@ -184,7 +246,19 @@ body.sidebar-layout { overflow: hidden; }
         <span><span class="ohlc-l">Vol</span><span class="ohlc-v" id="htVol">—</span></span>
       </div>
       <!-- Chart -->
-      <div id="chartArea"></div>
+      <div id="chartArea">
+        <div id="indLegend"></div>
+      </div>
+      <!-- RSI sub-pane -->
+      <div id="rsiPaneWrap" style="display:none;border-top:1px solid var(--border)">
+        <div class="ind-pane-hdr">RSI<span class="ind-pane-val" style="color:#9c27b0">14</span><span id="rsiVal" class="ind-pane-val" style="margin-left:auto;color:#9c27b0"></span></div>
+        <div id="rsiArea" style="height:80px"></div>
+      </div>
+      <!-- MACD sub-pane -->
+      <div id="macdPaneWrap" style="display:none;border-top:1px solid var(--border)">
+        <div class="ind-pane-hdr">MACD<span class="ind-pane-val">12, 26, 9</span><span id="macdVal" class="ind-pane-val" style="margin-left:auto"></span></div>
+        <div id="macdArea" style="height:100px"></div>
+      </div>
       <!-- Loading overlay -->
       <div class="chart-loading" id="chartLoading">
         <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
@@ -251,9 +325,22 @@ var chart = null, candleSeries = null, volumeSeries = null;
 var ovlSeriesCM = null, ovlSeriesSM = null, ovlSeriesBM = null;
 var ovlShowCM = true, ovlShowSM = false, ovlShowBM = false;
 var overlayDataCache = [];
-
 var txDateFrom = '', txDateTo = '';
 
+/* ── Indicator state ────────────────────────────────────────────────────── */
+var MA_ENABLED = {5:true, 13:true, 50:false, 200:false};
+var IND_BB = false, IND_RSI = false, IND_MACD = false;
+var MA_COLORS = {5:'#2196f3', 13:'#ff9800', 50:'#4caf50', 200:'#888888'};
+var maSeries = {5:null, 13:null, 50:null, 200:null};
+var bbUpperSeries = null, bbMidSeries = null, bbLowerSeries = null;
+var rsiChart = null, rsiSeries = null;
+var macdChart = null, macdLineSeries = null, macdSignalSeries = null, macdHistSeries = null;
+var lastCandles = [];
+var indData = {};   // pre-computed arrays
+var timeToIdx = {}; // time → index
+var _tsSyncing = false;
+
+/* ── sizeChart ──────────────────────────────────────────────────────────── */
 function sizeChart() {
   var pb = document.querySelector('.page-body');
   var toolbar = document.querySelector('.chart-toolbar');
@@ -264,7 +351,8 @@ function sizeChart() {
   var style = getComputedStyle(pb);
   var pbPad = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
   var gap = parseFloat(style.gap) || 16;
-  var used = ticker.offsetHeight + toolbar.offsetHeight + ohlc.offsetHeight + metrics.offsetHeight + pbPad + gap * 2;
+  var subH = (document.getElementById('rsiPaneWrap').offsetHeight||0) + (document.getElementById('macdPaneWrap').offsetHeight||0);
+  var used = ticker.offsetHeight + toolbar.offsetHeight + ohlc.offsetHeight + metrics.offsetHeight + pbPad + gap * 2 + subH;
   var h = Math.max(200, pb.clientHeight - used - 8);
   document.getElementById('chartArea').style.height = h + 'px';
 }
@@ -295,15 +383,11 @@ updateTFUI();
 
 function setTF(tf) {
   currentTF = tf; updateTFUI();
-  if (chart) { chart.remove(); chart = null; candleSeries = null; volumeSeries = null; ovlSeriesCM = null; ovlSeriesSM = null; ovlSeriesBM = null; }
+  cleanupChart();
   doLoad();
 }
 
 /* Overlays */
-document.getElementById('ovlBtnCM').addEventListener('click', function(){ toggleOverlay('cm'); });
-document.getElementById('ovlBtnSM').addEventListener('click', function(){ toggleOverlay('sm'); });
-document.getElementById('ovlBtnBM').addEventListener('click', function(){ toggleOverlay('bm'); });
-
 function toggleOverlay(which) {
   if (which==='cm') { ovlShowCM=!ovlShowCM; document.getElementById('ovlBtnCM').classList.toggle('active',ovlShowCM); if(ovlSeriesCM) ovlSeriesCM.applyOptions({visible:ovlShowCM}); }
   else if (which==='sm') { ovlShowSM=!ovlShowSM; document.getElementById('ovlBtnSM').classList.toggle('active',ovlShowSM); if(ovlSeriesSM) ovlSeriesSM.applyOptions({visible:ovlShowSM}); }
@@ -321,7 +405,50 @@ function getDateStr() { return isoToAPI(txDateFrom); }
 function getDateToStr() { return isoToAPI(txDateTo || txDateFrom); }
 function reloadChartData() { loadMetrics(); loadTransactions(); }
 
-/* Chart init */
+/* ── Chart cleanup ──────────────────────────────────────────────────────── */
+function cleanupChart() {
+  if (chart) { chart.remove(); chart = null; }
+  candleSeries = null; volumeSeries = null;
+  ovlSeriesCM = null; ovlSeriesSM = null; ovlSeriesBM = null;
+  [5,13,50,200].forEach(function(p){ maSeries[p]=null; });
+  bbUpperSeries = null; bbMidSeries = null; bbLowerSeries = null;
+  if (rsiChart) { rsiChart.remove(); rsiChart = null; rsiSeries = null; }
+  if (macdChart) { macdChart.remove(); macdChart = null; macdLineSeries = null; macdSignalSeries = null; macdHistSeries = null; }
+  document.getElementById('rsiPaneWrap').style.display = 'none';
+  document.getElementById('macdPaneWrap').style.display = 'none';
+}
+
+/* ── Time-scale sync across charts ─────────────────────────────────────── */
+function syncAllToRange(range, src) {
+  if (_tsSyncing || !range) return;
+  _tsSyncing = true;
+  if (src !== chart && chart) chart.timeScale().setVisibleLogicalRange(range);
+  if (src !== rsiChart && rsiChart) rsiChart.timeScale().setVisibleLogicalRange(range);
+  if (src !== macdChart && macdChart) macdChart.timeScale().setVisibleLogicalRange(range);
+  _tsSyncing = false;
+}
+
+/* ── Sub-pane chart options ─────────────────────────────────────────────── */
+function makeSubPaneOpts(dark) {
+  return {
+    autoSize: true,
+    layout: {
+      background: { type:'solid', color: dark ? '#0e1318' : '#fafaf7' },
+      textColor:  dark ? '#6a8090' : '#7a7060',
+      fontFamily: "'Geist Mono', monospace",
+    },
+    grid: {
+      vertLines: { color: dark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)' },
+      horzLines: { color: dark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)' },
+    },
+    rightPriceScale: { borderColor: dark ? '#1a2230' : '#e5e0d8' },
+    timeScale: { borderColor: dark ? '#1a2230' : '#e5e0d8', visible: false },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    handleScroll: true, handleScale: true,
+  };
+}
+
+/* ── Chart init ─────────────────────────────────────────────────────────── */
 function isDark() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
 function initChart() {
   var container = document.getElementById('chartArea');
@@ -353,6 +480,7 @@ function initChart() {
     localization: { priceFormatter: function(p){ return Math.round(p).toLocaleString('id-ID'); } },
     handleScroll: true, handleScale: true,
   });
+
   candleSeries = chart.addCandlestickSeries({
     upColor: '#3a6b58', downColor: '#c8633a',
     borderUpColor: '#3a6b58', borderDownColor: '#c8633a',
@@ -366,10 +494,31 @@ function initChart() {
   ovlSeriesBM = chart.addLineSeries({ color:'#c87d3a', lineWidth:1.5, priceScaleId:'overlay', lastValueVisible:false, priceLineVisible:false });
   ovlSeriesCM.applyOptions({visible:ovlShowCM}); ovlSeriesSM.applyOptions({visible:ovlShowSM}); ovlSeriesBM.applyOptions({visible:ovlShowBM});
 
+  // MA series for enabled periods
+  [5,13,50,200].forEach(function(p) {
+    if (!MA_ENABLED[p]) return;
+    maSeries[p] = chart.addLineSeries({
+      color: MA_COLORS[p], lineWidth: 1.5,
+      lastValueVisible: true, priceLineVisible: false,
+      crosshairMarkerVisible: false,
+    });
+  });
+
+  // BB series if enabled
+  if (IND_BB) {
+    bbUpperSeries = chart.addLineSeries({color:'rgba(33,150,243,.55)', lineWidth:1, lastValueVisible:false, priceLineVisible:false, crosshairMarkerVisible:false});
+    bbMidSeries   = chart.addLineSeries({color:'rgba(33,150,243,.8)', lineWidth:1, lastValueVisible:false, priceLineVisible:false, lineStyle:2, crosshairMarkerVisible:false});
+    bbLowerSeries = chart.addLineSeries({color:'rgba(33,150,243,.55)', lineWidth:1, lastValueVisible:false, priceLineVisible:false, crosshairMarkerVisible:false});
+  }
+
+  chart.timeScale().subscribeVisibleLogicalRangeChange(function(range) {
+    syncAllToRange(range, chart);
+  });
+
   chart.subscribeCrosshairMove(function(param) {
-    if (!param.time || !param.seriesData) return;
+    if (!param.time || !param.seriesData) { updateIndLegend(null); return; }
     var bar = param.seriesData.get(candleSeries);
-    if (!bar) return;
+    if (!bar) { updateIndLegend(null); return; }
     var fmt = function(v){ return Math.round(v).toLocaleString('id-ID'); };
     document.getElementById('htOpen').textContent  = fmt(bar.open);
     document.getElementById('htHigh').textContent  = fmt(bar.high);
@@ -377,12 +526,236 @@ function initChart() {
     document.getElementById('htClose').textContent = fmt(bar.close);
     var vb = param.seriesData.get(volumeSeries);
     if (vb) { var v=vb.value; document.getElementById('htVol').textContent = v>=1e9?(v/1e9).toFixed(1)+'B':v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(1)+'K':String(v); }
+    updateIndLegend(param.time);
   });
 
   applyAutoScale(isAutoScale);
 }
 
-/* Load OHLCV */
+/* ── Init sub-pane charts ───────────────────────────────────────────────── */
+function initSubPanes() {
+  if (IND_RSI) initRSIPane();
+  if (IND_MACD) initMACDPane();
+}
+
+function initRSIPane() {
+  var wrap = document.getElementById('rsiPaneWrap');
+  wrap.style.display = 'block';
+  var dark = isDark();
+  rsiChart = LightweightCharts.createChart(document.getElementById('rsiArea'), makeSubPaneOpts(dark));
+  rsiChart.priceScale('right').applyOptions({scaleMargins:{top:0.1,bottom:0.1}});
+  rsiSeries = rsiChart.addLineSeries({color:'#9c27b0', lineWidth:1.5, lastValueVisible:true, priceLineVisible:false, crosshairMarkerVisible:false});
+  rsiSeries.createPriceLine({price:70, color:'rgba(200,99,58,.5)', lineWidth:1, lineStyle:1, axisLabelVisible:true, title:'70'});
+  rsiSeries.createPriceLine({price:30, color:'rgba(58,107,88,.5)', lineWidth:1, lineStyle:1, axisLabelVisible:true, title:'30'});
+  rsiSeries.createPriceLine({price:50, color:'rgba(128,128,128,.25)', lineWidth:1, lineStyle:1, axisLabelVisible:false});
+  rsiChart.timeScale().subscribeVisibleLogicalRangeChange(function(range) {
+    syncAllToRange(range, rsiChart);
+  });
+  rsiChart.subscribeCrosshairMove(function(param) {
+    var valEl = document.getElementById('rsiVal');
+    if (!param.time || !param.seriesData) { valEl.textContent=''; return; }
+    var v = param.seriesData.get(rsiSeries);
+    valEl.textContent = v ? v.value.toFixed(1) : '';
+  });
+}
+
+function initMACDPane() {
+  var wrap = document.getElementById('macdPaneWrap');
+  wrap.style.display = 'block';
+  var dark = isDark();
+  macdChart = LightweightCharts.createChart(document.getElementById('macdArea'), makeSubPaneOpts(dark));
+  macdChart.priceScale('right').applyOptions({scaleMargins:{top:0.1,bottom:0.1}});
+  macdHistSeries   = macdChart.addHistogramSeries({color:'rgba(58,107,88,.6)', priceScaleId:'right', priceLineVisible:false, crosshairMarkerVisible:false});
+  macdLineSeries   = macdChart.addLineSeries({color:'#2196f3', lineWidth:1.5, priceScaleId:'right', lastValueVisible:true, priceLineVisible:false, crosshairMarkerVisible:false});
+  macdSignalSeries = macdChart.addLineSeries({color:'#ff9800', lineWidth:1.5, priceScaleId:'right', lastValueVisible:true, priceLineVisible:false, crosshairMarkerVisible:false});
+  macdChart.timeScale().subscribeVisibleLogicalRangeChange(function(range) {
+    syncAllToRange(range, macdChart);
+  });
+  macdChart.subscribeCrosshairMove(function(param) {
+    var valEl = document.getElementById('macdVal');
+    if (!param.time || !param.seriesData) { valEl.textContent=''; return; }
+    var ml = param.seriesData.get(macdLineSeries);
+    var ms = param.seriesData.get(macdSignalSeries);
+    if (ml) {
+      var parts = [];
+      parts.push('<span style="color:#2196f3">'+ml.value.toFixed(1)+'</span>');
+      if (ms) parts.push('<span style="color:#ff9800;margin-left:6px">sig '+ms.value.toFixed(1)+'</span>');
+      valEl.innerHTML = parts.join('');
+    } else { valEl.textContent=''; }
+  });
+}
+
+/* ── Indicator math ─────────────────────────────────────────────────────── */
+function calcSMAArray(closes, period) {
+  var result = new Array(closes.length).fill(null);
+  if (closes.length < period) return result;
+  var sum = 0;
+  for (var i = 0; i < period; i++) sum += closes[i];
+  result[period-1] = sum / period;
+  for (var i = period; i < closes.length; i++) {
+    sum += closes[i] - closes[i-period];
+    result[i] = sum / period;
+  }
+  return result;
+}
+
+function calcBBArrays(closes, period, mult) {
+  var sma = calcSMAArray(closes, period);
+  var upper = new Array(closes.length).fill(null);
+  var lower = new Array(closes.length).fill(null);
+  for (var i = period-1; i < closes.length; i++) {
+    if (sma[i] === null) continue;
+    var variance = 0;
+    for (var j = i-period+1; j <= i; j++) variance += Math.pow(closes[j]-sma[i], 2);
+    var sd = Math.sqrt(variance/period);
+    upper[i] = sma[i] + mult*sd;
+    lower[i] = sma[i] - mult*sd;
+  }
+  return {upper:upper, mid:sma, lower:lower};
+}
+
+function calcRSIArray(closes, period) {
+  var result = new Array(closes.length).fill(null);
+  if (closes.length < period+1) return result;
+  var gains = 0, losses = 0;
+  for (var i = 1; i <= period; i++) {
+    var d = closes[i]-closes[i-1];
+    if (d>0) gains+=d; else losses-=d;
+  }
+  var avgG = gains/period, avgL = losses/period;
+  result[period] = avgL===0 ? 100 : 100 - 100/(1+avgG/avgL);
+  for (var i = period+1; i < closes.length; i++) {
+    var d = closes[i]-closes[i-1];
+    avgG = (avgG*(period-1) + (d>0?d:0)) / period;
+    avgL = (avgL*(period-1) + (d<0?-d:0)) / period;
+    result[i] = avgL===0 ? 100 : 100 - 100/(1+avgG/avgL);
+  }
+  return result;
+}
+
+function calcEMAArray(vals, period) {
+  var result = new Array(vals.length).fill(null);
+  var k = 2/(period+1);
+  var startIdx = -1;
+  for (var i = 0; i < vals.length; i++) { if (vals[i]!==null){startIdx=i;break;} }
+  if (startIdx < 0 || vals.length-startIdx < period) return result;
+  var sum = 0;
+  for (var i = startIdx; i < startIdx+period; i++) sum += vals[i];
+  result[startIdx+period-1] = sum/period;
+  for (var i = startIdx+period; i < vals.length; i++) {
+    result[i] = vals[i]*k + result[i-1]*(1-k);
+  }
+  return result;
+}
+
+function calcMACDArrays(closes, fast, slow, signal) {
+  var fastEMA = calcEMAArray(closes, fast);
+  var slowEMA = calcEMAArray(closes, slow);
+  var macdLine = closes.map(function(_,i){ return (fastEMA[i]!==null&&slowEMA[i]!==null) ? fastEMA[i]-slowEMA[i] : null; });
+  var sigLine = calcEMAArray(macdLine, signal);
+  var hist = closes.map(function(_,i){ return (macdLine[i]!==null&&sigLine[i]!==null) ? macdLine[i]-sigLine[i] : null; });
+  return {macd:macdLine, signal:sigLine, histogram:hist};
+}
+
+function computeAllIndData(candles) {
+  var closes = candles.map(function(c){return c.close;});
+  timeToIdx = {};
+  candles.forEach(function(c,i){ timeToIdx[c.time]=i; });
+  indData = {
+    times:    candles.map(function(c){return c.time;}),
+    ma:       {},
+    bbU:      [], bbM:      [], bbL:      [],
+    rsi:      [],
+    macdLine: [], macdSig:  [], macdHist: [],
+  };
+  [5,13,50,200].forEach(function(p){ indData.ma[p] = calcSMAArray(closes, p); });
+  var bb = calcBBArrays(closes, 20, 2);
+  indData.bbU = bb.upper; indData.bbM = bb.mid; indData.bbL = bb.lower;
+  indData.rsi = calcRSIArray(closes, 14);
+  var macd = calcMACDArrays(closes, 12, 26, 9);
+  indData.macdLine = macd.macd; indData.macdSig = macd.signal; indData.macdHist = macd.histogram;
+}
+
+/* ── Render indicator series ────────────────────────────────────────────── */
+function renderIndicators(candles) {
+  if (!chart || !candles.length) return;
+  computeAllIndData(candles);
+  var times = indData.times;
+
+  [5,13,50,200].forEach(function(p) {
+    if (!maSeries[p]) return;
+    var data = [];
+    indData.ma[p].forEach(function(v,i){ if(v!==null) data.push({time:times[i],value:v}); });
+    maSeries[p].setData(data);
+  });
+
+  if (bbUpperSeries) {
+    var upD=[],midD=[],loD=[];
+    indData.bbU.forEach(function(v,i){ if(v!==null){ upD.push({time:times[i],value:v}); midD.push({time:times[i],value:indData.bbM[i]}); loD.push({time:times[i],value:indData.bbL[i]}); } });
+    bbUpperSeries.setData(upD); bbMidSeries.setData(midD); bbLowerSeries.setData(loD);
+  }
+
+  if (rsiSeries) {
+    var rsiD=[];
+    indData.rsi.forEach(function(v,i){ if(v!==null) rsiD.push({time:times[i],value:v}); });
+    rsiSeries.setData(rsiD);
+  }
+
+  if (macdChart) {
+    var macdD=[],sigD=[],histD=[];
+    indData.macdLine.forEach(function(v,i){
+      if(v!==null) macdD.push({time:times[i],value:v});
+      if(indData.macdSig[i]!==null) sigD.push({time:times[i],value:indData.macdSig[i]});
+      if(indData.macdHist[i]!==null) histD.push({time:times[i],value:indData.macdHist[i],color:indData.macdHist[i]>=0?'rgba(58,107,88,.65)':'rgba(200,99,58,.65)'});
+    });
+    if(macdLineSeries) macdLineSeries.setData(macdD);
+    if(macdSignalSeries) macdSignalSeries.setData(sigD);
+    if(macdHistSeries) macdHistSeries.setData(histD);
+  }
+
+  // Sync sub-pane time ranges to main chart
+  requestAnimationFrame(function(){
+    var range = chart.timeScale().getVisibleLogicalRange();
+    if (range) {
+      if(rsiChart) rsiChart.timeScale().setVisibleLogicalRange(range);
+      if(macdChart) macdChart.timeScale().setVisibleLogicalRange(range);
+    }
+  });
+}
+
+/* ── Indicator legend overlay ───────────────────────────────────────────── */
+function updateIndLegend(time) {
+  var legend = document.getElementById('indLegend');
+  if (!legend) return;
+  var idx = time !== null ? timeToIdx[time] : null;
+  var parts = [];
+
+  [5,13,50,200].forEach(function(p) {
+    if (!MA_ENABLED[p]) return;
+    var v = (idx != null && indData.ma && indData.ma[p]) ? indData.ma[p][idx] : null;
+    parts.push('<span style="color:'+MA_COLORS[p]+'">MA'+p+(v!==null?' '+Math.round(v).toLocaleString('id-ID'):'')+'</span>');
+  });
+
+  if (IND_BB && idx!=null && indData.bbU && indData.bbU[idx]!==null) {
+    parts.push('<span style="color:rgba(33,150,243,.75)">BB '+Math.round(indData.bbU[idx])+'<span style="opacity:.6">/'+ Math.round(indData.bbM[idx])+'/'+ Math.round(indData.bbL[idx])+'</span></span>');
+  } else if (IND_BB) {
+    parts.push('<span style="color:rgba(33,150,243,.75)">BB</span>');
+  }
+
+  if (IND_RSI) {
+    var rv = (idx!=null&&indData.rsi) ? indData.rsi[idx] : null;
+    parts.push('<span style="color:#9c27b0">RSI'+(rv!==null?' '+rv.toFixed(1):'')+'</span>');
+  }
+
+  if (IND_MACD) {
+    var ml = (idx!=null&&indData.macdLine) ? indData.macdLine[idx] : null;
+    parts.push('<span style="color:#2196f3">MACD'+(ml!==null?' '+ml.toFixed(1):'')+'</span>');
+  }
+
+  legend.innerHTML = parts.join('');
+}
+
+/* ── Load OHLCV ─────────────────────────────────────────────────────────── */
 function showLoad(msg) { var el = document.getElementById('chartLoading'); el.classList.add('visible'); document.getElementById('chartLoadMsg').textContent = msg||'Loading...'; }
 function hideLoad() { document.getElementById('chartLoading').classList.remove('visible'); }
 
@@ -392,18 +765,22 @@ async function doLoad() {
   currentTicker = input;
   document.getElementById('ohlcTicker').textContent = currentTicker + ' · ' + currentTF.toUpperCase();
   showLoad('Mengambil data...');
-  if (chart) { chart.remove(); chart=null; candleSeries=null; volumeSeries=null; ovlSeriesCM=null; ovlSeriesSM=null; ovlSeriesBM=null; }
+  cleanupChart();
   initChart();
+  initSubPanes();
+  sizeChart();
   try {
     var res = await fetch('/api/ohlcv?ticker='+encodeURIComponent(currentTicker)+'&tf='+encodeURIComponent(currentTF));
     var data = await res.json();
     if (data.error) throw new Error(data.error);
     var candles = data.candles || [];
     if (!candles.length) throw new Error('Data kosong');
+    lastCandles = candles;
     prevCloseMap = {};
     for (var i=0; i<candles.length; i++) prevCloseMap[candles[i].time] = i>0 ? candles[i-1].close : candles[i].open;
     candleSeries.setData(candles);
     volumeSeries.setData(candles.map(function(c){ return {time:c.time, value:c.volume||0, color:(c.close>=c.open)?'rgba(58,107,88,.25)':'rgba(200,99,58,.25)'}; }));
+    renderIndicators(candles);
     requestAnimationFrame(function(){ requestAnimationFrame(function(){
       if (candles.length > INIT_CANDLES) chart.timeScale().setVisibleLogicalRange({from:candles.length-INIT_CANDLES,to:candles.length-1});
       else chart.timeScale().fitContent();
@@ -424,13 +801,14 @@ async function doLoad() {
       chgEl.textContent = (chg>=0?'+':'')+chg+'%';
       chgEl.style.color = chg>=0 ? 'var(--up)' : 'var(--down)';
     }
+    updateIndLegend(null);
     loadOverlayData(candles);
     loadTransactions();
     loadMetrics();
   } catch(err) { hideLoad(); }
 }
 
-/* Overlay */
+/* ── Overlay ────────────────────────────────────────────────────────────── */
 async function loadOverlayData(candles) {
   if (!chart || !ovlSeriesCM) return;
   try {
@@ -527,17 +905,151 @@ async function loadTransactions() {
   }
 }
 
-/* Scale and load button event listeners (setScale is inside IIFE, not global) */
+/* ── Indicator toggle logic ─────────────────────────────────────────────── */
+function toggleIndItem(ind) {
+  var el = document.getElementById('indItem_'+ind);
+  if (!el) return;
+  var nowActive = !el.classList.contains('active');
+
+  if (ind === 'ma5' || ind === 'ma13' || ind === 'ma50' || ind === 'ma200') {
+    var period = parseInt(ind.substring(2));
+    MA_ENABLED[period] = nowActive;
+    if (nowActive) {
+      if (chart) {
+        maSeries[period] = chart.addLineSeries({color:MA_COLORS[period], lineWidth:1.5, lastValueVisible:true, priceLineVisible:false, crosshairMarkerVisible:false});
+        if (indData.times && indData.times.length) {
+          var data = [];
+          indData.ma[period].forEach(function(v,i){ if(v!==null) data.push({time:indData.times[i],value:v}); });
+          maSeries[period].setData(data);
+        }
+      }
+    } else {
+      if (maSeries[period] && chart) { try{chart.removeSeries(maSeries[period]);}catch(e){} maSeries[period]=null; }
+    }
+
+  } else if (ind === 'bb') {
+    IND_BB = nowActive;
+    if (nowActive) {
+      if (chart) {
+        bbUpperSeries = chart.addLineSeries({color:'rgba(33,150,243,.55)', lineWidth:1, lastValueVisible:false, priceLineVisible:false, crosshairMarkerVisible:false});
+        bbMidSeries   = chart.addLineSeries({color:'rgba(33,150,243,.8)', lineWidth:1, lastValueVisible:false, priceLineVisible:false, lineStyle:2, crosshairMarkerVisible:false});
+        bbLowerSeries = chart.addLineSeries({color:'rgba(33,150,243,.55)', lineWidth:1, lastValueVisible:false, priceLineVisible:false, crosshairMarkerVisible:false});
+        if (indData.times && indData.times.length) {
+          var upD=[],midD=[],loD=[];
+          indData.bbU.forEach(function(v,i){ if(v!==null){ upD.push({time:indData.times[i],value:v}); midD.push({time:indData.times[i],value:indData.bbM[i]}); loD.push({time:indData.times[i],value:indData.bbL[i]}); } });
+          bbUpperSeries.setData(upD); bbMidSeries.setData(midD); bbLowerSeries.setData(loD);
+        }
+      }
+    } else {
+      if (chart) {
+        if(bbUpperSeries){try{chart.removeSeries(bbUpperSeries);}catch(e){}bbUpperSeries=null;}
+        if(bbMidSeries){try{chart.removeSeries(bbMidSeries);}catch(e){}bbMidSeries=null;}
+        if(bbLowerSeries){try{chart.removeSeries(bbLowerSeries);}catch(e){}bbLowerSeries=null;}
+      }
+    }
+
+  } else if (ind === 'rsi') {
+    IND_RSI = nowActive;
+    if (nowActive) {
+      sizeChart();
+      initRSIPane();
+      if (lastCandles.length) {
+        var rsiD=[];
+        if (indData.times) indData.rsi.forEach(function(v,i){ if(v!==null) rsiD.push({time:indData.times[i],value:v}); });
+        rsiSeries.setData(rsiD);
+        requestAnimationFrame(function(){
+          var range = chart.timeScale().getVisibleLogicalRange();
+          if (range && rsiChart) rsiChart.timeScale().setVisibleLogicalRange(range);
+        });
+      }
+      sizeChart();
+    } else {
+      if(rsiChart){rsiChart.remove();rsiChart=null;rsiSeries=null;}
+      document.getElementById('rsiPaneWrap').style.display='none';
+      sizeChart();
+    }
+
+  } else if (ind === 'macd') {
+    IND_MACD = nowActive;
+    if (nowActive) {
+      sizeChart();
+      initMACDPane();
+      if (lastCandles.length) {
+        var macdD=[],sigD=[],histD=[];
+        if (indData.times) indData.macdLine.forEach(function(v,i){
+          if(v!==null) macdD.push({time:indData.times[i],value:v});
+          if(indData.macdSig[i]!==null) sigD.push({time:indData.times[i],value:indData.macdSig[i]});
+          if(indData.macdHist[i]!==null) histD.push({time:indData.times[i],value:indData.macdHist[i],color:indData.macdHist[i]>=0?'rgba(58,107,88,.65)':'rgba(200,99,58,.65)'});
+        });
+        if(macdLineSeries)macdLineSeries.setData(macdD);
+        if(macdSignalSeries)macdSignalSeries.setData(sigD);
+        if(macdHistSeries)macdHistSeries.setData(histD);
+        requestAnimationFrame(function(){
+          var range = chart.timeScale().getVisibleLogicalRange();
+          if (range && macdChart) macdChart.timeScale().setVisibleLogicalRange(range);
+        });
+      }
+      sizeChart();
+    } else {
+      if(macdChart){macdChart.remove();macdChart=null;macdLineSeries=null;macdSignalSeries=null;macdHistSeries=null;}
+      document.getElementById('macdPaneWrap').style.display='none';
+      sizeChart();
+    }
+  }
+
+  el.classList.toggle('active', nowActive);
+  var chk = el.querySelector('.ind-chk');
+  if (chk) chk.textContent = nowActive ? '✓' : '';
+  updateIndActiveCnt();
+  updateIndLegend(null);
+}
+
+function toggleIndPanel() {
+  var panel = document.getElementById('indPanel');
+  var btn = document.getElementById('indBtn');
+  var open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'block';
+  btn.classList.toggle('active', !open);
+}
+
+function updateIndActiveCnt() {
+  var n = 0;
+  [5,13,50,200].forEach(function(p){ if(MA_ENABLED[p]) n++; });
+  if(IND_BB) n++; if(IND_RSI) n++; if(IND_MACD) n++;
+  document.getElementById('indActiveCnt').textContent = n ? ' '+n : '';
+}
+
+// Close indicator panel on outside click
+document.addEventListener('click', function(e) {
+  var wrap = document.getElementById('indWrap');
+  var panel = document.getElementById('indPanel');
+  if (panel && panel.style.display !== 'none' && wrap && !wrap.contains(e.target)) {
+    panel.style.display = 'none';
+    document.getElementById('indBtn').classList.remove('active');
+  }
+});
+
+// Wire indicator item clicks
+['ma5','ma13','ma50','ma200','bb','rsi','macd'].forEach(function(ind) {
+  var el = document.getElementById('indItem_'+ind);
+  if (el) el.addEventListener('click', function(){ toggleIndItem(ind); });
+});
+document.getElementById('indBtn').addEventListener('click', function(e){
+  e.stopPropagation();
+  toggleIndPanel();
+});
+
+/* Scale and load button event listeners */
 document.getElementById('btnAuto').addEventListener('click', function(){ setScale('auto'); });
 document.getElementById('btnLog').addEventListener('click',  function(){ setScale('log'); });
 document.getElementById('loadBtn').addEventListener('click', function(){ doLoad(); });
 
-/* Dark mode observer — update chart colors when theme toggles */
+/* Dark mode observer */
 new MutationObserver(function(mutations) {
   mutations.forEach(function(m) {
-    if (m.attributeName !== 'data-theme' || !chart) return;
+    if (m.attributeName !== 'data-theme') return;
     var dark = isDark();
-    chart.applyOptions({
+    var themeOpts = {
       layout: {
         background: { type: 'solid', color: dark ? '#0e1318' : '#fafaf7' },
         textColor:  dark ? '#6a8090' : '#7a7060',
@@ -548,7 +1060,10 @@ new MutationObserver(function(mutations) {
       },
       rightPriceScale: { borderColor: dark ? '#1a2230' : '#e5e0d8' },
       timeScale:       { borderColor: dark ? '#1a2230' : '#e5e0d8' },
-    });
+    };
+    if (chart) chart.applyOptions(themeOpts);
+    if (rsiChart) rsiChart.applyOptions(themeOpts);
+    if (macdChart) macdChart.applyOptions(themeOpts);
   });
 }).observe(document.documentElement, { attributes: true });
 
@@ -560,16 +1075,15 @@ window.addEventListener('DOMContentLoaded', async function() {
   try { var r = await fetch('/api/last-date'); var d = await r.json(); if(d.date) initDate = window.DD_MM_YYYYtoISO(d.date.replace(/\//g,'-')); } catch(_) {}
   txDateFrom = initDate; txDateTo = initDate;
 
-  /* Date picker */
   var sdp = new window.StockbitDatePicker('chartDatePicker', {
     from: initDate, to: initDate,
     onChange: function(from, to) { txDateFrom = from; txDateTo = to || from; reloadChartData(); }
   });
 
-  /* Check URL param */
   var params = new URLSearchParams(location.search);
   var pt = params.get('ticker');
   if (pt) document.getElementById('tickerInput').value = pt.toUpperCase();
+  updateIndActiveCnt();
   sizeChart();
   initChart();
   doLoad();
