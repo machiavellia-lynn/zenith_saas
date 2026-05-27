@@ -15,6 +15,8 @@
 <style>
 html, body { height: 100%; }
 body.sidebar-layout { overflow: hidden; }
+.main-content { overflow: hidden; display: flex; flex-direction: column; }
+.page-body { flex: 1; min-height: 0; overflow-y: auto; }
 .chart-ticker-input-wrap {
   display: flex; align-items: center; gap: 8px;
   padding: 9px 14px; background: var(--surface);
@@ -179,7 +181,7 @@ body.sidebar-layout { overflow: hidden; }
         <span style="color:var(--muted);font-size:13px">⌕</span>
         <input type="text" class="chart-ticker-input" id="tickerInput" value="BBRI" placeholder="Ticker..." maxlength="8" autocomplete="off"/>
       </div>
-      <button class="action-btn" id="loadBtn" onclick="doLoad()" style="padding:9px 18px;font-size:13px;font-weight:600">Load</button>
+      <button class="action-btn" id="loadBtn" style="padding:9px 18px;font-size:13px;font-weight:600">Load</button>
       <div style="width:1px;height:28px;background:var(--border)"></div>
       <div>
         <div style="font-size:12px;color:var(--muted)" id="tName">—</div>
@@ -205,9 +207,9 @@ body.sidebar-layout { overflow: hidden; }
         </div>
         <div style="width:1px;height:20px;background:var(--border)"></div>
         <span style="font-size:11.5px;color:var(--muted)">Overlay:</span>
-        <div class="ovl-btn active" id="ovlBtnCM" onclick="toggleOverlay('cm')" style="--ovl-col:#3a6b58"><div class="ovl-dot" style="background:#3a6b58"></div>CM<span class="ovl-cnt" id="ovlCntCM"></span></div>
-        <div class="ovl-btn" id="ovlBtnSM" onclick="toggleOverlay('sm')" style="--ovl-col:#4a7fdb"><div class="ovl-dot" style="background:#4a7fdb"></div>SM<span class="ovl-cnt" id="ovlCntSM"></span></div>
-        <div class="ovl-btn" id="ovlBtnBM" onclick="toggleOverlay('bm')" style="--ovl-col:#c87d3a"><div class="ovl-dot" style="background:#c87d3a"></div>BM<span class="ovl-cnt" id="ovlCntBM"></span></div>
+        <div class="ovl-btn active" id="ovlBtnCM" style="--ovl-col:#3a6b58"><div class="ovl-dot" style="background:#3a6b58"></div>CM<span class="ovl-cnt" id="ovlCntCM"></span></div>
+        <div class="ovl-btn" id="ovlBtnSM" style="--ovl-col:#4a7fdb"><div class="ovl-dot" style="background:#4a7fdb"></div>SM<span class="ovl-cnt" id="ovlCntSM"></span></div>
+        <div class="ovl-btn" id="ovlBtnBM" style="--ovl-col:#c87d3a"><div class="ovl-dot" style="background:#c87d3a"></div>BM<span class="ovl-cnt" id="ovlCntBM"></span></div>
         <div style="flex:1"></div>
         <!-- Indicators dropdown -->
         <div style="position:relative" id="indWrap">
@@ -229,8 +231,8 @@ body.sidebar-layout { overflow: hidden; }
         </div>
         <div style="width:6px"></div>
         <div class="scale-toggle">
-          <div class="scale-btn active" id="btnAuto" onclick="setScale('auto')" title="Auto scale">A</div>
-          <div class="scale-btn" id="btnLog"  onclick="setScale('log')"  title="Log scale">L</div>
+          <div class="scale-btn active" id="btnAuto" title="Auto scale">A</div>
+          <div class="scale-btn" id="btnLog" title="Log scale">L</div>
         </div>
       </div>
       <!-- OHLC bar -->
@@ -1038,10 +1040,13 @@ document.getElementById('indBtn').addEventListener('click', function(e){
   toggleIndPanel();
 });
 
-/* Scale and load button event listeners */
+/* Scale, load, and overlay toggle event listeners */
 document.getElementById('btnAuto').addEventListener('click', function(){ setScale('auto'); });
 document.getElementById('btnLog').addEventListener('click',  function(){ setScale('log'); });
 document.getElementById('loadBtn').addEventListener('click', function(){ doLoad(); });
+document.getElementById('ovlBtnCM').addEventListener('click', function(){ toggleOverlay('cm'); });
+document.getElementById('ovlBtnSM').addEventListener('click', function(){ toggleOverlay('sm'); });
+document.getElementById('ovlBtnBM').addEventListener('click', function(){ toggleOverlay('bm'); });
 
 /* Dark mode observer */
 new MutationObserver(function(mutations) {
