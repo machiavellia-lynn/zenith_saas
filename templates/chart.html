@@ -15,8 +15,6 @@
 <style>
 html, body { height: 100%; }
 body.sidebar-layout { overflow: hidden; }
-.main-content { overflow: hidden; display: flex; flex-direction: column; }
-.page-body { flex: 1; min-height: 0; overflow-y: auto; }
 .chart-ticker-input-wrap {
   display: flex; align-items: center; gap: 8px;
   padding: 9px 14px; background: var(--surface);
@@ -118,7 +116,11 @@ body.sidebar-layout { overflow: hidden; }
   background: var(--surface); border: 1px solid var(--border2);
   border-radius: 10px; padding: 6px 0; min-width: 196px;
   box-shadow: 0 8px 28px rgba(0,0,0,.18); z-index: 200;
+  max-height: min(60vh, 440px); overflow-y: auto; overscroll-behavior: contain;
 }
+.ind-panel::-webkit-scrollbar { width: 6px; }
+.ind-panel::-webkit-scrollbar-track { background: transparent; }
+.ind-panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 .ind-sect {
   padding: 5px 14px 2px; font-family: var(--font-mono); font-size: 9px;
   font-weight: 700; letter-spacing: .15em; color: var(--muted); text-transform: uppercase;
@@ -217,11 +219,16 @@ body.sidebar-layout { overflow: hidden; }
             <span style="font-size:10px;line-height:1">◈</span>Indicators<span id="indActiveCnt" style="font-size:9px;font-weight:700;opacity:.7;margin-left:1px"></span>
           </div>
           <div id="indPanel" class="ind-panel">
-            <div class="ind-sect">Moving Averages</div>
+            <div class="ind-sect">Simple MA</div>
             <div class="ind-item active" id="indItem_ma5"><div class="ind-stripe" style="background:#2196f3"></div>MA 5<div class="ind-chk">✓</div></div>
             <div class="ind-item active" id="indItem_ma13"><div class="ind-stripe" style="background:#ff9800"></div>MA 13<div class="ind-chk">✓</div></div>
             <div class="ind-item" id="indItem_ma50"><div class="ind-stripe" style="background:#4caf50"></div>MA 50<div class="ind-chk"></div></div>
             <div class="ind-item" id="indItem_ma200"><div class="ind-stripe" style="background:#888"></div>MA 200<div class="ind-chk"></div></div>
+            <div class="ind-sect" style="margin-top:4px">Exponential MA</div>
+            <div class="ind-item" id="indItem_ema9"><div class="ind-stripe" style="background:#e91e63"></div>EMA 9<div class="ind-chk"></div></div>
+            <div class="ind-item" id="indItem_ema21"><div class="ind-stripe" style="background:#ab47bc"></div>EMA 21<div class="ind-chk"></div></div>
+            <div class="ind-item" id="indItem_ema50"><div class="ind-stripe" style="background:#7e57c2"></div>EMA 50<div class="ind-chk"></div></div>
+            <div class="ind-item" id="indItem_ema200"><div class="ind-stripe" style="background:#5c6bc0"></div>EMA 200<div class="ind-chk"></div></div>
             <div class="ind-sect" style="margin-top:4px">Bands</div>
             <div class="ind-item" id="indItem_bb"><div class="ind-stripe" style="background:#2196f3"></div>Bollinger (20, 2)<div class="ind-chk"></div></div>
             <div class="ind-sect" style="margin-top:4px">Oscillators</div>
@@ -330,9 +337,12 @@ var txDateFrom = '', txDateTo = '';
 
 /* ── Indicator state ────────────────────────────────────────────────────── */
 var MA_ENABLED = {5:true, 13:true, 50:false, 200:false};
+var EMA_ENABLED = {9:false, 21:false, 50:false, 200:false};
 var IND_BB = false, IND_RSI = false, IND_MACD = false;
 var MA_COLORS = {5:'#2196f3', 13:'#ff9800', 50:'#4caf50', 200:'#888888'};
+var EMA_COLORS = {9:'#e91e63', 21:'#ab47bc', 50:'#7e57c2', 200:'#5c6bc0'};
 var maSeries = {5:null, 13:null, 50:null, 200:null};
+var emaSeries = {9:null, 21:null, 50:null, 200:null};
 var bbUpperSeries = null, bbMidSeries = null, bbLowerSeries = null;
 var rsiChart = null, rsiSeries = null;
 var macdChart = null, macdLineSeries = null, macdSignalSeries = null, macdHistSeries = null;
@@ -342,19 +352,22 @@ var timeToIdx = {}; // time → index
 var _tsSyncing = false;
 
 /* ── sizeChart ──────────────────────────────────────────────────────────── */
+/* Use window.innerHeight as the stable reference (NOT pb.clientHeight, which
+   grows when chartArea grows → feedback loop). chart-card fits in viewport,
+   metrics-strip + trx-tables flow below and main-content scrolls naturally. */
 function sizeChart() {
+  var pageHeader = document.querySelector('.page-header');
   var pb = document.querySelector('.page-body');
+  var ticker = pb ? pb.querySelector(':scope > div:first-child') : null;
   var toolbar = document.querySelector('.chart-toolbar');
   var ohlc = document.querySelector('.ohlc-bar');
-  var metrics = document.querySelector('.metrics-strip');
-  var ticker = pb ? pb.querySelector(':scope > div:first-child') : null;
-  if (!pb || !toolbar || !ohlc || !metrics || !ticker) return;
-  var style = getComputedStyle(pb);
-  var pbPad = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
-  var gap = parseFloat(style.gap) || 16;
+  if (!pageHeader || !pb || !ticker || !toolbar || !ohlc) return;
+  var pbStyle = getComputedStyle(pb);
+  var padTop = parseFloat(pbStyle.paddingTop) || 0;
+  var gap = parseFloat(pbStyle.gap) || 16;
   var subH = (document.getElementById('rsiPaneWrap').offsetHeight||0) + (document.getElementById('macdPaneWrap').offsetHeight||0);
-  var used = ticker.offsetHeight + toolbar.offsetHeight + ohlc.offsetHeight + metrics.offsetHeight + pbPad + gap * 2 + subH;
-  var h = Math.max(200, pb.clientHeight - used - 8);
+  var aboveChartArea = pageHeader.offsetHeight + padTop + ticker.offsetHeight + gap + toolbar.offsetHeight + ohlc.offsetHeight;
+  var h = Math.max(280, window.innerHeight - aboveChartArea - subH - 24);
   document.getElementById('chartArea').style.height = h + 'px';
 }
 
@@ -412,6 +425,7 @@ function cleanupChart() {
   candleSeries = null; volumeSeries = null;
   ovlSeriesCM = null; ovlSeriesSM = null; ovlSeriesBM = null;
   [5,13,50,200].forEach(function(p){ maSeries[p]=null; });
+  [9,21,50,200].forEach(function(p){ emaSeries[p]=null; });
   bbUpperSeries = null; bbMidSeries = null; bbLowerSeries = null;
   if (rsiChart) { rsiChart.remove(); rsiChart = null; rsiSeries = null; }
   if (macdChart) { macdChart.remove(); macdChart = null; macdLineSeries = null; macdSignalSeries = null; macdHistSeries = null; }
@@ -500,6 +514,16 @@ function initChart() {
     if (!MA_ENABLED[p]) return;
     maSeries[p] = chart.addLineSeries({
       color: MA_COLORS[p], lineWidth: 1.5,
+      lastValueVisible: true, priceLineVisible: false,
+      crosshairMarkerVisible: false,
+    });
+  });
+
+  // EMA series for enabled periods
+  [9,21,50,200].forEach(function(p) {
+    if (!EMA_ENABLED[p]) return;
+    emaSeries[p] = chart.addLineSeries({
+      color: EMA_COLORS[p], lineWidth: 1.5, lineStyle: 2,
       lastValueVisible: true, priceLineVisible: false,
       crosshairMarkerVisible: false,
     });
@@ -665,11 +689,13 @@ function computeAllIndData(candles) {
   indData = {
     times:    candles.map(function(c){return c.time;}),
     ma:       {},
+    ema:      {},
     bbU:      [], bbM:      [], bbL:      [],
     rsi:      [],
     macdLine: [], macdSig:  [], macdHist: [],
   };
   [5,13,50,200].forEach(function(p){ indData.ma[p] = calcSMAArray(closes, p); });
+  [9,21,50,200].forEach(function(p){ indData.ema[p] = calcEMAArray(closes, p); });
   var bb = calcBBArrays(closes, 20, 2);
   indData.bbU = bb.upper; indData.bbM = bb.mid; indData.bbL = bb.lower;
   indData.rsi = calcRSIArray(closes, 14);
@@ -688,6 +714,13 @@ function renderIndicators(candles) {
     var data = [];
     indData.ma[p].forEach(function(v,i){ if(v!==null) data.push({time:times[i],value:v}); });
     maSeries[p].setData(data);
+  });
+
+  [9,21,50,200].forEach(function(p) {
+    if (!emaSeries[p]) return;
+    var data = [];
+    indData.ema[p].forEach(function(v,i){ if(v!==null) data.push({time:times[i],value:v}); });
+    emaSeries[p].setData(data);
   });
 
   if (bbUpperSeries) {
@@ -735,6 +768,12 @@ function updateIndLegend(time) {
     if (!MA_ENABLED[p]) return;
     var v = (idx != null && indData.ma && indData.ma[p]) ? indData.ma[p][idx] : null;
     parts.push('<span style="color:'+MA_COLORS[p]+'">MA'+p+(v!==null?' '+Math.round(v).toLocaleString('id-ID'):'')+'</span>');
+  });
+
+  [9,21,50,200].forEach(function(p) {
+    if (!EMA_ENABLED[p]) return;
+    var v = (idx != null && indData.ema && indData.ema[p]) ? indData.ema[p][idx] : null;
+    parts.push('<span style="color:'+EMA_COLORS[p]+'">EMA'+p+(v!==null?' '+Math.round(v).toLocaleString('id-ID'):'')+'</span>');
   });
 
   if (IND_BB && idx!=null && indData.bbU && indData.bbU[idx]!==null) {
@@ -928,6 +967,22 @@ function toggleIndItem(ind) {
       if (maSeries[period] && chart) { try{chart.removeSeries(maSeries[period]);}catch(e){} maSeries[period]=null; }
     }
 
+  } else if (ind === 'ema9' || ind === 'ema21' || ind === 'ema50' || ind === 'ema200') {
+    var period = parseInt(ind.substring(3));
+    EMA_ENABLED[period] = nowActive;
+    if (nowActive) {
+      if (chart) {
+        emaSeries[period] = chart.addLineSeries({color:EMA_COLORS[period], lineWidth:1.5, lineStyle:2, lastValueVisible:true, priceLineVisible:false, crosshairMarkerVisible:false});
+        if (indData.times && indData.times.length) {
+          var data = [];
+          indData.ema[period].forEach(function(v,i){ if(v!==null) data.push({time:indData.times[i],value:v}); });
+          emaSeries[period].setData(data);
+        }
+      }
+    } else {
+      if (emaSeries[period] && chart) { try{chart.removeSeries(emaSeries[period]);}catch(e){} emaSeries[period]=null; }
+    }
+
   } else if (ind === 'bb') {
     IND_BB = nowActive;
     if (nowActive) {
@@ -1016,6 +1071,7 @@ function toggleIndPanel() {
 function updateIndActiveCnt() {
   var n = 0;
   [5,13,50,200].forEach(function(p){ if(MA_ENABLED[p]) n++; });
+  [9,21,50,200].forEach(function(p){ if(EMA_ENABLED[p]) n++; });
   if(IND_BB) n++; if(IND_RSI) n++; if(IND_MACD) n++;
   document.getElementById('indActiveCnt').textContent = n ? ' '+n : '';
 }
@@ -1031,7 +1087,7 @@ document.addEventListener('click', function(e) {
 });
 
 // Wire indicator item clicks
-['ma5','ma13','ma50','ma200','bb','rsi','macd'].forEach(function(ind) {
+['ma5','ma13','ma50','ma200','ema9','ema21','ema50','ema200','bb','rsi','macd'].forEach(function(ind) {
   var el = document.getElementById('indItem_'+ind);
   if (el) el.addEventListener('click', function(){ toggleIndItem(ind); });
 });
