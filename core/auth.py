@@ -96,7 +96,7 @@ def require_auth(fn):
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         if not is_authed():
-            return redirect(url_for("main.login", next=request.path))
+            return redirect(url_for("main.login_page", next=request.path))
         return fn(*args, **kwargs)
     return wrapper
 
@@ -106,7 +106,7 @@ def require_admin(fn):
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         if not is_authed():
-            return redirect(url_for("main.login", next=request.path))
+            return redirect(url_for("main.login_page", next=request.path))
         if not is_admin():
             from flask import abort
             abort(403)

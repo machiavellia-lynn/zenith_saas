@@ -23,12 +23,19 @@ _ATR_PERIOD  = 14
 def compute_bsjp_for_date(conn, date_str: str) -> int:
     """Compute BSJP indicators for ALL tickers in price_history on date_str.
     Batch-loads 210-day OHLCV history, computes per-ticker, writes back.
+    Accepts DD-MM-YYYY or YYYY-MM-DD — normalizes to YYYY-MM-DD internally.
     Returns number of tickers updated."""
+    # price_history.date is stored as YYYY-MM-DD; normalize from DD-MM-YYYY if needed
+    if len(date_str) == 10 and date_str[2] == '-' and date_str[5] == '-':
+        date_yyyy = f"{date_str[6:10]}-{date_str[3:5]}-{date_str[:2]}"
+    else:
+        date_yyyy = date_str
+
     tickers_rows = fetchall(conn, """
         SELECT DISTINCT ph.ticker FROM price_history ph
         JOIN ticker_universe u ON u.ticker = ph.ticker
         WHERE ph.date = %s AND u.is_active = TRUE
-    """, [date_str])
+    """, [date_yyyy])
 
     if not tickers_rows:
         log.warning("bsjp: no price_history rows for %s", date_str)
@@ -42,7 +49,7 @@ def compute_bsjp_for_date(conn, date_str: str) -> int:
         FROM price_history
         WHERE ticker = ANY(%s) AND date <= %s
         ORDER BY ticker, date DESC
-    """, [tickers, date_str])
+    """, [tickers, date_yyyy])
 
     ph_map: dict = {}
     for r in all_ph:
@@ -81,7 +88,7 @@ def compute_bsjp_for_date(conn, date_str: str) -> int:
                 ind["daily_value"],
                 ind["prev_close_below_ma5"], ind["prev_close_below_bb_lower"],
                 ind["days_since_near_ma50"], ind["days_since_near_bb_mid"],
-                date_str, ticker,
+                date_yyyy, ticker,
             ])
             updated += 1
         except Exception as e:
