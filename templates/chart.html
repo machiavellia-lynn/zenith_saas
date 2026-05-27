@@ -140,6 +140,20 @@ body.sidebar-layout { overflow: hidden; }
   font-size: 9px; margin-left: auto; transition: all .1s;
 }
 .ind-item.active .ind-chk { background: var(--accent); border-color: var(--accent); color: #fff; }
+/* Dynamic MA rows */
+.ind-sect-hdr { display:flex; align-items:center; justify-content:space-between; padding:6px 14px 3px; }
+.ind-sect-hdr .ind-sect { padding:0; }
+.ind-add-btn { background:none; border:1px solid var(--border); color:var(--muted); font-size:10px; padding:1px 7px; border-radius:5px; cursor:pointer; font-family:var(--font-display); font-weight:500; transition:all .1s; }
+.ind-add-btn:hover { border-color:var(--accent); color:var(--accent); }
+.ind-ma-row { display:flex; align-items:center; gap:8px; padding:4px 14px; user-select:none; }
+.ind-ma-row:hover { background:var(--surface2); }
+.ind-ma-label { font-family:var(--font-mono); font-size:11px; font-weight:600; color:var(--text-dim); min-width:28px; }
+.ind-period-input { width:42px; background:var(--surface2); border:1px solid var(--border); border-radius:5px; color:var(--ink); font-family:var(--font-mono); font-size:12px; padding:2px 4px; text-align:center; -moz-appearance:textfield; }
+.ind-period-input::-webkit-outer-spin-button,.ind-period-input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+.ind-period-input:focus { outline:none; border-color:var(--accent); }
+.ind-remove-btn { margin-left:auto; background:none; border:none; cursor:pointer; color:var(--border2); font-size:15px; line-height:1; padding:0 2px; transition:color .1s; }
+.ind-remove-btn:hover { color:var(--down); }
+.ind-divider { height:1px; background:var(--border); margin:5px 0; }
 
 /* Sub-pane header */
 .ind-pane-hdr {
@@ -219,21 +233,7 @@ body.sidebar-layout { overflow: hidden; }
             <span style="font-size:10px;line-height:1">◈</span>Indicators<span id="indActiveCnt" style="font-size:9px;font-weight:700;opacity:.7;margin-left:1px"></span>
           </div>
           <div id="indPanel" class="ind-panel">
-            <div class="ind-sect">Simple MA</div>
-            <div class="ind-item active" id="indItem_ma5"><div class="ind-stripe" style="background:#2196f3"></div>MA 5<div class="ind-chk">✓</div></div>
-            <div class="ind-item active" id="indItem_ma13"><div class="ind-stripe" style="background:#ff9800"></div>MA 13<div class="ind-chk">✓</div></div>
-            <div class="ind-item" id="indItem_ma50"><div class="ind-stripe" style="background:#4caf50"></div>MA 50<div class="ind-chk"></div></div>
-            <div class="ind-item" id="indItem_ma200"><div class="ind-stripe" style="background:#888"></div>MA 200<div class="ind-chk"></div></div>
-            <div class="ind-sect" style="margin-top:4px">Exponential MA</div>
-            <div class="ind-item" id="indItem_ema9"><div class="ind-stripe" style="background:#e91e63"></div>EMA 9<div class="ind-chk"></div></div>
-            <div class="ind-item" id="indItem_ema21"><div class="ind-stripe" style="background:#ab47bc"></div>EMA 21<div class="ind-chk"></div></div>
-            <div class="ind-item" id="indItem_ema50"><div class="ind-stripe" style="background:#7e57c2"></div>EMA 50<div class="ind-chk"></div></div>
-            <div class="ind-item" id="indItem_ema200"><div class="ind-stripe" style="background:#5c6bc0"></div>EMA 200<div class="ind-chk"></div></div>
-            <div class="ind-sect" style="margin-top:4px">Bands</div>
-            <div class="ind-item" id="indItem_bb"><div class="ind-stripe" style="background:#2196f3"></div>Bollinger (20, 2)<div class="ind-chk"></div></div>
-            <div class="ind-sect" style="margin-top:4px">Oscillators</div>
-            <div class="ind-item" id="indItem_rsi"><div class="ind-stripe" style="background:#9c27b0"></div>RSI (14)<div class="ind-chk"></div></div>
-            <div class="ind-item" id="indItem_macd"><div class="ind-stripe" style="background:#4caf50"></div>MACD (12, 26, 9)<div class="ind-chk"></div></div>
+            <div id="indPanelInner"></div>
           </div>
         </div>
         <div style="width:6px"></div>
@@ -336,13 +336,16 @@ var overlayDataCache = [];
 var txDateFrom = '', txDateTo = '';
 
 /* ── Indicator state ────────────────────────────────────────────────────── */
-var MA_ENABLED = {5:true, 13:true, 50:false, 200:false};
-var EMA_ENABLED = {9:false, 21:false, 50:false, 200:false};
 var IND_BB = false, IND_RSI = false, IND_MACD = false;
-var MA_COLORS = {5:'#2196f3', 13:'#ff9800', 50:'#4caf50', 200:'#888888'};
-var EMA_COLORS = {9:'#e91e63', 21:'#ab47bc', 50:'#7e57c2', 200:'#5c6bc0'};
-var maSeries = {5:null, 13:null, 50:null, 200:null};
-var emaSeries = {9:null, 21:null, 50:null, 200:null};
+var _indIdSeq = 0;
+var COLOR_PALETTE = ['#2196f3','#ff9800','#4caf50','#e91e63','#ab47bc','#00bcd4','#ff5722','#8bc34a','#ffc107','#607d8b'];
+/* maList / emaList: [{id, type:'sma'|'ema', period, color, series, cachedArr}] */
+var maList = [
+  {id:'s0', type:'sma', period:5,  color:'#2196f3', series:null, cachedArr:null},
+  {id:'s1', type:'sma', period:13, color:'#ff9800', series:null, cachedArr:null},
+];
+var emaList = [];
+_indIdSeq = 2;
 var bbUpperSeries = null, bbMidSeries = null, bbLowerSeries = null;
 var rsiChart = null, rsiSeries = null;
 var macdChart = null, macdLineSeries = null, macdSignalSeries = null, macdHistSeries = null;
@@ -424,8 +427,8 @@ function cleanupChart() {
   if (chart) { chart.remove(); chart = null; }
   candleSeries = null; volumeSeries = null;
   ovlSeriesCM = null; ovlSeriesSM = null; ovlSeriesBM = null;
-  [5,13,50,200].forEach(function(p){ maSeries[p]=null; });
-  [9,21,50,200].forEach(function(p){ emaSeries[p]=null; });
+  maList.forEach(function(x){ x.series=null; });
+  emaList.forEach(function(x){ x.series=null; });
   bbUpperSeries = null; bbMidSeries = null; bbLowerSeries = null;
   if (rsiChart) { rsiChart.remove(); rsiChart = null; rsiSeries = null; }
   if (macdChart) { macdChart.remove(); macdChart = null; macdLineSeries = null; macdSignalSeries = null; macdHistSeries = null; }
@@ -509,24 +512,12 @@ function initChart() {
   ovlSeriesBM = chart.addLineSeries({ color:'#c87d3a', lineWidth:1.5, priceScaleId:'overlay', lastValueVisible:false, priceLineVisible:false });
   ovlSeriesCM.applyOptions({visible:ovlShowCM}); ovlSeriesSM.applyOptions({visible:ovlShowSM}); ovlSeriesBM.applyOptions({visible:ovlShowBM});
 
-  // MA series for enabled periods
-  [5,13,50,200].forEach(function(p) {
-    if (!MA_ENABLED[p]) return;
-    maSeries[p] = chart.addLineSeries({
-      color: MA_COLORS[p], lineWidth: 1.5,
-      lastValueVisible: true, priceLineVisible: false,
-      crosshairMarkerVisible: false,
-    });
+  // MA/EMA series — dynamic from maList / emaList
+  maList.forEach(function(x) {
+    x.series = chart.addLineSeries({color:x.color, lineWidth:1.5, lastValueVisible:true, priceLineVisible:false, crosshairMarkerVisible:false});
   });
-
-  // EMA series for enabled periods
-  [9,21,50,200].forEach(function(p) {
-    if (!EMA_ENABLED[p]) return;
-    emaSeries[p] = chart.addLineSeries({
-      color: EMA_COLORS[p], lineWidth: 1.5, lineStyle: 2,
-      lastValueVisible: true, priceLineVisible: false,
-      crosshairMarkerVisible: false,
-    });
+  emaList.forEach(function(x) {
+    x.series = chart.addLineSeries({color:x.color, lineWidth:1.5, lineStyle:2, lastValueVisible:true, priceLineVisible:false, crosshairMarkerVisible:false});
   });
 
   // BB series if enabled
@@ -688,14 +679,12 @@ function computeAllIndData(candles) {
   candles.forEach(function(c,i){ timeToIdx[c.time]=i; });
   indData = {
     times:    candles.map(function(c){return c.time;}),
-    ma:       {},
-    ema:      {},
-    bbU:      [], bbM:      [], bbL:      [],
-    rsi:      [],
-    macdLine: [], macdSig:  [], macdHist: [],
+    closes:   closes,
+    bbU:[], bbM:[], bbL:[],
+    rsi:[],
+    macdLine:[], macdSig:[], macdHist:[],
   };
-  [5,13,50,200].forEach(function(p){ indData.ma[p] = calcSMAArray(closes, p); });
-  [9,21,50,200].forEach(function(p){ indData.ema[p] = calcEMAArray(closes, p); });
+  /* MA/EMA computed per-item on render */
   var bb = calcBBArrays(closes, 20, 2);
   indData.bbU = bb.upper; indData.bbM = bb.mid; indData.bbL = bb.lower;
   indData.rsi = calcRSIArray(closes, 14);
@@ -704,24 +693,23 @@ function computeAllIndData(candles) {
 }
 
 /* ── Render indicator series ────────────────────────────────────────────── */
+function renderMAItem(item, times, closes) {
+  if (!item.series) return;
+  var arr = item.type==='sma' ? calcSMAArray(closes, item.period) : calcEMAArray(closes, item.period);
+  item.cachedArr = arr;
+  var data = [];
+  arr.forEach(function(v,i){ if(v!==null) data.push({time:times[i],value:v}); });
+  item.series.setData(data);
+}
+
 function renderIndicators(candles) {
   if (!chart || !candles.length) return;
   computeAllIndData(candles);
   var times = indData.times;
+  var closes = indData.closes;
 
-  [5,13,50,200].forEach(function(p) {
-    if (!maSeries[p]) return;
-    var data = [];
-    indData.ma[p].forEach(function(v,i){ if(v!==null) data.push({time:times[i],value:v}); });
-    maSeries[p].setData(data);
-  });
-
-  [9,21,50,200].forEach(function(p) {
-    if (!emaSeries[p]) return;
-    var data = [];
-    indData.ema[p].forEach(function(v,i){ if(v!==null) data.push({time:times[i],value:v}); });
-    emaSeries[p].setData(data);
-  });
+  maList.forEach(function(x){ renderMAItem(x, times, closes); });
+  emaList.forEach(function(x){ renderMAItem(x, times, closes); });
 
   if (bbUpperSeries) {
     var upD=[],midD=[],loD=[];
@@ -764,16 +752,13 @@ function updateIndLegend(time) {
   var idx = time !== null ? timeToIdx[time] : null;
   var parts = [];
 
-  [5,13,50,200].forEach(function(p) {
-    if (!MA_ENABLED[p]) return;
-    var v = (idx != null && indData.ma && indData.ma[p]) ? indData.ma[p][idx] : null;
-    parts.push('<span style="color:'+MA_COLORS[p]+'">MA'+p+(v!==null?' '+Math.round(v).toLocaleString('id-ID'):'')+'</span>');
+  maList.forEach(function(x) {
+    var v = (idx!=null && x.cachedArr) ? x.cachedArr[idx] : null;
+    parts.push('<span style="color:'+x.color+'">MA'+x.period+(v!=null?' '+Math.round(v).toLocaleString('id-ID'):'')+'</span>');
   });
-
-  [9,21,50,200].forEach(function(p) {
-    if (!EMA_ENABLED[p]) return;
-    var v = (idx != null && indData.ema && indData.ema[p]) ? indData.ema[p][idx] : null;
-    parts.push('<span style="color:'+EMA_COLORS[p]+'">EMA'+p+(v!==null?' '+Math.round(v).toLocaleString('id-ID'):'')+'</span>');
+  emaList.forEach(function(x) {
+    var v = (idx!=null && x.cachedArr) ? x.cachedArr[idx] : null;
+    parts.push('<span style="color:'+x.color+'">EMA'+x.period+(v!=null?' '+Math.round(v).toLocaleString('id-ID'):'')+'</span>');
   });
 
   if (IND_BB && idx!=null && indData.bbU && indData.bbU[idx]!==null) {
@@ -793,6 +778,176 @@ function updateIndLegend(time) {
   }
 
   legend.innerHTML = parts.join('');
+}
+
+/* ── Dynamic indicator panel ────────────────────────────────────────────── */
+function nextColor() {
+  var used = maList.concat(emaList).map(function(x){ return x.color; });
+  for (var i=0; i<COLOR_PALETTE.length; i++) { if (used.indexOf(COLOR_PALETTE[i])<0) return COLOR_PALETTE[i]; }
+  return COLOR_PALETTE[_indIdSeq % COLOR_PALETTE.length];
+}
+
+function addMA(type) {
+  var item = {id:type+'_'+(++_indIdSeq), type:type, period:type==='sma'?20:21, color:nextColor(), series:null, cachedArr:null};
+  if (type==='sma') maList.push(item); else emaList.push(item);
+  if (chart) {
+    item.series = chart.addLineSeries({color:item.color, lineWidth:1.5, lineStyle:type==='ema'?2:0, lastValueVisible:true, priceLineVisible:false, crosshairMarkerVisible:false});
+    if (indData.times && indData.times.length) renderMAItem(item, indData.times, indData.closes);
+  }
+  renderIndPanel();
+  updateIndActiveCnt();
+}
+
+function removeMA(id) {
+  function rm(list) {
+    for (var i=0; i<list.length; i++) {
+      if (list[i].id===id) {
+        if (list[i].series && chart) { try{chart.removeSeries(list[i].series);}catch(e){} }
+        list.splice(i,1); return true;
+      }
+    }
+    return false;
+  }
+  rm(maList) || rm(emaList);
+  renderIndPanel();
+  updateIndActiveCnt();
+  updateIndLegend(null);
+}
+
+function setPeriod(id, newPeriod) {
+  newPeriod = parseInt(newPeriod);
+  if (!newPeriod || newPeriod < 2 || newPeriod > 999) return;
+  var all = maList.concat(emaList);
+  for (var i=0; i<all.length; i++) {
+    if (all[i].id === id) {
+      all[i].period = newPeriod;
+      if (all[i].series && indData.times && indData.times.length) {
+        renderMAItem(all[i], indData.times, indData.closes);
+      }
+      updateIndLegend(null);
+      return;
+    }
+  }
+}
+
+function renderIndPanel() {
+  var inner = document.getElementById('indPanelInner');
+  if (!inner) return;
+  var h = '';
+  /* SMA section */
+  h += '<div class="ind-sect-hdr"><span class="ind-sect">SMA</span><button class="ind-add-btn" data-type="sma">+ Add</button></div>';
+  maList.forEach(function(x) {
+    h += '<div class="ind-ma-row" data-id="'+x.id+'">'
+       + '<div class="ind-stripe" style="background:'+x.color+';opacity:1"></div>'
+       + '<span class="ind-ma-label">MA</span>'
+       + '<input class="ind-period-input" type="number" min="2" max="999" value="'+x.period+'" data-id="'+x.id+'">'
+       + '<button class="ind-remove-btn" data-id="'+x.id+'">×</button>'
+       + '</div>';
+  });
+  /* EMA section */
+  h += '<div class="ind-divider"></div>';
+  h += '<div class="ind-sect-hdr"><span class="ind-sect">EMA</span><button class="ind-add-btn" data-type="ema">+ Add</button></div>';
+  emaList.forEach(function(x) {
+    h += '<div class="ind-ma-row" data-id="'+x.id+'">'
+       + '<div class="ind-stripe" style="background:'+x.color+';opacity:1;border-top:2px dashed '+x.color+';height:0;width:16px"></div>'
+       + '<span class="ind-ma-label">EMA</span>'
+       + '<input class="ind-period-input" type="number" min="2" max="999" value="'+x.period+'" data-id="'+x.id+'">'
+       + '<button class="ind-remove-btn" data-id="'+x.id+'">×</button>'
+       + '</div>';
+  });
+  /* Fixed indicators */
+  h += '<div class="ind-divider"></div>';
+  h += fixedIndHTML('bb',   IND_BB,   '#2196f3', 'Bollinger (20, 2)');
+  h += '<div class="ind-divider"></div>';
+  h += fixedIndHTML('rsi',  IND_RSI,  '#9c27b0', 'RSI (14)');
+  h += fixedIndHTML('macd', IND_MACD, '#4caf50', 'MACD (12, 26, 9)');
+  inner.innerHTML = h;
+  /* Wire events */
+  inner.querySelectorAll('.ind-add-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e){ e.stopPropagation(); addMA(btn.dataset.type); });
+  });
+  inner.querySelectorAll('.ind-remove-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e){ e.stopPropagation(); removeMA(btn.dataset.id); });
+  });
+  inner.querySelectorAll('.ind-period-input').forEach(function(inp) {
+    inp.addEventListener('change', function(){ setPeriod(inp.dataset.id, inp.value); });
+    inp.addEventListener('keydown', function(e){ if(e.key==='Enter'){ inp.blur(); setPeriod(inp.dataset.id, inp.value); } e.stopPropagation(); });
+    inp.addEventListener('click', function(e){ e.stopPropagation(); });
+  });
+  inner.querySelectorAll('[data-fixed]').forEach(function(row) {
+    row.addEventListener('click', function(){ toggleFixedInd(row.dataset.fixed); });
+  });
+}
+
+function fixedIndHTML(key, active, color, label) {
+  return '<div class="ind-item'+(active?' active':'')+'" data-fixed="'+key+'">'
+       + '<div class="ind-stripe" style="background:'+color+'"></div>'
+       + label
+       + '<div class="ind-chk">'+(active?'✓':'')+'</div>'
+       + '</div>';
+}
+
+function toggleFixedInd(ind) {
+  if (ind==='bb') {
+    IND_BB = !IND_BB;
+    if (IND_BB) {
+      if (chart) {
+        bbUpperSeries = chart.addLineSeries({color:'rgba(33,150,243,.55)',lineWidth:1,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});
+        bbMidSeries   = chart.addLineSeries({color:'rgba(33,150,243,.8)',lineWidth:1,lastValueVisible:false,priceLineVisible:false,lineStyle:2,crosshairMarkerVisible:false});
+        bbLowerSeries = chart.addLineSeries({color:'rgba(33,150,243,.55)',lineWidth:1,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});
+        if (indData.times && indData.times.length) {
+          var upD=[],midD=[],loD=[];
+          indData.bbU.forEach(function(v,i){ if(v!==null){upD.push({time:indData.times[i],value:v});midD.push({time:indData.times[i],value:indData.bbM[i]});loD.push({time:indData.times[i],value:indData.bbL[i]});} });
+          bbUpperSeries.setData(upD); bbMidSeries.setData(midD); bbLowerSeries.setData(loD);
+        }
+      }
+    } else {
+      if(bbUpperSeries&&chart){try{chart.removeSeries(bbUpperSeries);}catch(e){}bbUpperSeries=null;}
+      if(bbMidSeries&&chart){try{chart.removeSeries(bbMidSeries);}catch(e){}bbMidSeries=null;}
+      if(bbLowerSeries&&chart){try{chart.removeSeries(bbLowerSeries);}catch(e){}bbLowerSeries=null;}
+    }
+  } else if (ind==='rsi') {
+    IND_RSI = !IND_RSI;
+    if (IND_RSI) {
+      initRSIPane();
+      if (lastCandles.length && indData.times) {
+        var rsiD=[];
+        indData.rsi.forEach(function(v,i){ if(v!==null) rsiD.push({time:indData.times[i],value:v}); });
+        rsiSeries.setData(rsiD);
+        requestAnimationFrame(function(){ var r=chart.timeScale().getVisibleLogicalRange(); if(r&&rsiChart) rsiChart.timeScale().setVisibleLogicalRange(r); });
+      }
+      sizeChart();
+    } else {
+      if(rsiChart){rsiChart.remove();rsiChart=null;rsiSeries=null;}
+      document.getElementById('rsiPaneWrap').style.display='none';
+      sizeChart();
+    }
+  } else if (ind==='macd') {
+    IND_MACD = !IND_MACD;
+    if (IND_MACD) {
+      initMACDPane();
+      if (lastCandles.length && indData.times) {
+        var macdD=[],sigD=[],histD=[];
+        indData.macdLine.forEach(function(v,i){
+          if(v!==null) macdD.push({time:indData.times[i],value:v});
+          if(indData.macdSig[i]!==null) sigD.push({time:indData.times[i],value:indData.macdSig[i]});
+          if(indData.macdHist[i]!==null) histD.push({time:indData.times[i],value:indData.macdHist[i],color:indData.macdHist[i]>=0?'rgba(58,107,88,.65)':'rgba(200,99,58,.65)'});
+        });
+        if(macdLineSeries)macdLineSeries.setData(macdD);
+        if(macdSignalSeries)macdSignalSeries.setData(sigD);
+        if(macdHistSeries)macdHistSeries.setData(histD);
+        requestAnimationFrame(function(){ var r=chart.timeScale().getVisibleLogicalRange(); if(r&&macdChart) macdChart.timeScale().setVisibleLogicalRange(r); });
+      }
+      sizeChart();
+    } else {
+      if(macdChart){macdChart.remove();macdChart=null;macdLineSeries=null;macdSignalSeries=null;macdHistSeries=null;}
+      document.getElementById('macdPaneWrap').style.display='none';
+      sizeChart();
+    }
+  }
+  renderIndPanel();
+  updateIndActiveCnt();
+  updateIndLegend(null);
 }
 
 /* ── Load OHLCV ─────────────────────────────────────────────────────────── */
@@ -945,121 +1100,6 @@ async function loadTransactions() {
   }
 }
 
-/* ── Indicator toggle logic ─────────────────────────────────────────────── */
-function toggleIndItem(ind) {
-  var el = document.getElementById('indItem_'+ind);
-  if (!el) return;
-  var nowActive = !el.classList.contains('active');
-
-  if (ind === 'ma5' || ind === 'ma13' || ind === 'ma50' || ind === 'ma200') {
-    var period = parseInt(ind.substring(2));
-    MA_ENABLED[period] = nowActive;
-    if (nowActive) {
-      if (chart) {
-        maSeries[period] = chart.addLineSeries({color:MA_COLORS[period], lineWidth:1.5, lastValueVisible:true, priceLineVisible:false, crosshairMarkerVisible:false});
-        if (indData.times && indData.times.length) {
-          var data = [];
-          indData.ma[period].forEach(function(v,i){ if(v!==null) data.push({time:indData.times[i],value:v}); });
-          maSeries[period].setData(data);
-        }
-      }
-    } else {
-      if (maSeries[period] && chart) { try{chart.removeSeries(maSeries[period]);}catch(e){} maSeries[period]=null; }
-    }
-
-  } else if (ind === 'ema9' || ind === 'ema21' || ind === 'ema50' || ind === 'ema200') {
-    var period = parseInt(ind.substring(3));
-    EMA_ENABLED[period] = nowActive;
-    if (nowActive) {
-      if (chart) {
-        emaSeries[period] = chart.addLineSeries({color:EMA_COLORS[period], lineWidth:1.5, lineStyle:2, lastValueVisible:true, priceLineVisible:false, crosshairMarkerVisible:false});
-        if (indData.times && indData.times.length) {
-          var data = [];
-          indData.ema[period].forEach(function(v,i){ if(v!==null) data.push({time:indData.times[i],value:v}); });
-          emaSeries[period].setData(data);
-        }
-      }
-    } else {
-      if (emaSeries[period] && chart) { try{chart.removeSeries(emaSeries[period]);}catch(e){} emaSeries[period]=null; }
-    }
-
-  } else if (ind === 'bb') {
-    IND_BB = nowActive;
-    if (nowActive) {
-      if (chart) {
-        bbUpperSeries = chart.addLineSeries({color:'rgba(33,150,243,.55)', lineWidth:1, lastValueVisible:false, priceLineVisible:false, crosshairMarkerVisible:false});
-        bbMidSeries   = chart.addLineSeries({color:'rgba(33,150,243,.8)', lineWidth:1, lastValueVisible:false, priceLineVisible:false, lineStyle:2, crosshairMarkerVisible:false});
-        bbLowerSeries = chart.addLineSeries({color:'rgba(33,150,243,.55)', lineWidth:1, lastValueVisible:false, priceLineVisible:false, crosshairMarkerVisible:false});
-        if (indData.times && indData.times.length) {
-          var upD=[],midD=[],loD=[];
-          indData.bbU.forEach(function(v,i){ if(v!==null){ upD.push({time:indData.times[i],value:v}); midD.push({time:indData.times[i],value:indData.bbM[i]}); loD.push({time:indData.times[i],value:indData.bbL[i]}); } });
-          bbUpperSeries.setData(upD); bbMidSeries.setData(midD); bbLowerSeries.setData(loD);
-        }
-      }
-    } else {
-      if (chart) {
-        if(bbUpperSeries){try{chart.removeSeries(bbUpperSeries);}catch(e){}bbUpperSeries=null;}
-        if(bbMidSeries){try{chart.removeSeries(bbMidSeries);}catch(e){}bbMidSeries=null;}
-        if(bbLowerSeries){try{chart.removeSeries(bbLowerSeries);}catch(e){}bbLowerSeries=null;}
-      }
-    }
-
-  } else if (ind === 'rsi') {
-    IND_RSI = nowActive;
-    if (nowActive) {
-      sizeChart();
-      initRSIPane();
-      if (lastCandles.length) {
-        var rsiD=[];
-        if (indData.times) indData.rsi.forEach(function(v,i){ if(v!==null) rsiD.push({time:indData.times[i],value:v}); });
-        rsiSeries.setData(rsiD);
-        requestAnimationFrame(function(){
-          var range = chart.timeScale().getVisibleLogicalRange();
-          if (range && rsiChart) rsiChart.timeScale().setVisibleLogicalRange(range);
-        });
-      }
-      sizeChart();
-    } else {
-      if(rsiChart){rsiChart.remove();rsiChart=null;rsiSeries=null;}
-      document.getElementById('rsiPaneWrap').style.display='none';
-      sizeChart();
-    }
-
-  } else if (ind === 'macd') {
-    IND_MACD = nowActive;
-    if (nowActive) {
-      sizeChart();
-      initMACDPane();
-      if (lastCandles.length) {
-        var macdD=[],sigD=[],histD=[];
-        if (indData.times) indData.macdLine.forEach(function(v,i){
-          if(v!==null) macdD.push({time:indData.times[i],value:v});
-          if(indData.macdSig[i]!==null) sigD.push({time:indData.times[i],value:indData.macdSig[i]});
-          if(indData.macdHist[i]!==null) histD.push({time:indData.times[i],value:indData.macdHist[i],color:indData.macdHist[i]>=0?'rgba(58,107,88,.65)':'rgba(200,99,58,.65)'});
-        });
-        if(macdLineSeries)macdLineSeries.setData(macdD);
-        if(macdSignalSeries)macdSignalSeries.setData(sigD);
-        if(macdHistSeries)macdHistSeries.setData(histD);
-        requestAnimationFrame(function(){
-          var range = chart.timeScale().getVisibleLogicalRange();
-          if (range && macdChart) macdChart.timeScale().setVisibleLogicalRange(range);
-        });
-      }
-      sizeChart();
-    } else {
-      if(macdChart){macdChart.remove();macdChart=null;macdLineSeries=null;macdSignalSeries=null;macdHistSeries=null;}
-      document.getElementById('macdPaneWrap').style.display='none';
-      sizeChart();
-    }
-  }
-
-  el.classList.toggle('active', nowActive);
-  var chk = el.querySelector('.ind-chk');
-  if (chk) chk.textContent = nowActive ? '✓' : '';
-  updateIndActiveCnt();
-  updateIndLegend(null);
-}
-
 function toggleIndPanel() {
   var panel = document.getElementById('indPanel');
   var btn = document.getElementById('indBtn');
@@ -1069,10 +1109,7 @@ function toggleIndPanel() {
 }
 
 function updateIndActiveCnt() {
-  var n = 0;
-  [5,13,50,200].forEach(function(p){ if(MA_ENABLED[p]) n++; });
-  [9,21,50,200].forEach(function(p){ if(EMA_ENABLED[p]) n++; });
-  if(IND_BB) n++; if(IND_RSI) n++; if(IND_MACD) n++;
+  var n = maList.length + emaList.length + (IND_BB?1:0) + (IND_RSI?1:0) + (IND_MACD?1:0);
   document.getElementById('indActiveCnt').textContent = n ? ' '+n : '';
 }
 
@@ -1086,11 +1123,6 @@ document.addEventListener('click', function(e) {
   }
 });
 
-// Wire indicator item clicks
-['ma5','ma13','ma50','ma200','ema9','ema21','ema50','ema200','bb','rsi','macd'].forEach(function(ind) {
-  var el = document.getElementById('indItem_'+ind);
-  if (el) el.addEventListener('click', function(){ toggleIndItem(ind); });
-});
 document.getElementById('indBtn').addEventListener('click', function(e){
   e.stopPropagation();
   toggleIndPanel();
@@ -1143,6 +1175,7 @@ window.addEventListener('DOMContentLoaded', async function() {
   var params = new URLSearchParams(location.search);
   var pt = params.get('ticker');
   if (pt) document.getElementById('tickerInput').value = pt.toUpperCase();
+  renderIndPanel();
   updateIndActiveCnt();
   sizeChart();
   initChart();
