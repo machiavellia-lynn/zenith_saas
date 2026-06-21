@@ -3,10 +3,18 @@ routes_admin.py — Blueprint: /admin/*
 RULE: Routing + status reporting only. All ops (rebuild, backfill, scraper) in dedicated modules.
 """
 import os
-from flask import Blueprint, render_template, jsonify, request, redirect
-from core.auth import is_authed
+from flask import Blueprint, render_template, jsonify, request, redirect, abort
+from core.auth import is_authed, is_admin
 
 bp_admin = Blueprint("admin", __name__)
+
+
+@bp_admin.before_request
+def _require_admin():
+    if not is_authed():
+        return redirect("/")
+    if not is_admin():
+        abort(403)
 
 # Module-level state for "Fetch All 15m" background job
 _intraday_all = {

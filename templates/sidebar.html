@@ -151,7 +151,9 @@
         </div>
 
         <div class="s-account-popup-actions">
+          {% if session.get('role') == 'admin' %}
           <a href="/admin" class="s-popup-btn" onclick="document.getElementById('accountPopup').classList.remove('open');document.getElementById('sidebarAccount').classList.remove('open')">Admin</a>
+          {% endif %}
           <a href="/logout" class="s-popup-btn accent">Sign out</a>
         </div>
       </div>
