@@ -16,6 +16,7 @@ def do_startup(app):
         _init_schema()
         _seed_admin()
         _start_scraper()
+        _start_price_cache()
         _start_backtest()
 
 
@@ -71,6 +72,14 @@ def _start_scraper():
         log.info("Scraper already running (lock exists), skipping")
     except Exception as e:
         log.error("Scraper start failed: %s", e)
+
+
+def _start_price_cache():
+    try:
+        from data.price_cache import start_price_cache_thread
+        start_price_cache_thread()
+    except Exception as e:
+        log.error("Price cache start failed: %s", e)
 
 
 def _start_backtest():

@@ -6,10 +6,9 @@ from datetime import datetime
 from flask import Blueprint, render_template, redirect, request, jsonify
 
 from core.auth import is_authed, login, logout as auth_logout
-from config import WIB, YF_HEADERS
+from config import WIB
 from core.db import fetchone, get_db
 from data.price_fetch import fetch_gain_range
-import requests
 
 bp_main = Blueprint("main", __name__)
 
@@ -96,32 +95,6 @@ def last_date():
 def ihsg():
     if not is_authed():
         return jsonify({"error": "unauthorized"}), 401
-    try:
-        resp = requests.get(
-            "https://query1.finance.yahoo.com/v8/finance/chart/%5EJKSE",
-            headers=YF_HEADERS,
-            params={"interval": "1d", "range": "5d"},
-            timeout=5,
-        )
-        result = resp.json().get("chart", {}).get("result", [None])[0]
-        if not result:
-            return jsonify({"price": None, "gain_pct": None})
-
-        meta = result.get("meta", {})
-        price = meta.get("regularMarketPrice")
-
-        # Get yesterday's close from chart data (not chartPreviousClose which is range start)
-        closes = result.get("indicators", {}).get("quote", [{}])[0].get("close", []) or []
-        valid_closes = [c for c in closes if c and float(c) > 0]
-        prev = float(valid_closes[-2]) if len(valid_closes) >= 2 else meta.get("previousClose")
-
-        gain_pct = None
-        if price and prev and prev > 0:
-            gain_pct = round((float(price) - prev) / prev * 100, 2)
-
-        return jsonify({
-            "price": round(float(price), 2) if price else None,
-            "gain_pct": gain_pct,
-        })
-    except Exception as e:
-        return jsonify({"price": None, "gain_pct": None, "error": str(e)})
+    from data.price_cache import get_cached_ihsg
+    data = get_cached_ihsg()
+    return jsonify({"price": data["price"], "gain_pct": data["gain_pct"]})
