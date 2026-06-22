@@ -300,7 +300,8 @@ body { display: flex; flex-direction: column; }
 
 /* Carousel outer — clips track + fades edges */
 .hub-accum-outer {
-  overflow: hidden;
+  overflow-x: clip;     /* clip horizontal for carousel animation */
+  overflow-y: visible;  /* allow cards to lift on hover without clipping */
   position: relative;
   -webkit-mask-image: linear-gradient(to right, transparent 0%, black 4%, black 96%, transparent 100%);
   mask-image: linear-gradient(to right, transparent 0%, black 4%, black 96%, transparent 100%);
