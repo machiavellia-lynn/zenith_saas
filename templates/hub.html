@@ -298,13 +298,29 @@ body { display: flex; flex-direction: column; }
   font-size: 12px;
 }
 
-/* Carousel outer — clips track + fades edges */
+/* Carousel outer — fades edges via pseudo overlays; overflow:visible lets cards lift on hover.
+   Horizontal track overflow is still clipped by the parent .hub-accum overflow:hidden.
+   (mask-image was removed: it forces GPU compositing which re-clips even overflow:visible children.) */
 .hub-accum-outer {
-  overflow-x: clip;     /* clip horizontal for carousel animation */
-  overflow-y: visible;  /* allow cards to lift on hover without clipping */
+  overflow: visible;
   position: relative;
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 4%, black 96%, transparent 100%);
-  mask-image: linear-gradient(to right, transparent 0%, black 4%, black 96%, transparent 100%);
+}
+.hub-accum-outer::before,
+.hub-accum-outer::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 72px;
+  z-index: 2;
+  pointer-events: none;
+}
+.hub-accum-outer::before {
+  left: 0;
+  background: linear-gradient(to right, var(--surface), transparent);
+}
+.hub-accum-outer::after {
+  right: 0;
+  background: linear-gradient(to left, var(--surface), transparent);
 }
 
 /* Scrolling track — doubled items for seamless loop */
@@ -696,16 +712,22 @@ function fmtPct(v) {
 
 /* ── Build one carousel card ── */
 function makeCard(r, type) {
-  var cm   = r.clean_money || 0;
-  var chg  = r.gain_pct || 0;
-  var maxV = r._max || 1;
-  var barPct = Math.min(100, Math.abs(cm) / maxV * 100);
+  var cm       = r.clean_money || 0;
+  var chg      = r.gain_pct || 0;
+  var price    = r.price;
+  var maxV     = r._max || 1;
+  var barPct   = Math.min(100, Math.abs(cm) / maxV * 100);
+  var chgColor = chg >= 0 ? 'var(--up)' : 'var(--down)';
+  var priceStr = price ? price.toLocaleString('id-ID') : '';
   return '<div class="hub-accum-item ' + type + '">' +
     '<div class="hub-accum-ticker-row">' +
       '<span class="hub-accum-ticker">' + r.ticker + '</span>' +
       '<span class="hub-accum-type ' + type + '">' + (type === 'accum' ? 'ACC' : 'DIS') + '</span>' +
     '</div>' +
-    '<div class="hub-accum-chg" style="color:' + (chg >= 0 ? 'var(--up)' : 'var(--down)') + '">' + fmtPct(chg) + '</div>' +
+    '<div class="hub-accum-chg">' +
+      (priceStr ? '<span style="color:var(--text-dim)">' + priceStr + '</span>  ' : '') +
+      '<span style="color:' + chgColor + '">' + fmtPct(chg) + '</span>' +
+    '</div>' +
     '<div class="hub-accum-cm">' + fmtM(cm) + '</div>' +
     '<div class="hub-accum-bar-track"><div class="hub-accum-bar-fill ' + type + '" style="width:' + barPct + '%"></div></div>' +
     '<div class="hub-accum-meta">RSM ' + (r.rsm || 0).toFixed(1) + '% · TX ' + (r.tx || 0) + '</div>' +
