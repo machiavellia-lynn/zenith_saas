@@ -108,6 +108,13 @@ def sector_api():
             gain = round((p_end - p_ref) / p_ref * 100, 2) if p_end and p_ref and p_ref > 0 else None
             gains[t] = {"gain": gain, "price": int(round(p_end)) if p_end else None}
 
+    if date_from == date_to:
+        from data.price_cache import get_cached_stocks, _is_market_open
+        if _is_market_open():
+            live = get_cached_stocks()
+            for t in live:
+                gains[t] = {"gain": live[t]["gain_pct"], "price": live[t]["price"]}
+
     sectors = []
     for name, members in SECTORS.items():
         sm  = sum(tdata.get(t, {}).get("sm",  0) for t in members)

@@ -1,7 +1,9 @@
 """
-price_cache.py — Server-side IHSG price cache.
-Background thread refreshes from Yahoo Finance every 30s during market hours only.
-All clients read from one shared dict — request cost is flat regardless of user count.
+price_cache.py — Server-side live price cache.
+One background thread refreshes every 30s during market hours.
+- IHSG index from Yahoo single quote
+- All IDX stocks from Yahoo batch quote (/v7/finance/quote, 100 per request)
+All routes read from shared dicts — Yahoo cost stays flat regardless of user count.
 """
 import threading
 import time
@@ -9,13 +11,21 @@ import logging
 import requests
 from datetime import datetime
 
-from config import WIB, YF_HEADERS
+from config import WIB, YF_HEADERS, SECTORS
 
 log = logging.getLogger("zenith.price_cache")
 
-_cache: dict = {"price": None, "gain_pct": None, "updated_at": None}
-_lock = threading.Lock()
+# ── IHSG cache ─────────────────────────────────────────────────────────────────
+_ihsg_cache: dict = {"price": None, "gain_pct": None, "updated_at": None}
+_ihsg_lock = threading.Lock()
 
+# ── Stock cache ────────────────────────────────────────────────────────────────
+_ALL_TICKERS = sorted({t for tl in SECTORS.values() for t in tl})
+_stock_cache: dict = {}   # {ticker: {price, gain_pct}}
+_stock_lock = threading.Lock()
+
+
+# ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _is_market_open() -> bool:
     """Mon–Fri 09:00–16:15 WIB."""
@@ -25,6 +35,8 @@ def _is_market_open() -> bool:
     mins = now.hour * 60 + now.minute
     return 540 <= mins <= 975  # 09:00 = 540, 16:15 = 975
 
+
+# ── IHSG ───────────────────────────────────────────────────────────────────────
 
 def _fetch_ihsg() -> dict:
     try:
@@ -57,28 +69,77 @@ def _fetch_ihsg() -> dict:
         return {"price": None, "gain_pct": None}
 
 
-def _refresh():
+def _refresh_ihsg():
     data = _fetch_ihsg()
-    with _lock:
-        _cache["price"]      = data["price"]
-        _cache["gain_pct"]   = data["gain_pct"]
-        _cache["updated_at"] = datetime.now(WIB).isoformat()
-    log.debug("IHSG cache refreshed: price=%s gain_pct=%s", data["price"], data["gain_pct"])
+    with _ihsg_lock:
+        _ihsg_cache["price"]      = data["price"]
+        _ihsg_cache["gain_pct"]   = data["gain_pct"]
+        _ihsg_cache["updated_at"] = datetime.now(WIB).isoformat()
 
 
 def get_cached_ihsg() -> dict:
-    with _lock:
-        return dict(_cache)
+    with _ihsg_lock:
+        return dict(_ihsg_cache)
 
+
+# ── Stocks ─────────────────────────────────────────────────────────────────────
+
+def _fetch_batch_quotes(batch: list) -> dict:
+    """Yahoo /v7/finance/quote for up to 100 IDX tickers. Returns {ticker: {price, gain_pct}}."""
+    symbols = ",".join(f"{t}.JK" for t in batch)
+    try:
+        resp = requests.get(
+            "https://query1.finance.yahoo.com/v7/finance/quote",
+            headers=YF_HEADERS,
+            params={"symbols": symbols},
+            timeout=10,
+        )
+        quotes = resp.json().get("quoteResponse", {}).get("result", [])
+        result = {}
+        for q in quotes:
+            ticker   = q.get("symbol", "").replace(".JK", "")
+            price    = q.get("regularMarketPrice")
+            gain_pct = q.get("regularMarketChangePercent")
+            if ticker and price is not None:
+                result[ticker] = {
+                    "price":    int(round(float(price))),
+                    "gain_pct": round(float(gain_pct), 2) if gain_pct is not None else None,
+                }
+        return result
+    except Exception as e:
+        log.warning("Batch quote fetch failed (batch of %d): %s", len(batch), e)
+        return {}
+
+
+def _refresh_stocks():
+    """Fetch live prices for all ~800 IDX tickers in batches of 100."""
+    new_cache = {}
+    for i in range(0, len(_ALL_TICKERS), 100):
+        batch = _ALL_TICKERS[i:i + 100]
+        new_cache.update(_fetch_batch_quotes(batch))
+    with _stock_lock:
+        _stock_cache.clear()
+        _stock_cache.update(new_cache)
+    log.debug("Stock cache refreshed: %d tickers", len(new_cache))
+
+
+def get_cached_stocks() -> dict:
+    with _stock_lock:
+        return dict(_stock_cache)
+
+
+# ── Main loop ──────────────────────────────────────────────────────────────────
 
 def _run_loop():
-    _refresh()  # immediate first fetch on startup
+    _refresh_ihsg()
+    _refresh_stocks()
     while True:
         time.sleep(30 if _is_market_open() else 60)
-        _refresh()
+        _refresh_ihsg()
+        _refresh_stocks()
 
 
 def start_price_cache_thread():
     t = threading.Thread(target=_run_loop, daemon=True, name="price-cache")
     t.start()
-    log.info("Price cache thread started (30s refresh during market hours)")
+    log.info("Price cache thread started (30s refresh during market hours, ~%d tickers)", len(_ALL_TICKERS))

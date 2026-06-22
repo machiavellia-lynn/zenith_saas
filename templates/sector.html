@@ -107,9 +107,9 @@ body.sidebar-layout { overflow: hidden; }
 <script src="/static/zenith-utils.js"></script>
 <script>
 (function(){
-var S = { dateFrom: '', dateTo: '', sectors: [], active: null };
+var S = { dateFrom: '', dateTo: '', sectors: [], active: null, liveDate: '' };
 var today = window.todayLocal();
-S.dateFrom = S.dateTo = today;
+S.dateFrom = S.dateTo = S.liveDate = today;
 
 window.loadIHSGBadge(document.getElementById('ihsgPrice'), document.getElementById('ihsgGain'));
 
@@ -117,7 +117,7 @@ var sdp = new window.StockbitDatePicker('sectorDatePicker', {
   from: today, to: today, alignRight: true,
   onChange: function(from, to) { S.dateFrom = from; S.dateTo = to || from; load(); }
 });
-fetch('/api/last-date').then(function(r){return r.json();}).then(function(d){if(d.date){var iso=window.DD_MM_YYYYtoISO(d.date.replace(/\//g,'-'));S.dateFrom=iso;S.dateTo=iso;sdp.setDates(iso,iso);load();}}).catch(function(){});
+fetch('/api/last-date').then(function(r){return r.json();}).then(function(d){if(d.date){var iso=window.DD_MM_YYYYtoISO(d.date.replace(/\//g,'-'));S.dateFrom=iso;S.dateTo=iso;S.liveDate=iso;sdp.setDates(iso,iso);load();}}).catch(function(){});
 
 /* Mini sparkline using SVG polyline */
 function sparklineSVG(data, w, h, isUp) {
@@ -213,8 +213,8 @@ window.toggleSector = function(name) {
   renderSectors();
 };
 
-function load() {
-  document.getElementById('sectorGrid').innerHTML = '<div style="grid-column:1/-1;padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Loading...</div>';
+function load(silent) {
+  if (!silent) document.getElementById('sectorGrid').innerHTML = '<div style="grid-column:1/-1;padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Loading...</div>';
   var from = window.isoToDD_MM_YYYY(S.dateFrom), to = window.isoToDD_MM_YYYY(S.dateTo);
   fetch('/api/sector?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to))
     .then(function(r){ return r.json(); })
@@ -223,11 +223,12 @@ function load() {
       renderSectors();
     })
     .catch(function() {
-      document.getElementById('sectorGrid').innerHTML = '<div style="grid-column:1/-1;padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Gagal memuat data.</div>';
+      if (!silent) document.getElementById('sectorGrid').innerHTML = '<div style="grid-column:1/-1;padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Gagal memuat data.</div>';
     });
 }
 
 load();
+setInterval(function(){ if (S.dateFrom === S.liveDate) load(true); }, 30000);
 })();
 </script>
 </body>

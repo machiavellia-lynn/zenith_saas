@@ -125,6 +125,14 @@ def flow():
                         "price": int(round(p_end)) if p_end else None,
                     }
 
+            if is_single:
+                from data.price_cache import get_cached_stocks, _is_market_open
+                if _is_market_open():
+                    live = get_cached_stocks()
+                    for t in list(gains_map):
+                        if t in live:
+                            gains_map[t] = {"gain": live[t]["gain_pct"], "price": live[t]["price"]}
+
     except Exception as e:
         log.exception("flow /api/flow DB error")
         return jsonify({"error": "Server error"}), 500
