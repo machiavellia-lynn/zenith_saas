@@ -310,16 +310,17 @@ body { display: flex; flex-direction: column; }
   content: '';
   position: absolute;
   top: 0; bottom: 0;
-  width: 28px;
   z-index: 2;
   pointer-events: none;
 }
 .hub-accum-outer::before {
-  left: 0;
+  left: -22px;
+  width: 22px;
   background: linear-gradient(to right, var(--surface), transparent);
 }
 .hub-accum-outer::after {
   right: 0;
+  width: 28px;
   background: linear-gradient(to left, var(--surface), transparent);
 }
 
