@@ -159,6 +159,8 @@ def run_backtest(conn, days: int = 30, date_from: str = None, date_to: str = Non
                 continue
 
             if action == "BUY":
+                if open_positions[ticker]:   # already holding — don't stack
+                    continue
                 atr_pct      = row.get("atr_pct") or 2.5
                 sl_threshold = -min(max(atr_pct * 2.0, 5.0), 12.0)
                 open_positions[ticker].append({
