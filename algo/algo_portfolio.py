@@ -154,11 +154,14 @@ def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list):
                 if loss_pct <= pos["sl"]:
                     pnl = pos["lots"] * PF_LOT_SIZE * (price - pos["entry_price"])
                     realized += pnl
+                    txn_v = pos["lots"] * PF_LOT_SIZE * pos["entry_price"]
                     trades.append({
                         "ticker": ticker, "entry_date": pos["entry_date"], "exit_date": date_str,
                         "entry_price": pos["entry_price"], "exit_price": price,
                         "gain": round(loss_pct, 2), "hold_days": _days_between(pos["entry_date"], date_str),
                         "lots": pos["lots"], "phase": pos["phase"], "reason": "SL",
+                        "txn_value": round(txn_v),
+                        "pnl_rp": round(pos["lots"] * PF_LOT_SIZE * (price - pos["entry_price"])),
                         "status": "LOSS" if loss_pct <= 0 else "WIN",
                     })
                 else:
@@ -186,11 +189,14 @@ def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list):
                     gain = (price - pos["entry_price"]) / pos["entry_price"] * 100
                     pnl  = pos["lots"] * PF_LOT_SIZE * (price - pos["entry_price"])
                     realized += pnl
+                    txn_v = pos["lots"] * PF_LOT_SIZE * pos["entry_price"]
                     trades.append({
                         "ticker": ticker, "entry_date": pos["entry_date"], "exit_date": date_str,
                         "entry_price": pos["entry_price"], "exit_price": price,
                         "gain": round(gain, 2), "hold_days": _days_between(pos["entry_date"], date_str),
                         "lots": pos["lots"], "phase": pos["phase"], "reason": "SELL",
+                        "txn_value": round(txn_v),
+                        "pnl_rp": round(pos["lots"] * PF_LOT_SIZE * (price - pos["entry_price"])),
                         "status": "WIN" if gain > 0 else "LOSS",
                     })
                 open_pos[ticker] = []
@@ -213,11 +219,14 @@ def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list):
             if not mtm:
                 continue
             gain = (mtm - pos["entry_price"]) / pos["entry_price"] * 100
+            txn_v = pos["lots"] * PF_LOT_SIZE * pos["entry_price"]
             trades.append({
                 "ticker": ticker, "entry_date": pos["entry_date"], "exit_date": last_date,
                 "entry_price": pos["entry_price"], "exit_price": mtm,
                 "gain": round(gain, 2), "hold_days": _days_between(pos["entry_date"], last_date),
                 "lots": pos["lots"], "phase": pos["phase"], "reason": "—",
+                "txn_value": round(txn_v),
+                "pnl_rp": round(pos["lots"] * PF_LOT_SIZE * (mtm - pos["entry_price"])),
                 "status": "OPEN",
             })
 
@@ -255,10 +264,13 @@ def _simulate_bsjp(conn, date_from: str, date_to: str, axis_dates: list):
         lots = _lots(PF_BSJP_ALLOC, entry)
         pnl  = lots * PF_LOT_SIZE * (exitp - entry)
         realized_by_date[t.get("exit_date")] += pnl
+        txn_v = lots * PF_LOT_SIZE * entry
         trades.append({
             "ticker": t.get("ticker"), "date": t.get("date"), "setup": t.get("setup"),
             "entry_price": entry, "exit_price": exitp,
             "gain": t.get("pnl_pct"), "lots": lots,
+            "txn_value": round(txn_v),
+            "pnl_rp": round(pnl),
             "reason": t.get("reason"), "status": t.get("status"),
         })
 

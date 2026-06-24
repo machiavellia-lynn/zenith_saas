@@ -181,6 +181,9 @@ window.StockbitDatePicker = class StockbitDatePicker {
     this.onChange  = opts.onChange || function(){};
     this.alignRight = opts.alignRight || false;
 
+    this._defaultFrom = opts.defaultFrom || null;
+    this._defaultTo   = opts.defaultTo   || null;
+
     this._open = false;
     this._step = 'from'; // 'from' | 'to'
     this._viewYear  = new Date().getFullYear();
@@ -373,11 +376,12 @@ window.StockbitDatePicker = class StockbitDatePicker {
       });
     }
 
-    /* Reset */
+    /* Reset — goes to defaultFrom/To if set, else today */
     const resetBtn = this._popup.querySelector('.sdp-cal-reset');
     if (resetBtn) resetBtn.addEventListener('click', () => {
-      const today = window.todayLocal();
-      this.from = today; this.to = today;
+      const defFrom = this._defaultFrom || window.todayLocal();
+      const defTo   = this._defaultTo   || defFrom;
+      this.from = defFrom; this.to = defTo;
       this._step = 'from';
       this._closeCal();
       this._updateStrip();
@@ -428,5 +432,10 @@ window.StockbitDatePicker = class StockbitDatePicker {
     this.from = from || this.from;
     this.to   = to   || this.to;
     this._updateStrip();
+  }
+
+  setDefault(from, to) {
+    this._defaultFrom = from || null;
+    this._defaultTo   = to   || null;
   }
 };
