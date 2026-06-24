@@ -246,9 +246,10 @@ function renderChart(){
 
   var all = [];
   ds.forEach(function(d){ all = all.concat(d.data); });
-  var minV = Math.min.apply(null, all) * 0.995;
-  var maxV = Math.max.apply(null, all) * 1.005;
-  if (minV === maxV){ minV *= 0.98; maxV *= 1.02; }
+  var minV = Math.min.apply(null, all);
+  var maxV = Math.max.apply(null, all);
+  var pad  = (maxV - minV) * 0.05 || Math.abs(maxV) * 0.05 || 1e6;
+  minV -= pad; maxV += pad;
 
   function xPos(i){ return PL + (n<=1 ? 0 : (i/(n-1))*cw); }
   function yPos(v){ return PT + ch - ((v-minV)/(maxV-minV))*ch; }
@@ -351,12 +352,13 @@ function toggleAlgo(id){
 function statRows(algoId, st){
   var holdVal = algoId === 'bsjp' ? 'T+1' : (st.avg_hold!=null ? st.avg_hold + ' hari' : '—');
   return [
-    { label:'Total Return',  val:fmtPctS(st.total_return_pct), c: st.total_return_pct>=0?'up':'down' },
-    { label:'Win Rate',      val:(st.win_rate!=null?st.win_rate+'%':'—'), c: (st.win_rate!=null&&st.win_rate>=50)?'up':'down' },
-    { label:'Max Drawdown',  val:fmtPctS(st.max_drawdown_pct), c:'down' },
-    { label:'Avg Hold',      val:holdVal, c:'ink' },
-    { label:'Total Trades',  val:(st.total_trades!=null?st.total_trades.toLocaleString('id-ID'):'—'), c:'ink' },
-    { label:'Profit Factor', val:(st.profit_factor!=null?st.profit_factor+'×':'—'), c: (st.profit_factor!=null&&st.profit_factor>=1)?'up':'down' },
+    { label:'Total Return',    val:fmtPctS(st.total_return_pct), c: st.total_return_pct>=0?'up':'down' },
+    { label:'Win Rate',        val:(st.win_rate!=null?st.win_rate+'%':'—'), c: (st.win_rate!=null&&st.win_rate>=50)?'up':'down' },
+    { label:'Max Drawdown',    val:fmtPctS(st.max_drawdown_pct), c:'down' },
+    { label:'Avg Hold',        val:holdVal, c:'ink' },
+    { label:'Total Trades',    val:(st.total_trades!=null?st.total_trades.toLocaleString('id-ID'):'—'), c:'ink' },
+    { label:'Profit Factor',   val:(st.profit_factor!=null?st.profit_factor+'×':'—'), c: (st.profit_factor!=null&&st.profit_factor>=1)?'up':'down' },
+    { label:'Total Transaksi', val:(st.total_txn_value!=null?fmtRp(st.total_txn_value):'—'), c:'ink' },
   ];
 }
 function colorVar(c){ return c==='up'?'var(--up)':c==='down'?'var(--down)':'var(--ink)'; }
@@ -377,12 +379,21 @@ function renderStats(){
       + '<span style="font-size:14px;font-weight:600;color:var(--ink)">'+a.label+'</span>'
       + '<span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-left:2px">· '+a.alloc+'/signal</span></div>'
       + '<div class="pf-stats-rows">'+rows+'</div>'
-      + '<div class="pf-stats-foot">'
-      +   '<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11.5px;color:var(--muted)">Equity awal</span>'
-      +     '<span style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim)">'+fmtRp(st.initial_equity)+'</span></div>'
-      +   '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11.5px;color:var(--text);font-weight:500">Equity akhir</span>'
-      +     '<span style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:'+(st.final_equity>=st.initial_equity?'var(--up)':'var(--down)')+'">'+fmtRp(st.final_equity)+'</span></div>'
-      + '</div></div>';
+      + (st.initial_equity != null
+          ? '<div class="pf-stats-foot">'
+            + '<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11.5px;color:var(--muted)">Equity awal</span>'
+            +   '<span style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim)">'+fmtRp(st.initial_equity)+'</span></div>'
+            + '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11.5px;color:var(--text);font-weight:500">Equity akhir</span>'
+            +   '<span style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:'+(st.final_equity>=st.initial_equity?'var(--up)':'var(--down)')+'">'+fmtRp(st.final_equity)+'</span></div>'
+            + '</div>'
+          : '<div class="pf-stats-foot">'
+            + '<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11.5px;color:var(--muted)">Basis</span>'
+            +   '<span style="font-family:var(--font-mono);font-size:11px;color:var(--muted)">Kumulatif P&L dari 0</span></div>'
+            + '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11.5px;color:var(--text);font-weight:500">Total P&L Rp</span>'
+            +   '<span style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:'+(st.final_equity>=0?'var(--up)':'var(--down)')+'">'+fmtRp(st.final_equity)+'</span></div>'
+            + '</div>'
+        )
+      + '</div>';
   }).join('');
 }
 

@@ -203,7 +203,9 @@ def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list):
                     })
                 open_pos[ticker] = []
 
-        # 3. snapshot end-of-day equity (cash baseline + realized + unrealized MTM)
+        # 3. snapshot end-of-day equity (cumulative P&L from 0, no baseline)
+        # Wyckoff has concurrent open positions with no capital constraint, so
+        # an "equity baseline" is meaningless — show P&L accumulation instead.
         unreal = 0.0
         for ticker, positions in open_pos.items():
             mtm = last_close.get(ticker)
@@ -211,7 +213,7 @@ def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list):
                 continue
             for pos in positions:
                 unreal += pos["lots"] * PF_LOT_SIZE * (mtm - pos["entry_price"])
-        eq_values.append(round(PF_INITIAL_EQUITY + realized + unreal))
+        eq_values.append(round(realized + unreal))
 
     # 4. remaining open positions → OPEN trades, marked-to-market at last close
     last_date = axis_dates[-1] if axis_dates else date_to
@@ -233,10 +235,11 @@ def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list):
             })
 
     closed = [t for t in trades if t["status"] != "OPEN"]
-    stats  = _build_stats(eq_values, closed, avg_hold_days=True)
-    stats["open_count"]   = sum(1 for t in trades if t["status"] == "OPEN")
-    stats["closed_count"] = len(closed)
-    stats["total_trades"] = len(trades)
+    stats  = _build_stats(eq_values, closed, avg_hold_days=True, is_pnl_curve=True)
+    stats["open_count"]      = sum(1 for t in trades if t["status"] == "OPEN")
+    stats["closed_count"]    = len(closed)
+    stats["total_trades"]    = len(trades)
+    stats["total_txn_value"] = sum(t.get("txn_value", 0) for t in trades)
     return eq_values, trades, stats
 
 
@@ -289,20 +292,28 @@ def _simulate_bsjp(conn, date_from: str, date_to: str, axis_dates: list):
         t["status"] = "WIN" if (g is not None and g > 0) else "LOSS"
 
     stats = _build_stats(eq_values, trades, avg_hold_days=False)
-    stats["open_count"]   = 0
-    stats["closed_count"] = len(trades)
-    stats["total_trades"] = len(trades)
+    stats["open_count"]      = 0
+    stats["closed_count"]    = len(trades)
+    stats["total_trades"]    = len(trades)
+    stats["total_txn_value"] = sum(t.get("txn_value", 0) for t in trades)
     return eq_values, trades, stats
 
 
 # ── Shared stats ──────────────────────────────────────────────────────────────
-def _build_stats(eq_values: list, closed_trades: list, avg_hold_days: bool) -> dict:
-    final  = eq_values[-1] if eq_values else PF_INITIAL_EQUITY
+def _build_stats(eq_values: list, closed_trades: list, avg_hold_days: bool,
+                 is_pnl_curve: bool = False) -> dict:
+    """
+    is_pnl_curve=True  → Wyckoff: eq_values starts from 0 (cumulative P&L).
+                         total_return_pct = final_pnl / PF_INITIAL_EQUITY × 100.
+                         initial_equity = None (no meaningful baseline).
+    is_pnl_curve=False → BSJP: eq_values starts from PF_INITIAL_EQUITY.
+                         initial_equity = PF_INITIAL_EQUITY.
+    """
+    final  = eq_values[-1] if eq_values else (0 if is_pnl_curve else PF_INITIAL_EQUITY)
     wins   = [t for t in closed_trades if (t.get("gain") or 0) > 0]
     losses = [t for t in closed_trades if (t.get("gain") or 0) <= 0]
     n      = len(closed_trades)
 
-    # profit factor on Rp P&L
     gross_w = sum(t["lots"] * PF_LOT_SIZE * (t["exit_price"] - t["entry_price"]) for t in wins)
     gross_l = abs(sum(t["lots"] * PF_LOT_SIZE * (t["exit_price"] - t["entry_price"]) for t in losses))
     pf = round(gross_w / gross_l, 2) if gross_l > 0 else None
@@ -311,10 +322,18 @@ def _build_stats(eq_values: list, closed_trades: list, avg_hold_days: bool) -> d
     if avg_hold_days and closed_trades:
         avg_hold = round(sum(t.get("hold_days", 0) for t in closed_trades) / len(closed_trades), 1)
 
+    if is_pnl_curve:
+        # final IS the P&L; normalise vs per-signal alloc baseline for comparability
+        total_return_pct = round(final / PF_INITIAL_EQUITY * 100, 2) if PF_INITIAL_EQUITY else 0.0
+        initial_equity   = None
+    else:
+        total_return_pct = round((final - PF_INITIAL_EQUITY) / PF_INITIAL_EQUITY * 100, 2)
+        initial_equity   = PF_INITIAL_EQUITY
+
     return {
-        "initial_equity":   PF_INITIAL_EQUITY,
+        "initial_equity":   initial_equity,
         "final_equity":     final,
-        "total_return_pct": round((final - PF_INITIAL_EQUITY) / PF_INITIAL_EQUITY * 100, 2),
+        "total_return_pct": total_return_pct,
         "win_rate":         round(len(wins) / n * 100, 1) if n else None,
         "max_drawdown_pct": _max_drawdown_pct(eq_values),
         "avg_hold":         avg_hold,
