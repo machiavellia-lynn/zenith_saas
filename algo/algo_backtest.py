@@ -483,19 +483,6 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
         for ticker, sig in day_trades:
             candles = candles_map.get((next_ymd, ticker))
             if not candles:
-                # Fallback: use next-day EOD close when 15m data is unavailable
-                next_row = all_days.get(next_date, {}).get(ticker)
-                if not next_row or not next_row.get("price_close"):
-                    continue
-                eod_exit = float(next_row["price_close"])
-                pnl_pct  = round((eod_exit - sig["entry"]) / sig["entry"] * 100, 2)
-                setup_trades[sig["setup"]].append({
-                    "ticker":     ticker,     "date":      date_str,
-                    "exit_date":  next_date,  "exit_time": None,
-                    "entry":      sig["entry"], "exit_price": eod_exit,
-                    "status":     "Berhasil" if pnl_pct > 0 else "Gagal",
-                    "reason":     "EOD",      "pnl_pct":   pnl_pct,
-                })
                 continue
             res       = eval_exit_15m(sig["entry"], sig["tp1"], sig["tp2"], sig["sl"], candles)
             t_str     = str(res.get("exit_time") or "")
