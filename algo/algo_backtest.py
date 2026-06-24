@@ -496,6 +496,17 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
         for ticker, sig in day_trades:
             candles = candles_map.get((next_ymd, ticker))
             if not candles:
+                setup_trades[sig["setup"]].append({
+                    "ticker":     ticker,
+                    "date":       date_str,
+                    "exit_date":  next_date,
+                    "exit_time":  None,
+                    "entry":      sig["entry"],
+                    "exit_price": None,
+                    "status":     "NO_DATA",
+                    "reason":     "Data 15m tidak lengkap",
+                    "pnl_pct":    None,
+                })
                 continue
             res       = eval_exit_15m(sig["entry"], sig["tp1"], sig["tp2"], sig["sl"], candles)
             t_str     = str(res.get("exit_time") or "")
