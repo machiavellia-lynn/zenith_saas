@@ -79,7 +79,7 @@ INTERVAL_MAP = {
 # Owner controls these here; the only user control on /portfolio is the date range.
 PF_INITIAL_EQUITY = 50_000_000   # Rp — notional baseline equity for the curve
 PF_WYCKOFF_ALLOC  = 5_000_000    # Rp — capital deployed per Wyckoff BUY signal
-PF_BSJP_ALLOC     = 1_500_000    # Rp — capital deployed per BSJP signal
+PF_BSJP_ALLOC     = 15_000_000   # Rp — capital deployed per BSJP signal
 PF_LOT_SIZE       = 100          # IDX: 1 lot = 100 shares
 
 # ── DataSectors API (Tier 1-4 integration — not yet active) ───────────────────

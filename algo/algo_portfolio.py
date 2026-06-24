@@ -280,21 +280,11 @@ def _simulate_bsjp(conn, date_from: str, date_to: str, axis_dates: list):
     for t in raw:
         entry = t.get("entry")
         exitp = t.get("exit_price")
-        if not entry or entry <= 0:
+        if not entry or entry <= 0 or exitp is None:
             continue
         lots  = _lots(PF_BSJP_ALLOC, entry)
         txn_v = lots * PF_LOT_SIZE * entry
-        if t.get("status") == "NO_DATA" or exitp is None:
-            trades.append({
-                "ticker": t.get("ticker"), "date": t.get("date"), "setup": t.get("setup"),
-                "entry_price": entry, "exit_price": None,
-                "gain": None, "lots": lots,
-                "txn_value": round(txn_v),
-                "pnl_rp": None,
-                "reason": "Data 15m tidak lengkap", "status": "NO_DATA",
-            })
-            continue
-        pnl = lots * PF_LOT_SIZE * (exitp - entry)
+        pnl   = lots * PF_LOT_SIZE * (exitp - entry)
         realized_by_date[t.get("exit_date")] += pnl
         trades.append({
             "ticker": t.get("ticker"), "date": t.get("date"), "setup": t.get("setup"),
@@ -312,15 +302,12 @@ def _simulate_bsjp(conn, date_from: str, date_to: str, axis_dates: list):
         cum += realized_by_date.get(d, 0.0)
         eq_values.append(round(cum))
 
-    # P&L sign drives win/loss; skip NO_DATA rows
+    # P&L sign drives win/loss (backtest stores "Berhasil"/"Gagal")
     for t in trades:
-        if t["status"] == "NO_DATA":
-            continue
         g = t["gain"]
         t["status"] = "WIN" if (g is not None and g > 0) else "LOSS"
 
-    resolved = [t for t in trades if t["status"] != "NO_DATA"]
-    stats = _build_stats(eq_values, resolved, avg_hold_days=False, is_pnl_curve=True)
+    stats = _build_stats(eq_values, trades, avg_hold_days=False, is_pnl_curve=True)
     stats["open_count"]      = 0
     stats["closed_count"]    = len(trades)
     stats["total_trades"]    = len(trades)
