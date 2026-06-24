@@ -90,7 +90,7 @@ BSJP_15M_HOUR        = 15
 BSJP_15M_MINUTE      = 46
 BSJP_HOUR            = 15
 BSJP_MINUTE          = 48
-TOP_N_BSJP = 15
+TOP_N_BSJP = 10
 
 # ── Analytics throttle — recompute at most once per 60s per date ───────────────
 _analytics_throttle: dict = {}

@@ -18,6 +18,7 @@ def do_startup(app):
         _start_scraper()
         _start_price_cache()
         _start_backtest()
+        _start_portfolio_sim()
 
 
 def _init_schema():
@@ -100,3 +101,17 @@ def _start_backtest():
             log.warning("Startup BSJP backtest failed: %s", e)
 
     threading.Thread(target=_run, daemon=True, name="startup-backtest").start()
+
+
+def _start_portfolio_sim():
+    """Pre-warm portfolio simulation at startup so /portfolio loads instantly."""
+    def _run():
+        time.sleep(10)   # let backtest + scraper settle first
+        try:
+            from algo.algo_portfolio import request_portfolio_sim
+            request_portfolio_sim(date_from=None, date_to=None)
+            log.info("Startup portfolio sim triggered")
+        except Exception as e:
+            log.warning("Startup portfolio sim failed: %s", e)
+
+    threading.Thread(target=_run, daemon=True, name="startup-portfolio").start()

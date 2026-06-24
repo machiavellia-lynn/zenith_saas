@@ -315,7 +315,7 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
     from collections import defaultdict as _dd
 
     algo  = BSJPAlgo()
-    TOP_N = 15
+    TOP_N = 10
 
     _empty = {
         "leaderboard": [], "total_trades": 0, "total_wins": 0, "total_losses": 0,
