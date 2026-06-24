@@ -492,6 +492,45 @@ def admin_intraday_all_status():
     return jsonify(_intraday_all)
 
 
+@bp_admin.route("/admin/fix-15m-datetime")
+def admin_fix_15m_datetime():
+    """One-time migration: rows stored with seconds format (HH:MM:SS) → HH:MM.
+    Safe to re-run — uses ON CONFLICT to handle duplicates, then deletes old rows."""
+    from core.db import get_scraper_db, execute
+    import logging as _logging
+    _log = _logging.getLogger("zenith.admin")
+
+    conn = get_scraper_db()
+    try:
+        with conn.cursor() as cur:
+            # Re-insert bad rows with truncated datetime (ON CONFLICT merges duplicates)
+            cur.execute("""
+                INSERT INTO price_history_15m (datetime, ticker, open, high, low, close, volume)
+                SELECT LEFT(datetime, 16), ticker, open, high, low, close, volume
+                FROM price_history_15m
+                WHERE LENGTH(datetime) > 16
+                ON CONFLICT (datetime, ticker) DO UPDATE SET
+                    open   = EXCLUDED.open,
+                    high   = EXCLUDED.high,
+                    low    = EXCLUDED.low,
+                    close  = EXCLUDED.close,
+                    volume = EXCLUDED.volume
+            """)
+            migrated = cur.rowcount
+            # Delete the bad rows
+            cur.execute("DELETE FROM price_history_15m WHERE LENGTH(datetime) > 16")
+            deleted = cur.rowcount
+        conn.commit()
+        _log.info("fix-15m-datetime: migrated=%d deleted=%d", migrated, deleted)
+        return jsonify({"ok": True, "migrated": migrated, "deleted": deleted})
+    except Exception as e:
+        conn.rollback()
+        _log.error("fix-15m-datetime failed: %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        conn.close()
+
+
 @bp_admin.route("/admin/backfill-ohlcv-daily")
 def admin_backfill_ohlcv_daily():
     if not is_authed():

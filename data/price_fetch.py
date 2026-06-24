@@ -825,8 +825,13 @@ def fetch_intraday_15m_datasectors(conn, tickers: list, date_from: str, date_to:
                 if not (c.get("open") and c.get("close")):
                     continue
                 try:
-                    dt_utc = datetime.strptime(c["datetime"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=_tz.utc)
-                    dt_wib = dt_utc.astimezone(WIB).strftime("%Y-%m-%d %H:%M:%S")
+                    raw_dt = c.get("datetime", "")
+                    try:
+                        dt_utc = datetime.strptime(raw_dt, "%Y-%m-%d %H:%M:%S").replace(tzinfo=_tz.utc)
+                    except ValueError:
+                        dt_utc = datetime.strptime(raw_dt[:16], "%Y-%m-%d %H:%M").replace(tzinfo=_tz.utc)
+                    # Store without seconds — all queries use RIGHT(datetime,5)='15:45' pattern
+                    dt_wib = dt_utc.astimezone(WIB).strftime("%Y-%m-%d %H:%M")
                     vol    = int(c.get("volume") or 0)
                     execute(conn, """
                         INSERT INTO price_history_15m (datetime, ticker, open, high, low, close, volume)
