@@ -279,19 +279,19 @@ def _simulate_bsjp(conn, date_from: str, date_to: str, axis_dates: list):
             "reason": t.get("reason"), "status": t.get("status"),
         })
 
-    # step-wise cumulative curve over the shared axis
+    # step-wise cumulative P&L curve from 0 (same model as Wyckoff)
     eq_values = []
     cum = 0.0
     for d in axis_dates:
         cum += realized_by_date.get(d, 0.0)
-        eq_values.append(round(PF_INITIAL_EQUITY + cum))
+        eq_values.append(round(cum))
 
     # P&L sign drives win/loss (BSJP status text is "Berhasil"/"Gagal")
     for t in trades:
         g = t["gain"]
         t["status"] = "WIN" if (g is not None and g > 0) else "LOSS"
 
-    stats = _build_stats(eq_values, trades, avg_hold_days=False)
+    stats = _build_stats(eq_values, trades, avg_hold_days=False, is_pnl_curve=True)
     stats["open_count"]      = 0
     stats["closed_count"]    = len(trades)
     stats["total_trades"]    = len(trades)
@@ -303,10 +303,10 @@ def _simulate_bsjp(conn, date_from: str, date_to: str, axis_dates: list):
 def _build_stats(eq_values: list, closed_trades: list, avg_hold_days: bool,
                  is_pnl_curve: bool = False) -> dict:
     """
-    is_pnl_curve=True  → Wyckoff: eq_values starts from 0 (cumulative P&L).
+    is_pnl_curve=True  → eq_values starts from 0 (cumulative P&L).
                          total_return_pct = final_pnl / PF_INITIAL_EQUITY × 100.
-                         initial_equity = None (no meaningful baseline).
-    is_pnl_curve=False → BSJP: eq_values starts from PF_INITIAL_EQUITY.
+                         initial_equity = None (no equity baseline shown).
+    is_pnl_curve=False → eq_values starts from PF_INITIAL_EQUITY.
                          initial_equity = PF_INITIAL_EQUITY.
     """
     final  = eq_values[-1] if eq_values else (0 if is_pnl_curve else PF_INITIAL_EQUITY)
