@@ -175,6 +175,8 @@ def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list):
             if not action or not price:
                 continue
             if action == "BUY":
+                if open_pos[ticker]:   # already holding — don't stack positions
+                    continue
                 atr_pct = row.get("atr_pct") or 2.5
                 sl      = -min(max(atr_pct * 2.0, 5.0), 12.0)
                 lots    = _lots(PF_WYCKOFF_ALLOC, price)
