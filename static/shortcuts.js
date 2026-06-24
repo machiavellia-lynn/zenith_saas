@@ -75,6 +75,13 @@
       window.location.href = '/hub';
       return;
     }
+
+    // "p" — go to Portfolio
+    if (e.key === 'p' || e.key === 'P'){
+      e.preventDefault();
+      window.location.href = '/portfolio';
+      return;
+    }
   });
 
   // ── Clear button for ticker filter (injected if markup exists) ───────

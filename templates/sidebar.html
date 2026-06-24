@@ -79,13 +79,22 @@
     <div class="s-divider"></div>
 
     <!-- Analysis group -->
-    <div class="s-group{% if request.path in ['/sector', '/backtest'] %} open{% endif %}" id="group-analysis">
+    <div class="s-group{% if request.path in ['/sector', '/backtest', '/portfolio'] %} open{% endif %}" id="group-analysis">
       <button class="s-group-toggle" onclick="sidebarToggleGroup('group-analysis')" type="button">
         <span class="s-group-toggle-label">Analysis</span>
         <span class="s-group-chevron">▾</span>
       </button>
       <div class="s-group-items">
         <div class="s-group-items-inner">
+          <a href="/portfolio" class="s-item{% if request.path == '/portfolio' %} active{% endif %}">
+            <div class="s-item-icon">
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 11.5L5 7L8 9.5L12.5 3.5"/><path d="M9.5 3.5h3v3"/></svg>
+            </div>
+            <div>
+              <div class="s-item-label">Portfolio</div>
+              <div class="s-item-sub">Simulasi equity curve</div>
+            </div>
+          </a>
           <a href="/sector" class="s-item{% if request.path == '/sector' %} active{% endif %}">
             <div class="s-item-icon">
               <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="5" height="5" rx="1.2"/><rect x="8" y="1" width="5" height="5" rx="1.2"/><rect x="1" y="8" width="5" height="5" rx="1.2"/><rect x="8" y="8" width="5" height="5" rx="1.2"/></svg>
