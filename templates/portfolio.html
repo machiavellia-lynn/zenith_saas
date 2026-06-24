@@ -354,7 +354,7 @@ function statRows(algoId, st){
   return [
     { label:'Total Return',    val:fmtPctS(st.total_return_pct), c: st.total_return_pct>=0?'up':'down' },
     { label:'Win Rate',        val:(st.win_rate!=null?st.win_rate+'%':'—'), c: (st.win_rate!=null&&st.win_rate>=50)?'up':'down' },
-    { label:'Max Drawdown',    val:fmtPctS(st.max_drawdown_pct), c:'down' },
+    { label:'Max Drawdown',    val:st.max_drawdown_rp!=null?fmtRp(st.max_drawdown_rp):fmtPctS(st.max_drawdown_pct), c:'down' },
     { label:'Avg Hold',        val:holdVal, c:'ink' },
     { label:'Total Trades',    val:(st.total_trades!=null?st.total_trades.toLocaleString('id-ID'):'—'), c:'ink' },
     { label:'Profit Factor',   val:(st.profit_factor!=null?st.profit_factor+'×':'—'), c: (st.profit_factor!=null&&st.profit_factor>=1)?'up':'down' },

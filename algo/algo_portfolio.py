@@ -68,7 +68,8 @@ def _lots(alloc: float, price: float) -> int:
 
 
 def _max_drawdown_pct(series: list) -> float:
-    """Largest peak-to-trough drop of an equity series, as a negative %."""
+    """Largest peak-to-trough drop as a negative %. For equity curves with a
+    meaningful baseline (non-zero start). Do NOT use for P&L curves from 0."""
     peak = None
     worst = 0.0
     for v in series:
@@ -79,6 +80,21 @@ def _max_drawdown_pct(series: list) -> float:
             if dd < worst:
                 worst = dd
     return round(worst, 2)
+
+
+def _max_drawdown_rp(series: list) -> int:
+    """Largest peak-to-trough drop as a negative Rp amount. For P&L curves
+    starting from 0 where % is meaningless (tiny peak → enormous %)."""
+    peak = None
+    worst = 0
+    for v in series:
+        if peak is None or v > peak:
+            peak = v
+        if peak is not None:
+            dd = v - peak
+            if dd < worst:
+                worst = dd
+    return round(worst)
 
 
 # ── Wyckoff simulation (multi-entry swing, MTM equity) ────────────────────────
@@ -323,19 +339,23 @@ def _build_stats(eq_values: list, closed_trades: list, avg_hold_days: bool,
         avg_hold = round(sum(t.get("hold_days", 0) for t in closed_trades) / len(closed_trades), 1)
 
     if is_pnl_curve:
-        # final IS the P&L; normalise vs per-signal alloc baseline for comparability
         total_return_pct = round(final / PF_INITIAL_EQUITY * 100, 2) if PF_INITIAL_EQUITY else 0.0
         initial_equity   = None
+        max_dd_pct       = None
+        max_dd_rp        = _max_drawdown_rp(eq_values)
     else:
         total_return_pct = round((final - PF_INITIAL_EQUITY) / PF_INITIAL_EQUITY * 100, 2)
         initial_equity   = PF_INITIAL_EQUITY
+        max_dd_pct       = _max_drawdown_pct(eq_values)
+        max_dd_rp        = None
 
     return {
         "initial_equity":   initial_equity,
         "final_equity":     final,
         "total_return_pct": total_return_pct,
         "win_rate":         round(len(wins) / n * 100, 1) if n else None,
-        "max_drawdown_pct": _max_drawdown_pct(eq_values),
+        "max_drawdown_pct": max_dd_pct,
+        "max_drawdown_rp":  max_dd_rp,
         "avg_hold":         avg_hold,
         "profit_factor":    pf,
     }

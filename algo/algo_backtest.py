@@ -360,11 +360,24 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
         all_days[r["date"]][r["ticker"]] = r
 
     all_sorted_dates = sorted(all_days.keys(), key=_to_cmp)
-    date_to_next = {
-        d: all_sorted_dates[i + 1]
-        for i, d in enumerate(all_sorted_dates)
-        if i + 1 < len(all_sorted_dates)
-    }
+
+    # Build next-trading-day map from price_history (actual IDX calendar, not
+    # eod_summary which only has days with Telegram data).  BSJP exits T+1 using
+    # 15m candles — the exit date must be the real next bursa day regardless of
+    # whether eod_summary has data for it.
+    _ph_rows = fetchall(conn, "SELECT DISTINCT date FROM price_history ORDER BY date")
+    if _ph_rows:
+        _ph_dmy = sorted(
+            [f"{r['date'][8:10]}-{r['date'][5:7]}-{r['date'][:4]}" for r in _ph_rows],
+            key=_to_cmp,
+        )
+        date_to_next = {d: _ph_dmy[i + 1] for i, d in enumerate(_ph_dmy[:-1])}
+    else:
+        date_to_next = {
+            d: all_sorted_dates[i + 1]
+            for i, d in enumerate(all_sorted_dates)
+            if i + 1 < len(all_sorted_dates)
+        }
 
     if date_from and date_to:
         fc = _to_cmp(date_from)
