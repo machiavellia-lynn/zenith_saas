@@ -367,13 +367,12 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
 
         close_1545 = prices_1545.get(ticker)
         open_0900  = prices_open.get(ticker)
+        if not close_1545 or not open_0900 or open_0900 <= 0:
+            continue  # wajib ada 15:45 dan 09:00, konsisten dengan backtest
 
-        # Override price_close with 15:45 candle for condition checking only
         row_scan = dict(row)
-        if close_1545:
-            row_scan["price_close"] = close_1545
-            if open_0900 and open_0900 > 0:
-                row_scan["price_change_pct"] = (close_1545 - open_0900) / open_0900 * 100
+        row_scan["price_close"]      = close_1545
+        row_scan["price_change_pct"] = (close_1545 - open_0900) / open_0900 * 100
 
         if _is_ara(row_scan):
             continue
