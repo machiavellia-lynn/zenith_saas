@@ -180,6 +180,108 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK, dates=None
     return {"scanned": total_scanned, "saved": total_saved}
 
 
+async def run_weekly_maintenance(client=None, conn=None):
+    """Full weekly sweep — triggered Monday 03:00 WIB by the scraper loop.
+    Covers the 7 calendar days ending yesterday (last week's trading days).
+    Steps: Telegram → rebuild → OHLCV → analytics → 15m intraday → BSJP → backtest.
+    All steps run unconditionally (not gated on new Telegram rows).
+    """
+    from data.price_fetch import backfill_price_history_ohlcv, fetch_intraday_15m_datasectors
+    from algo.analytics_bsjp import compute_bsjp_for_date
+    from algo.algo_backtest import run_backtest
+
+    own_conn = conn is None
+    if own_conn:
+        conn = get_scraper_db()
+
+    now_wib  = datetime.now(WIB)
+    all_7    = [(now_wib - timedelta(days=i)).strftime("%d-%m-%Y") for i in range(1, 8)]
+    trading  = sorted(
+        [d for d in all_7 if datetime.strptime(d, "%d-%m-%Y").weekday() < 5],
+        key=lambda x: datetime.strptime(x, "%d-%m-%Y"),
+    )
+
+    def _iso(d):
+        dd, mm, yyyy = d.split("-")
+        return f"{yyyy}-{mm}-{dd}"
+
+    log.info("📅 Weekly maintenance START — %d trading days: %s → %s",
+             len(trading), trading[0], trading[-1])
+
+    # ── Step 1: Telegram backfill ──────────────────────────────────────────
+    log.info("  [1/5] Telegram backfill")
+    try:
+        res = await run_weekly_backfill(client=client, conn=conn, days=7)
+        log.info("  Telegram: scanned=%d saved=%d", res["scanned"], res["saved"])
+    except Exception as e:
+        log.error("  Telegram backfill failed: %s", e)
+
+    # ── Step 2: Rebuild summaries + OHLCV prices + analytics (forced) ─────
+    log.info("  [2/5] Rebuild summaries + prices + analytics")
+    for d in trading:
+        try:
+            rebuild_summary_for_date(conn, d)
+            conn.commit()
+        except Exception as e:
+            log.error("  rebuild %s: %s", d, e)
+            conn.rollback()
+
+    try:
+        backfill_price_history_ohlcv(conn, _iso(trading[0]), _iso(trading[-1]))
+        conn.commit()
+    except Exception as e:
+        log.warning("  price backfill: %s", e)
+
+    for d in trading:
+        try:
+            compute_analytics_for_date(conn, d)
+            conn.commit()
+        except Exception as e:
+            log.error("  analytics %s: %s", d, e)
+            conn.rollback()
+
+    # ── Step 3: 15m intraday backfill ─────────────────────────────────────
+    log.info("  [3/5] 15m intraday backfill")
+    tickers = [r["ticker"] for r in fetchall(conn,
+        "SELECT ticker FROM ticker_universe WHERE is_active = TRUE")]
+    for d in trading:
+        try:
+            res = fetch_intraday_15m_datasectors(conn, tickers, d)
+            conn.commit()
+            log.info("  15m %s: %d rows", d, res.get("rows_inserted", 0))
+        except Exception as e:
+            log.error("  15m %s: %s", d, e)
+
+    # ── Step 4: BSJP indicators + signals ─────────────────────────────────
+    log.info("  [4/5] BSJP indicators + signals")
+    for d in trading:
+        try:
+            compute_bsjp_for_date(conn, _iso(d))
+            conn.commit()
+        except Exception as e:
+            log.error("  bsjp_ind %s: %s", d, e)
+            conn.rollback()
+
+    from scraper.scraper_daily import run_bsjp_scan
+    for d in trading:
+        try:
+            n = run_bsjp_scan(conn, date_dmy=d)
+            log.info("  bsjp_signals %s: %d signals", d, n)
+        except Exception as e:
+            log.error("  bsjp_scan %s: %s", d, e)
+
+    # ── Step 5: Full backtest ──────────────────────────────────────────────
+    log.info("  [5/5] Full backtest")
+    try:
+        run_backtest(conn, days=0)
+    except Exception as e:
+        log.error("  backtest: %s", e)
+
+    if own_conn:
+        conn.close()
+    log.info("✅ Weekly maintenance DONE")
+
+
 async def main():
     from telethon import TelegramClient
     conn   = get_scraper_db()

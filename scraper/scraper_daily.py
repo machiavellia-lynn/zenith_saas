@@ -483,6 +483,7 @@ async def scraper_main():
         midday_pass_done = first_pass_done = second_pass_done = backtest_done_today = False
         bsjp_prefetch_done = bsjp_15m_done = bsjp_scan_done = False
         last_check_date = None
+        last_weekly_yw  = None  # (iso_year, iso_week) of last weekly maintenance run
 
         while True:
             conn = _ensure_conn(conn)
@@ -575,6 +576,19 @@ async def scraper_main():
                     log.error(f"❌ Nightly backtest: {e}")
                 finally:
                     backtest_done_today = True
+
+            # ── Weekly maintenance: every Monday 03:00 WIB ────────────────
+            iso_yw = now_wib.isocalendar()[:2]
+            if now_wib.weekday() == 0 and now_wib.hour >= 3 and iso_yw != last_weekly_yw:
+                try:
+                    log.info("📅 Weekly maintenance triggered (Mon 03:00)")
+                    from scraper.scraper_weekly import run_weekly_maintenance
+                    await run_weekly_maintenance(client, conn)
+                except Exception as e:
+                    log.error(f"❌ Weekly maintenance: {e}")
+                finally:
+                    last_weekly_yw = iso_yw
+                    trim_memory()
 
             with _backfill_lock:
                 bf_status = _backfill_request.get("status", "idle")
