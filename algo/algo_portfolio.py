@@ -23,7 +23,7 @@ import threading
 from collections import defaultdict
 from datetime import datetime
 
-from config import WIB, PF_INITIAL_EQUITY, PF_WYCKOFF_ALLOC, PF_BSJP_ALLOC, PF_LOT_SIZE
+from config import WIB, PF_INITIAL_EQUITY, PF_BSJP_INITIAL_EQUITY, PF_WYCKOFF_ALLOC, PF_BSJP_ALLOC, PF_LOT_SIZE
 from core.db import fetchall
 from algo.algo_wyckoff import get_action
 
@@ -307,7 +307,8 @@ def _simulate_bsjp(conn, date_from: str, date_to: str, axis_dates: list):
         g = t["gain"]
         t["status"] = "WIN" if (g is not None and g > 0) else "LOSS"
 
-    stats = _build_stats(eq_values, trades, avg_hold_days=False, is_pnl_curve=True)
+    stats = _build_stats(eq_values, trades, avg_hold_days=False, is_pnl_curve=True,
+                         equity_basis=PF_BSJP_INITIAL_EQUITY)
     stats["open_count"]      = 0
     stats["closed_count"]    = len(trades)
     stats["total_trades"]    = len(trades)
@@ -317,15 +318,17 @@ def _simulate_bsjp(conn, date_from: str, date_to: str, axis_dates: list):
 
 # ── Shared stats ──────────────────────────────────────────────────────────────
 def _build_stats(eq_values: list, closed_trades: list, avg_hold_days: bool,
-                 is_pnl_curve: bool = False) -> dict:
+                 is_pnl_curve: bool = False, equity_basis: int = None) -> dict:
     """
-    is_pnl_curve=True  → eq_values starts from 0 (cumulative P&L).
-                         total_return_pct = final_pnl / PF_INITIAL_EQUITY × 100.
-                         initial_equity = None (no equity baseline shown).
-    is_pnl_curve=False → eq_values starts from PF_INITIAL_EQUITY.
-                         initial_equity = PF_INITIAL_EQUITY.
+    equity_basis — denominator for total_return_pct.
+                   Defaults to PF_INITIAL_EQUITY when not supplied.
+    is_pnl_curve=True  → eq_values is cumulative P&L from 0.
+                         return_pct = final_pnl / equity_basis × 100.
+    is_pnl_curve=False → eq_values starts from equity_basis.
+                         return_pct = (final − equity_basis) / equity_basis × 100.
     """
-    final  = eq_values[-1] if eq_values else (0 if is_pnl_curve else PF_INITIAL_EQUITY)
+    basis  = equity_basis if equity_basis is not None else PF_INITIAL_EQUITY
+    final  = eq_values[-1] if eq_values else (0 if is_pnl_curve else basis)
     wins   = [t for t in closed_trades if (t.get("gain") or 0) > 0]
     losses = [t for t in closed_trades if (t.get("gain") or 0) <= 0]
     n      = len(closed_trades)
@@ -339,13 +342,13 @@ def _build_stats(eq_values: list, closed_trades: list, avg_hold_days: bool,
         avg_hold = round(sum(t.get("hold_days", 0) for t in closed_trades) / len(closed_trades), 1)
 
     if is_pnl_curve:
-        total_return_pct = round(final / PF_INITIAL_EQUITY * 100, 2) if PF_INITIAL_EQUITY else 0.0
+        total_return_pct = round(final / basis * 100, 2) if basis else 0.0
         initial_equity   = None
         max_dd_pct       = None
         max_dd_rp        = _max_drawdown_rp(eq_values)
     else:
-        total_return_pct = round((final - PF_INITIAL_EQUITY) / PF_INITIAL_EQUITY * 100, 2)
-        initial_equity   = PF_INITIAL_EQUITY
+        total_return_pct = round((final - basis) / basis * 100, 2)
+        initial_equity   = basis
         max_dd_pct       = _max_drawdown_pct(eq_values)
         max_dd_rp        = None
 
@@ -432,7 +435,8 @@ def filter_result(full: dict, date_from: str, date_to: str) -> dict:
         "total_txn_value": sum(t.get("txn_value", 0) for t in wy_trades),
     })
 
-    bs_stats = _build_stats(sub_bs, bs_trades, avg_hold_days=False, is_pnl_curve=True)
+    bs_stats = _build_stats(sub_bs, bs_trades, avg_hold_days=False, is_pnl_curve=True,
+                            equity_basis=PF_BSJP_INITIAL_EQUITY)
     bs_stats.update({
         "open_count":      0,
         "closed_count":    len(bs_trades),

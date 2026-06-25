@@ -77,10 +77,11 @@ INTERVAL_MAP = {
 # ── Portfolio Simulation ───────────────────────────────────────────────────────
 # Fixed simulation parameters — NOT user-configurable in the UI.
 # Owner controls these here; the only user control on /portfolio is the date range.
-PF_INITIAL_EQUITY = 50_000_000   # Rp — notional baseline equity for the curve
-PF_WYCKOFF_ALLOC  = 5_000_000    # Rp — capital deployed per Wyckoff BUY signal
-PF_BSJP_ALLOC     = 15_000_000   # Rp — capital deployed per BSJP signal
-PF_LOT_SIZE       = 100          # IDX: 1 lot = 100 shares
+PF_INITIAL_EQUITY      = 50_000_000   # Rp — Wyckoff return basis (max concurrent notional ~10 pos × 5M)
+PF_BSJP_INITIAL_EQUITY = 150_000_000  # Rp — BSJP return basis (total capital pool, T+1 recycles daily)
+PF_WYCKOFF_ALLOC       = 5_000_000    # Rp — capital deployed per Wyckoff BUY signal
+PF_BSJP_ALLOC          = 15_000_000   # Rp — capital deployed per BSJP signal
+PF_LOT_SIZE            = 100          # IDX: 1 lot = 100 shares
 
 # ── DataSectors API (Tier 1-4 integration — not yet active) ───────────────────
 DS_API_KEY    = os.environ.get("DATASECTORS_API_KEY", "")
