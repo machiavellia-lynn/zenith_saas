@@ -206,7 +206,7 @@ S.dateFrom = S.dateTo = today;
 var _simTimer = null;
 function runSimDebounced(){
   clearTimeout(_simTimer);
-  _simTimer = setTimeout(function(){ if (!sdp._open) runSim(); }, 750);
+  _simTimer = setTimeout(function(){ if (!sdp._open) runSim(); }, 100);
 }
 
 var sdp = new window.StockbitDatePicker('pfDatePicker', {
