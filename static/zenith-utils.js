@@ -210,10 +210,18 @@ window.StockbitDatePicker = class StockbitDatePicker {
   }
 
   _addDay(n) {
-    const d = new Date((this.from || window.todayLocal()) + 'T00:00:00');
-    d.setDate(d.getDate() + n);
-    const k = this._keyFromDate(d);
-    this.from = k; this.to = k;
+    const fromD = new Date((this.from || window.todayLocal()) + 'T00:00:00');
+    fromD.setDate(fromD.getDate() + n);
+    const newFrom = this._keyFromDate(fromD);
+    if (this.to && this.from !== this.to) {
+      const toD = new Date(this.to + 'T00:00:00');
+      toD.setDate(toD.getDate() + n);
+      this.from = newFrom;
+      this.to = this._keyFromDate(toD);
+    } else {
+      this.from = newFrom;
+      this.to = newFrom;
+    }
     this._updateStrip();
     this.onChange(this.from, this.to);
   }

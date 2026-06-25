@@ -68,6 +68,10 @@ html, body { height: 100%; }
 @keyframes pfSpin { to { transform: rotate(360deg); } }
 .pf-spinner { width: 12px; height: 12px; border: 2px solid var(--border2); border-top-color: var(--accent);
   border-radius: 99px; display: inline-block; animation: pfSpin .6s linear infinite; vertical-align: middle; }
+@keyframes pfDotPulse {
+  0%   { r: 5px; stroke-opacity: 0.6; }
+  100% { r: 20px; stroke-opacity: 0; }
+}
 </style>
 </head>
 <body class="sidebar-layout">
@@ -196,12 +200,13 @@ function dmyToDayMon(d){
 var today = window.todayLocal();
 S.dateFrom = S.dateTo = today;
 
-// Debounce: klik pertama (start date) tidak langsung trigger sim —
-// tunggu 750ms baru jalankan, sehingga klik kedua (end date) sempat di-set.
+// Debounce: tunggu 750ms setelah onChange terakhir, tapi hanya jalankan sim
+// jika kalender sudah tertutup — mencegah sim dengan tanggal salah saat user
+// masih memilih range (klik "from" dulu, belum klik "to").
 var _simTimer = null;
 function runSimDebounced(){
   clearTimeout(_simTimer);
-  _simTimer = setTimeout(runSim, 750);
+  _simTimer = setTimeout(function(){ if (!sdp._open) runSim(); }, 750);
 }
 
 var sdp = new window.StockbitDatePicker('pfDatePicker', {
@@ -281,6 +286,11 @@ function renderChart(){
   ds.forEach(function(d){
     svg += '<polyline points="'+polyline(d.data)+'" fill="none" stroke="'+d.color+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
   });
+  // hover dots — filled circle + pulsing ring, one per dataset
+  ds.forEach(function(d){
+    svg += '<circle id="pfDot-'+d.id+'" cx="-99" cy="-99" r="4.5" fill="'+d.color+'" stroke="#fff" stroke-width="1.5" style="display:none"/>';
+    svg += '<circle id="pfDotRing-'+d.id+'" cx="-99" cy="-99" r="5" fill="none" stroke="'+d.color+'" stroke-width="1.5" stroke-opacity="0" style="display:none;animation:pfDotPulse 1.5s ease-out infinite"/>';
+  });
   // crosshair (hidden until hover)
   svg += '<line id="pfCross" x1="0" y1="'+PT+'" x2="0" y2="'+(PT+ch)+'" stroke="'+b2Col+'" stroke-width="1.5" stroke-dasharray="4 3" style="display:none"/>';
   // Y labels
@@ -305,6 +315,13 @@ function renderChart(){
     var i = Math.min(n-1, Math.max(0, Math.round((mx-PL)/cw*(n-1))));
     var x = xPos(i);
     cross.setAttribute('x1', x); cross.setAttribute('x2', x); cross.style.display = '';
+    ds.forEach(function(d){
+      var cx = x.toFixed(1), cy = yPos(d.data[i]).toFixed(1);
+      var dot  = document.getElementById('pfDot-'+d.id);
+      var ring = document.getElementById('pfDotRing-'+d.id);
+      if (dot)  { dot.setAttribute('cx', cx);  dot.setAttribute('cy', cy);  dot.style.display=''; }
+      if (ring) { ring.setAttribute('cx', cx); ring.setAttribute('cy', cy); ring.style.display=''; }
+    });
     var rows = ds.map(function(d){
       return '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:2px">'
         + '<span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:99px;background:'+d.color+'"></span>'
@@ -315,7 +332,15 @@ function renderChart(){
     tip.style.left = Math.min(x/W*100, 72) + '%';
     tip.style.display = '';
   });
-  svgEl.addEventListener('mouseleave', function(){ cross.style.display='none'; tip.style.display='none'; });
+  svgEl.addEventListener('mouseleave', function(){
+    cross.style.display='none'; tip.style.display='none';
+    ds.forEach(function(d){
+      var dot  = document.getElementById('pfDot-'+d.id);
+      var ring = document.getElementById('pfDotRing-'+d.id);
+      if (dot)  dot.style.display='none';
+      if (ring) ring.style.display='none';
+    });
+  });
 }
 
 /* ════════════════════════════════════════════════════════════════════════
