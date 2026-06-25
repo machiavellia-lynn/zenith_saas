@@ -381,6 +381,7 @@ def simulate_portfolio(conn, date_from: str = None, date_to: str = None) -> dict
         },
         "wyckoff": {"stats": wy_stats, "trades": wy_trades},
         "bsjp":    {"stats": bs_stats, "trades": bs_trades},
+        "axis_dates":  axis_dates,
         "date_range":  f"{axis_dates[0]} - {axis_dates[-1]}" if axis_dates else "-",
         "computed_at": datetime.now(WIB).strftime("%d-%m-%Y %H:%M"),
     }
@@ -388,6 +389,65 @@ def simulate_portfolio(conn, date_from: str = None, date_to: str = None) -> dict
     with _pf_lock:
         _pf_result = result
     return result
+
+
+def filter_result(full: dict, date_from: str, date_to: str) -> dict:
+    """Slice a cached full-range result to [date_from, date_to] in-memory — no DB."""
+    axis_dates = full.get("axis_dates") or []
+    if not axis_dates:
+        return full
+
+    fc = _to_cmp(date_from) if date_from else None
+    tc = _to_cmp(date_to)   if date_to   else None
+
+    idxs = [i for i, d in enumerate(axis_dates)
+             if (not fc or _to_cmp(d) >= fc) and (not tc or _to_cmp(d) <= tc)]
+    if not idxs:
+        return full
+
+    sub_dates  = [axis_dates[i]                    for i in idxs]
+    sub_labels = [full["equity"]["labels"][i]       for i in idxs]
+    sub_wy     = [full["equity"]["wyckoff"][i]      for i in idxs]
+    sub_bs     = [full["equity"]["bsjp"][i]         for i in idxs]
+
+    # Normalise both curves to start from 0 at the selected period start
+    wy_base = sub_wy[0] if sub_wy else 0
+    bs_base = sub_bs[0] if sub_bs else 0
+    sub_wy = [v - wy_base for v in sub_wy]
+    sub_bs = [v - bs_base for v in sub_bs]
+
+    def _in(d_str):
+        c = _to_cmp(d_str or "")
+        return (not fc or c >= fc) and (not tc or c <= tc)
+
+    wy_trades = [t for t in full["wyckoff"]["trades"] if _in(t.get("entry_date", ""))]
+    bs_trades = [t for t in full["bsjp"]["trades"]    if _in(t.get("date", ""))]
+
+    wy_closed = [t for t in wy_trades if t.get("status") != "OPEN"]
+    wy_stats  = _build_stats(sub_wy, wy_closed, avg_hold_days=True, is_pnl_curve=True)
+    wy_stats.update({
+        "open_count":      sum(1 for t in wy_trades if t.get("status") == "OPEN"),
+        "closed_count":    len(wy_closed),
+        "total_trades":    len(wy_trades),
+        "total_txn_value": sum(t.get("txn_value", 0) for t in wy_trades),
+    })
+
+    bs_stats = _build_stats(sub_bs, bs_trades, avg_hold_days=False, is_pnl_curve=True)
+    bs_stats.update({
+        "open_count":      0,
+        "closed_count":    len(bs_trades),
+        "total_trades":    len(bs_trades),
+        "total_txn_value": sum(t.get("txn_value", 0) for t in bs_trades),
+    })
+
+    return {
+        "equity": {"labels": sub_labels, "wyckoff": sub_wy, "bsjp": sub_bs},
+        "wyckoff": {"stats": wy_stats, "trades": wy_trades},
+        "bsjp":    {"stats": bs_stats, "trades": bs_trades},
+        "axis_dates":  sub_dates,
+        "date_range":  f"{sub_dates[0]} - {sub_dates[-1]}",
+        "computed_at": full["computed_at"],
+    }
 
 
 def _axis_dates(conn, date_from: str, date_to: str) -> list:

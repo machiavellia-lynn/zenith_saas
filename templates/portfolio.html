@@ -632,7 +632,16 @@ function runSim(){
   var from = window.isoToDD_MM_YYYY(S.dateFrom), to = window.isoToDD_MM_YYYY(S.dateTo);
   fetch('/api/portfolio?run=1&date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to))
     .then(function(r){ return r.json(); })
-    .then(function(){ poll(); })
+    .then(function(d){
+      if (d && d.equity) {
+        // Cache hit: server filtered in-memory, no polling needed
+        S.loading = false;
+        S.data = d; syncPickerToRange(d); renderAll();
+      } else {
+        // Full sim triggered (first load, no cache yet)
+        poll();
+      }
+    })
     .catch(function(){ S.loading=false; setStatus('<span style="color:var(--down)">⚠ Gagal menjalankan simulasi.</span>'); });
 }
 

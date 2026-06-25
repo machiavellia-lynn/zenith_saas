@@ -23,11 +23,16 @@ def api_portfolio():
         get_portfolio_result, get_portfolio_status, request_portfolio_sim,
     )
 
-    # Trigger a new simulation run
+    # Date-range change: filter cached result in-memory (fast path, no DB re-run)
     if request.args.get("run") == "1":
         date_from = request.args.get("date_from") or None
         date_to   = request.args.get("date_to") or None
-        triggered = request_portfolio_sim(date_from=date_from, date_to=date_to)
+        from algo.algo_portfolio import filter_result
+        cached = get_portfolio_result()
+        if cached:
+            return jsonify(filter_result(cached, date_from, date_to))
+        # No cache yet — trigger full simulation
+        triggered = request_portfolio_sim()
         return jsonify({"triggered": triggered})
 
     # Status polling while running
