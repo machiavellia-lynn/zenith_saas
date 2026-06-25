@@ -963,3 +963,96 @@ def admin_bsjp_recompute_status():
     if not is_authed():
         return redirect("/")
     return jsonify(_bsjp_recompute)
+
+
+@bp_admin.route("/admin/data-coverage")
+def admin_data_coverage():
+    if not is_authed():
+        return redirect("/")
+    from core.db import get_scraper_db, fetchall
+    from datetime import datetime
+    from config import WIB
+
+    try:
+        year  = int(request.args.get("year",  0) or 0)
+        month = int(request.args.get("month", 0) or 0)
+    except (ValueError, TypeError):
+        year = month = 0
+    if not year or not month:
+        now   = datetime.now(WIB)
+        year  = now.year
+        month = now.month
+
+    mm      = str(month).zfill(2)
+    yyyy    = str(year)
+    dmy_pat = f"%-{mm}-{yyyy}"   # matches DD-MM-YYYY
+    ymd_pat = f"{yyyy}-{mm}-%"   # matches YYYY-MM-DD
+
+    def _day_dict_dmy(rows):
+        out = {}
+        for r in rows:
+            parts = (r.get("date") or "").split("-")
+            if parts and parts[0].isdigit():
+                out[str(int(parts[0]))] = int(r.get("cnt") or 0)
+        return out
+
+    def _day_dict_ymd(rows):
+        out = {}
+        for r in rows:
+            d = (r.get("date") or "")[8:10]
+            if d.isdigit():
+                out[str(int(d))] = int(r.get("cnt") or 0)
+        return out
+
+    conn = get_scraper_db()
+    try:
+        sources = []
+
+        rows = fetchall(conn,
+            "SELECT date, COUNT(DISTINCT ticker) AS cnt FROM raw_messages "
+            "WHERE date LIKE %s GROUP BY date", [dmy_pat])
+        sources.append({"key": "raw_messages", "label": "raw_messages",
+                        "group": "Mentah", "days": _day_dict_dmy(rows)})
+
+        rows = fetchall(conn,
+            "SELECT date, COUNT(DISTINCT ticker) AS cnt FROM raw_mf_messages "
+            "WHERE date LIKE %s GROUP BY date", [dmy_pat])
+        sources.append({"key": "raw_mf_messages", "label": "raw_mf_messages",
+                        "group": "Mentah", "days": _day_dict_dmy(rows)})
+
+        rows = fetchall(conn,
+            "SELECT date, COUNT(DISTINCT ticker) AS cnt FROM eod_summary "
+            "WHERE date LIKE %s GROUP BY date", [dmy_pat])
+        sources.append({"key": "eod_summary", "label": "eod_summary",
+                        "group": "EOD", "days": _day_dict_dmy(rows)})
+
+        rows = fetchall(conn,
+            "SELECT date, COUNT(DISTINCT ticker) AS cnt FROM price_history "
+            "WHERE date LIKE %s GROUP BY date", [ymd_pat])
+        sources.append({"key": "price_history", "label": "price_history",
+                        "group": "EOD", "days": _day_dict_ymd(rows)})
+
+        rows = fetchall(conn,
+            "SELECT LEFT(datetime,10) AS date, COUNT(DISTINCT ticker) AS cnt "
+            "FROM price_history_15m WHERE LEFT(datetime,10) LIKE %s "
+            "GROUP BY LEFT(datetime,10)", [ymd_pat])
+        sources.append({"key": "price_history_15m", "label": "price_history_15m",
+                        "group": "Intraday", "days": _day_dict_ymd(rows)})
+
+        rows = fetchall(conn,
+            "SELECT date, COUNT(*) AS cnt FROM bsjp_signals "
+            "WHERE date LIKE %s GROUP BY date", [dmy_pat])
+        sources.append({"key": "bsjp_signals", "label": "bsjp_signals",
+                        "group": "BSJP", "days": _day_dict_dmy(rows)})
+
+        rows = fetchall(conn,
+            "SELECT date, COUNT(*) AS cnt FROM bsjp_results "
+            "WHERE date LIKE %s GROUP BY date", [dmy_pat])
+        sources.append({"key": "bsjp_results", "label": "bsjp_results",
+                        "group": "BSJP", "days": _day_dict_dmy(rows)})
+
+        return jsonify({"year": year, "month": month, "sources": sources})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        conn.close()

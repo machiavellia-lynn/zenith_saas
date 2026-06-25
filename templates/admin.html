@@ -181,6 +181,34 @@ body.sidebar-layout { overflow: hidden; }
         </div>
       </div>
 
+      <!-- Data Coverage Heatmap -->
+      <div class="a-section" style="margin-bottom:14px">
+        <div class="a-section-head">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+            <div>
+              <div class="a-section-title">Data Coverage Heatmap</div>
+              <div class="a-section-sub">Kelengkapan data per tabel per hari</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <button class="a-btn small" id="hmBtnPrev" onclick="hmNav(-1)">&#8249;</button>
+              <span id="hmMonthLabel" style="font-size:13px;font-weight:600;color:var(--ink);min-width:100px;text-align:center"></span>
+              <button class="a-btn small" id="hmBtnNext" onclick="hmNav(1)">&#8250;</button>
+            </div>
+          </div>
+        </div>
+        <div class="a-section-body">
+          <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+            <span style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">Status</span>
+            <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-dim)"><span style="width:11px;height:11px;border-radius:3px;background:#4caf74;display:inline-block"></span>Lengkap</span>
+            <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-dim)"><span style="width:11px;height:11px;border-radius:3px;background:#c87d3a;display:inline-block"></span>Sebagian</span>
+            <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-dim)"><span style="width:11px;height:11px;border-radius:3px;background:#c03838;display:inline-block"></span>Kosong</span>
+            <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-dim)"><span style="width:11px;height:11px;border-radius:3px;background:var(--surface3);border:1px solid var(--border);display:inline-block"></span>Libur/Weekend</span>
+          </div>
+          <div id="hmGrid" style="overflow-x:auto"></div>
+          <div id="hmGaps" style="margin-top:14px"></div>
+        </div>
+      </div>
+
       <!-- Algo Settings -->
       <div class="a-section">
         <div class="a-section-head">
@@ -747,6 +775,169 @@ document.getElementById('confirmModal').addEventListener('click', function(e) {
 
 /* Init */
 loadScraperStatus();
+})();
+</script>
+
+<script>
+/* ── Data Coverage Heatmap ── */
+(function(){
+function hmToast(msg, type) {
+  var el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'a-toast ' + (type || 'success');
+  el.style.display = 'flex';
+  setTimeout(function() { el.style.display = 'none'; }, 2800);
+}
+var HM_MONTHS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+var HM_GROUPS = [
+  {label:'MENTAH',   keys:['raw_messages','raw_mf_messages']},
+  {label:'EOD',      keys:['eod_summary','price_history']},
+  {label:'INTRADAY', keys:['price_history_15m']},
+  {label:'BSJP',     keys:['bsjp_signals','bsjp_results']},
+];
+var HM_BACKFILL = {
+  'price_history_15m': '/admin/backfill-intraday',
+  'price_history':     '/admin/backfill-prices',
+  'eod_summary':       '/admin/backfill-eod',
+  'bsjp_signals':      '/admin/bsjp-recompute',
+  'bsjp_results':      '/admin/bsjp-recompute',
+};
+
+var hmYear, hmMonth, hmData;
+var hmNow = new Date();
+
+function hmDays(y, m) { return new Date(y, m, 0).getDate(); }
+
+function hmFmt(y, m, d) {
+  return (d<10?'0':'')+d+'-'+(m<10?'0':'')+m+'-'+y;
+}
+
+function hmStatus(key, y, m, d) {
+  var dow = new Date(y, m-1, d).getDay();
+  if (dow===0||dow===6) return 'off';
+  var today = new Date(hmNow.getFullYear(), hmNow.getMonth(), hmNow.getDate());
+  if (new Date(y, m-1, d) > today) return 'future';
+  if (!hmData||!hmData[key]) return 'empty';
+  var cnt = hmData[key].days[String(d)]||0;
+  if (!cnt) return 'empty';
+  return cnt >= hmData[key].max*0.5 ? 'full' : 'partial';
+}
+
+function hmCellBg(s) {
+  if (s==='full')    return '#4caf74';
+  if (s==='partial') return '#c87d3a';
+  if (s==='empty')   return '#c03838';
+  if (s==='off')     return 'var(--surface3)';
+  return 'var(--surface2)';
+}
+function hmCellBorder(s) { return s==='off'?'border:1px solid var(--border);':''; }
+function hmStatusTxt(s) {
+  return s==='full'?'Lengkap':s==='partial'?'Sebagian':s==='empty'?'Kosong':s==='off'?'Libur':'—';
+}
+
+function hmRenderGrid(y, m) {
+  var days = hmDays(y, m);
+  var h = '<table style="border-collapse:collapse;width:100%;"><colgroup><col style="width:140px"/>';
+  for (var i=1;i<=days;i++) h+='<col style="width:16px"/>';
+  h+='</colgroup><thead><tr><th style="padding:0 0 5px;text-align:left;font-size:11px;font-weight:400;color:var(--muted)">Tabel</th>';
+  for (var i=1;i<=days;i++) {
+    var we=new Date(y,m-1,i).getDay(); we=we===0||we===6;
+    h+='<th style="padding:0 0 4px;text-align:center;font-size:9px;font-weight:400;color:'+(we?'var(--border2)':'var(--muted)')+'">'+i+'</th>';
+  }
+  h+='</tr></thead><tbody>';
+  var first=true;
+  HM_GROUPS.forEach(function(grp){
+    if(!first) h+='<tr><td colspan="'+(days+1)+'" style="height:5px"></td></tr>';
+    first=false;
+    h+='<tr><td colspan="'+(days+1)+'" style="padding:0 0 3px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">'+grp.label+'</td></tr>';
+    grp.keys.forEach(function(key){
+      h+='<tr><td style="padding:2px 8px 2px 0;font-size:11px;font-family:var(--font-mono);color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+key+'</td>';
+      for(var d=1;d<=days;d++){
+        var st=hmStatus(key,y,m,d);
+        var bg=hmCellBg(st), bdr=hmCellBorder(st);
+        h+='<td style="padding:1px" title="'+key+' · '+hmFmt(y,m,d)+': '+hmStatusTxt(st)+'"><div style="height:18px;border-radius:3px;background:'+bg+';'+bdr+'"></div></td>';
+      }
+      h+='</tr>';
+    });
+  });
+  h+='</tbody></table>';
+  document.getElementById('hmGrid').innerHTML=h;
+  hmRenderGaps(y,m,days);
+}
+
+function hmRenderGaps(y,m,days){
+  var gaps=[];
+  HM_GROUPS.forEach(function(grp){
+    grp.keys.forEach(function(key){
+      var miss=[];
+      for(var d=1;d<=days;d++) if(hmStatus(key,y,m,d)==='empty') miss.push(hmFmt(y,m,d));
+      if(miss.length) gaps.push({key:key,dates:miss});
+    });
+  });
+  var el=document.getElementById('hmGaps');
+  if(!gaps.length){
+    el.innerHTML='<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--up-soft);border-radius:var(--radius-lg);font-size:13px;color:var(--up)">✓ Semua data lengkap untuk bulan ini.</div>';
+    return;
+  }
+  var h='<div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Data yang hilang</div><div style="display:flex;flex-direction:column;gap:6px">';
+  gaps.forEach(function(g){
+    var url=HM_BACKFILL[g.key]||'';
+    var preview=g.dates.length>5?g.dates.slice(0,5).join(', ')+' +' +(g.dates.length-5)+' lainnya':g.dates.join(', ');
+    h+='<div style="border-left:3px solid var(--danger);background:var(--down-soft);border-radius:var(--radius-lg);padding:10px 14px">';
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">';
+    h+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-weight:600;font-family:var(--font-mono);color:var(--ink)">'+g.key+'</span><span style="font-size:11.5px;color:var(--danger)">'+g.dates.length+' hari kosong</span></div>';
+    if(url) h+='<button class="a-btn small" onclick="hmBackfill(\''+url+'\',\''+g.dates[0]+'\',\''+g.dates[g.dates.length-1]+'\',this)">Backfill →</button>';
+    h+='</div><div style="margin-top:4px;font-size:11px;font-family:var(--font-mono);color:var(--text-dim)">'+preview+'</div></div>';
+  });
+  el.innerHTML=h+'</div>';
+}
+
+function hmLoad(y,m){
+  hmYear=y; hmMonth=m;
+  document.getElementById('hmMonthLabel').textContent=HM_MONTHS[m-1]+' '+y;
+  document.getElementById('hmBtnPrev').disabled=(y===2026&&m===1);
+  var ny=hmNow.getFullYear(),nm=hmNow.getMonth()+1;
+  document.getElementById('hmBtnNext').disabled=(y===ny&&m===nm);
+  document.getElementById('hmGrid').innerHTML='<div style="padding:16px 0;font-size:12px;color:var(--muted);font-family:var(--font-mono)">Memuat...</div>';
+  document.getElementById('hmGaps').innerHTML='';
+  fetch('/admin/data-coverage?year='+y+'&month='+m)
+    .then(function(r){return r.json();})
+    .then(function(d){
+      hmData={};
+      (d.sources||[]).forEach(function(src){
+        var vals=Object.values(src.days||{}).map(Number).filter(function(v){return v>0;});
+        hmData[src.key]={days:src.days||{},max:vals.length?Math.max.apply(null,vals):1};
+      });
+      hmRenderGrid(y,m);
+    })
+    .catch(function(){
+      document.getElementById('hmGrid').innerHTML='<div style="padding:12px 0;font-size:12px;color:var(--danger)">Gagal memuat. <button class="a-btn small" onclick="hmRetry()">Retry</button></div>';
+    });
+}
+
+window.hmNav=function(dir){
+  var m=hmMonth+dir,y=hmYear;
+  if(m<1){m=12;y--;} if(m>12){m=1;y++;}
+  var ny=hmNow.getFullYear(),nm=hmNow.getMonth()+1;
+  if(y<2026||(y===2026&&m<1)) return;
+  if(y>ny||(y===ny&&m>nm)) return;
+  hmLoad(y,m);
+};
+window.hmRetry=function(){ hmLoad(hmYear,hmMonth); };
+window.hmBackfill=function(url,from,to,btn){
+  btn.disabled=true; var orig=btn.textContent; btn.textContent='...';
+  fetch(url+'?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to))
+    .then(function(r){return r.json();})
+    .then(function(d){
+      btn.disabled=false; btn.textContent=orig;
+      hmToast(d.ok!==false?'Backfill dimulai ✓':'Error: '+(d.error||'?'), d.ok!==false?'success':'error');
+      if(d.ok!==false) setTimeout(function(){hmLoad(hmYear,hmMonth);},2500);
+    })
+    .catch(function(e){btn.disabled=false;btn.textContent=orig;hmToast('Gagal: '+e.message,'error');});
+};
+
+hmLoad(hmNow.getFullYear(), hmNow.getMonth()+1);
 })();
 </script>
 </body>
