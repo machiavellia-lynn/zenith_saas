@@ -836,6 +836,33 @@ function hmStatusTxt(s) {
   return s==='full'?'Lengkap':s==='partial'?'Sebagian':s==='empty'?'Kosong':s==='off'?'Libur':'—';
 }
 
+function hmRenderSkeleton(y, m) {
+  var days = hmDays(y, m);
+  var h = '<table style="border-collapse:collapse;width:100%;opacity:.4;pointer-events:none"><colgroup><col style="width:140px"/>';
+  for (var i=1;i<=days;i++) h+='<col style="width:16px"/>';
+  h+='</colgroup><thead><tr><th style="padding:0 0 5px;text-align:left;font-size:11px;font-weight:400;color:var(--muted)">Tabel</th>';
+  for (var i=1;i<=days;i++) {
+    var we=new Date(y,m-1,i).getDay(); we=we===0||we===6;
+    h+='<th style="padding:0 0 4px;text-align:center;font-size:9px;font-weight:400;color:'+(we?'var(--border2)':'var(--muted)')+'">'+i+'</th>';
+  }
+  h+='</tr></thead><tbody>';
+  var first=true;
+  HM_GROUPS.forEach(function(grp){
+    if(!first) h+='<tr><td colspan="'+(days+1)+'" style="height:5px"></td></tr>';
+    first=false;
+    h+='<tr><td colspan="'+(days+1)+'" style="padding:0 0 3px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">'+grp.label+'</td></tr>';
+    grp.keys.forEach(function(key){
+      h+='<tr><td style="padding:2px 8px 2px 0;font-size:11px;font-family:var(--font-mono);color:var(--text-dim)">'+key+'</td>';
+      for(var d=1;d<=days;d++){
+        h+='<td style="padding:1px"><div style="height:18px;border-radius:3px;background:var(--surface3)"></div></td>';
+      }
+      h+='</tr>';
+    });
+  });
+  h+='</tbody></table>';
+  document.getElementById('hmGrid').innerHTML=h;
+}
+
 function hmRenderGrid(y, m) {
   var days = hmDays(y, m);
   var h = '<table style="border-collapse:collapse;width:100%;"><colgroup><col style="width:140px"/>';
@@ -899,7 +926,7 @@ function hmLoad(y,m){
   document.getElementById('hmBtnPrev').disabled=(y===2026&&m===1);
   var ny=hmNow.getFullYear(),nm=hmNow.getMonth()+1;
   document.getElementById('hmBtnNext').disabled=(y===ny&&m===nm);
-  document.getElementById('hmGrid').innerHTML='<div style="padding:16px 0;font-size:12px;color:var(--muted);font-family:var(--font-mono)">Memuat...</div>';
+  hmRenderSkeleton(y, m);
   document.getElementById('hmGaps').innerHTML='';
   fetch('/admin/data-coverage?year='+y+'&month='+m)
     .then(function(r){return r.json();})
