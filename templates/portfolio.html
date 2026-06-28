@@ -507,19 +507,21 @@ function renderChips(){
     c.addEventListener('click', function(){ toggleAlgo(c.dataset.algo); });
   });
 }
-function firstSignalISO(algoId){
-  if (!S.data) return null;
-  var ad = S.data[algoId];
-  if (!ad || !ad.trades || !ad.trades.length) return null;
-  var key = algoId === 'bsjp' ? 'date' : 'entry_date';
-  var min = null;
-  ad.trades.forEach(function(t){
-    var d = t[key]; if (!d || d.length !== 10) return;
-    var cmp = d.slice(6)+d.slice(3,5)+d.slice(0,2);
-    if (!min || cmp < min.cmp) min = {cmp:cmp, dmy:d};
+var _firstSig = {};
+function cacheFirstSigs(){
+  PF_ALGOS.forEach(function(a){
+    var ad = S.data && S.data[a.id];
+    if (!ad || !ad.trades) return;
+    var key = a.id === 'bsjp' ? 'date' : 'entry_date', min = null;
+    ad.trades.forEach(function(t){
+      var d = t[key]; if (!d || d.length !== 10) return;
+      var cmp = d.slice(6)+d.slice(3,5)+d.slice(0,2);
+      if (!min || cmp < min.cmp) min = {cmp:cmp, dmy:d};
+    });
+    if (min) _firstSig[a.id] = window.DD_MM_YYYYtoISO(min.dmy);
   });
-  return min ? window.DD_MM_YYYYtoISO(min.dmy) : null;
 }
+function firstSignalISO(algoId){ return _firstSig[algoId] || null; }
 
 function toggleAlgo(id){
   var next = Object.assign({}, S.active); next[id] = !next[id];
@@ -597,7 +599,7 @@ function animateStatVal(el, finalText){
     requestAnimationFrame(function(){ el.style.opacity='1'; el.textContent=finalText; });
     return;
   }
-  var raw = num * (neg ? -1 : 1), dur = 440, t0 = performance.now();
+  var raw = num * (neg ? -1 : 1), dur = 800, t0 = performance.now();
   function frame(now){
     var p = Math.min(1,(now-t0)/dur), e = 1-Math.pow(1-p,3), cur = raw*e, abs = Math.abs(cur);
     var txt;
@@ -927,7 +929,7 @@ function poll(){
 function fetchResult(){
   fetch('/api/portfolio').then(function(r){ return r.json(); }).then(function(d){
     S.loading = false;
-    if (d && d.equity){ S.data = d; syncPickerToRange(d); renderAll(); }
+    if (d && d.equity){ S.data = d; cacheFirstSigs(); syncPickerToRange(d); renderAll(); }
     else if (d && d.status === 'running'){ poll(); }
     else setStatus('<span style="color:var(--down)">⚠ Tidak ada data.</span>');
   }).catch(function(){ S.loading=false; setStatus('<span style="color:var(--down)">⚠ Gagal memuat hasil.</span>'); });
@@ -940,9 +942,8 @@ function syncPickerToRange(d){
   if (parts.length !== 2) return;
   var f = window.DD_MM_YYYYtoISO(parts[0]);
   var t = window.DD_MM_YYYYtoISO(parts[1]);
-  sdp.setDefault(f, t);
   if (!pickerSynced){
-    // Start from the earliest trade signal among active algos, not the axis start
+    sdp.setDefault(f, t); // reset target fixed to full axis range from first full result
     var sigs = [];
     PF_ALGOS.forEach(function(a){ if(S.active[a.id]){ var s=firstSignalISO(a.id); if(s) sigs.push(s); } });
     var start = sigs.length ? sigs.sort()[0] : f;
@@ -955,7 +956,7 @@ function syncPickerToRange(d){
 /* ── Initial load: read cache or wait for auto-triggered run ──────────────── */
 fetch('/api/portfolio').then(function(r){ return r.json(); }).then(function(d){
   if (d && d.equity){
-    S.data=d; syncPickerToRange(d); renderAll();
+    S.data=d; cacheFirstSigs(); syncPickerToRange(d); renderAll();
     runSim(); // silent: filter to first-signal start date (instant cache hit, no spinner)
   }
   else if (d && d.status === 'running'){ S.loading=true; poll(); }
