@@ -276,7 +276,6 @@ var sdp = new window.StockbitDatePicker('pfDatePicker', {
     + '<div class="pfg-row"><span class="pfg-label">Modal BSJP</span><input class="pfg-input" id="pfgBsjpCap" type="text" inputmode="numeric"></div>'
     + '<div class="pfg-row"><span class="pfg-label">Per sinyal BSJP</span><input class="pfg-input" id="pfgBsjpAlloc" type="text" inputmode="numeric"></div>'
     + '<div class="pfg-row"><span class="pfg-label">Per sinyal Wyckoff</span><input class="pfg-input" id="pfgWyckoffAlloc" type="text" inputmode="numeric"></div>'
-    + '<div class="pfg-row"><span class="pfg-label">Basis return Wyckoff</span><input class="pfg-input" id="pfgWyckoffBasis" type="text" inputmode="numeric"></div>'
     + '<div class="pfg-section" style="margin-top:14px">Biaya Transaksi</div>'
     + '<div class="pfg-row"><span class="pfg-label"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none">'
     + '<input id="pfgFeesOn" type="checkbox" style="width:14px;height:14px;cursor:pointer"> Hitung biaya transaksi</label></span></div>'
@@ -299,7 +298,6 @@ var sdp = new window.StockbitDatePicker('pfDatePicker', {
     document.getElementById('pfgBsjpCap').value      = fmtBgt(p.bsjp_capital);
     document.getElementById('pfgBsjpAlloc').value    = fmtBgt(p.bsjp_alloc);
     document.getElementById('pfgWyckoffAlloc').value = fmtBgt(p.wyckoff_alloc);
-    document.getElementById('pfgWyckoffBasis').value = fmtBgt(p.wyckoff_basis);
     document.getElementById('pfgFeesOn').checked     = p.fees_enabled;
     document.getElementById('pfgFeeBuy').value       = p.fee_buy;
     document.getElementById('pfgFeeSell').value      = p.fee_sell;
@@ -331,7 +329,7 @@ var sdp = new window.StockbitDatePicker('pfDatePicker', {
     document.getElementById('pfgFeeRows').style.display = this.checked ? '' : 'none';
   });
 
-  ['pfgBsjpCap','pfgBsjpAlloc','pfgWyckoffAlloc','pfgWyckoffBasis'].forEach(function(id){
+  ['pfgBsjpCap','pfgBsjpAlloc','pfgWyckoffAlloc'].forEach(function(id){
     var el = document.getElementById(id);
     el.addEventListener('focus', function(){ var v=parseBgt(this.value); this.value = v>0 ? v : ''; });
     el.addEventListener('blur',  function(){ var v=parseBgt(this.value); if(v>0) this.value=fmtBgt(v); });
@@ -348,7 +346,7 @@ var sdp = new window.StockbitDatePicker('pfDatePicker', {
       bsjp_capital:  parseBgt(document.getElementById('pfgBsjpCap').value)      || PREFS_DEF.bsjp_capital,
       bsjp_alloc:    parseBgt(document.getElementById('pfgBsjpAlloc').value)    || PREFS_DEF.bsjp_alloc,
       wyckoff_alloc: parseBgt(document.getElementById('pfgWyckoffAlloc').value) || PREFS_DEF.wyckoff_alloc,
-      wyckoff_basis: parseBgt(document.getElementById('pfgWyckoffBasis').value) || PREFS_DEF.wyckoff_basis,
+      wyckoff_basis: S.prefs.wyckoff_basis || PREFS_DEF.wyckoff_basis,
       fees_enabled:  document.getElementById('pfgFeesOn').checked,
       fee_buy:  flt('pfgFeeBuy',  PREFS_DEF.fee_buy),
       fee_sell: flt('pfgFeeSell', PREFS_DEF.fee_sell),
@@ -591,15 +589,19 @@ function colorVar(c){ return c==='up'?'var(--up)':c==='down'?'var(--down)':'var(
 function animateStatVal(el, finalText){
   var neg = finalText.charAt(0)==='−' || finalText.charAt(0)==='-';
   var stripped = finalText.replace(/^[+\-−]\s*/,'').replace(/^Rp\s*/,'');
-  var num = parseFloat(stripped.replace(/\./g,'').replace(',','.'));
   var isPct = /%/.test(finalText), isTimes = /×/.test(finalText), isRp = /Rp/.test(finalText);
   var sign = finalText.charAt(0)==='+' ? '+' : (neg ? '−' : '');
+  // % and × values use a JS period as decimal; Rp and plain ints use id-ID dot as thousands separator
+  var rawStr = (isPct || isTimes)
+    ? stripped.replace(/[^0-9.]/g, '')
+    : stripped.replace(/\./g, '').replace(',', '.');
+  var num = parseFloat(rawStr);
   if (isNaN(num) || num === 0){
     el.style.cssText += ';opacity:0;transition:opacity .2s .04s';
     requestAnimationFrame(function(){ el.style.opacity='1'; el.textContent=finalText; });
     return;
   }
-  var raw = num * (neg ? -1 : 1), dur = 800, t0 = performance.now();
+  var raw = num * (neg ? -1 : 1), dur = 1000, t0 = performance.now();
   function frame(now){
     var p = Math.min(1,(now-t0)/dur), e = 1-Math.pow(1-p,3), cur = raw*e, abs = Math.abs(cur);
     var txt;
@@ -914,7 +916,7 @@ function runSim(){
         poll();
       }
     })
-    .catch(function(){ S.loading=false; setStatus('<span style="color:var(--down)">⚠ Gagal menjalankan simulasi.</span>'); });
+    .catch(function(){ S.loading=false; if(S.data) renderAll(); setStatus('<span style="color:var(--down)">⚠ Gagal menjalankan simulasi.</span>'); });
 }
 
 function poll(){
@@ -956,8 +958,8 @@ function syncPickerToRange(d){
 /* ── Initial load: read cache or wait for auto-triggered run ──────────────── */
 fetch('/api/portfolio').then(function(r){ return r.json(); }).then(function(d){
   if (d && d.equity){
-    S.data=d; cacheFirstSigs(); syncPickerToRange(d); renderAll();
-    runSim(); // silent: filter to first-signal start date (instant cache hit, no spinner)
+    S.data=d; cacheFirstSigs(); syncPickerToRange(d);
+    runSim(); // filter to first-signal start; renderAll in callback — no full-range flicker
   }
   else if (d && d.status === 'running'){ S.loading=true; poll(); }
   else setStatus('<span style="color:var(--down)">⚠ Tidak ada data eod_summary.</span>');
