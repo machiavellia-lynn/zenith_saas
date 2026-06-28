@@ -273,10 +273,10 @@ var sdp = new window.StockbitDatePicker('pfDatePicker', {
     + '<circle cx="7" cy="7" r="2"/><path d="M7 1v1M7 12v1M1 7h1M12 7h1M2.9 2.9l.7.7M10.4 10.4l.7.7M11.1 2.9l-.7.7M3.6 10.4l-.7.7"/>'
     + '</svg>Pengaturan Simulasi</div>'
     + '<div class="pfg-section">Modal &amp; Alokasi</div>'
-    + '<div class="pfg-row"><span class="pfg-label">Modal BSJP</span><input class="pfg-input" id="pfgBsjpCap" type="number"></div>'
-    + '<div class="pfg-row"><span class="pfg-label">Per sinyal BSJP</span><input class="pfg-input" id="pfgBsjpAlloc" type="number"></div>'
-    + '<div class="pfg-row"><span class="pfg-label">Per sinyal Wyckoff</span><input class="pfg-input" id="pfgWyckoffAlloc" type="number"></div>'
-    + '<div class="pfg-row"><span class="pfg-label">Basis return Wyckoff</span><input class="pfg-input" id="pfgWyckoffBasis" type="number"></div>'
+    + '<div class="pfg-row"><span class="pfg-label">Modal BSJP</span><input class="pfg-input" id="pfgBsjpCap" type="text" inputmode="numeric"></div>'
+    + '<div class="pfg-row"><span class="pfg-label">Per sinyal BSJP</span><input class="pfg-input" id="pfgBsjpAlloc" type="text" inputmode="numeric"></div>'
+    + '<div class="pfg-row"><span class="pfg-label">Per sinyal Wyckoff</span><input class="pfg-input" id="pfgWyckoffAlloc" type="text" inputmode="numeric"></div>'
+    + '<div class="pfg-row"><span class="pfg-label">Basis return Wyckoff</span><input class="pfg-input" id="pfgWyckoffBasis" type="text" inputmode="numeric"></div>'
     + '<div class="pfg-section" style="margin-top:14px">Biaya Transaksi</div>'
     + '<div class="pfg-row"><span class="pfg-label"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none">'
     + '<input id="pfgFeesOn" type="checkbox" style="width:14px;height:14px;cursor:pointer"> Hitung biaya transaksi</label></span></div>'
@@ -291,12 +291,15 @@ var sdp = new window.StockbitDatePicker('pfDatePicker', {
     + '</div>';
   document.body.appendChild(panel);
 
+  function fmtBgt(v){ return Math.round(v).toLocaleString('id-ID'); }
+  function parseBgt(s){ return parseInt((s+'').replace(/\./g,''), 10); }
+
   function populate(){
     var p = S.prefs;
-    document.getElementById('pfgBsjpCap').value      = p.bsjp_capital;
-    document.getElementById('pfgBsjpAlloc').value    = p.bsjp_alloc;
-    document.getElementById('pfgWyckoffAlloc').value = p.wyckoff_alloc;
-    document.getElementById('pfgWyckoffBasis').value = p.wyckoff_basis;
+    document.getElementById('pfgBsjpCap').value      = fmtBgt(p.bsjp_capital);
+    document.getElementById('pfgBsjpAlloc').value    = fmtBgt(p.bsjp_alloc);
+    document.getElementById('pfgWyckoffAlloc').value = fmtBgt(p.wyckoff_alloc);
+    document.getElementById('pfgWyckoffBasis').value = fmtBgt(p.wyckoff_basis);
     document.getElementById('pfgFeesOn').checked     = p.fees_enabled;
     document.getElementById('pfgFeeBuy').value       = p.fee_buy;
     document.getElementById('pfgFeeSell').value      = p.fee_sell;
@@ -328,22 +331,28 @@ var sdp = new window.StockbitDatePicker('pfDatePicker', {
     document.getElementById('pfgFeeRows').style.display = this.checked ? '' : 'none';
   });
 
+  ['pfgBsjpCap','pfgBsjpAlloc','pfgWyckoffAlloc','pfgWyckoffBasis'].forEach(function(id){
+    var el = document.getElementById(id);
+    el.addEventListener('focus', function(){ var v=parseBgt(this.value); this.value = v>0 ? v : ''; });
+    el.addEventListener('blur',  function(){ var v=parseBgt(this.value); if(v>0) this.value=fmtBgt(v); });
+  });
+
   document.getElementById('pfgResetBtn').addEventListener('click', function(){
     S.prefs = Object.assign({}, PREFS_DEF);
     populate();
   });
 
   document.getElementById('pfgSaveBtn').addEventListener('click', function(){
-    var num = function(id, def){ return parseFloat(document.getElementById(id).value) || def; };
+    var flt = function(id, def){ return parseFloat(document.getElementById(id).value) || def; };
     S.prefs = {
-      bsjp_capital:  Math.round(num('pfgBsjpCap',      PREFS_DEF.bsjp_capital)),
-      bsjp_alloc:    Math.round(num('pfgBsjpAlloc',    PREFS_DEF.bsjp_alloc)),
-      wyckoff_alloc: Math.round(num('pfgWyckoffAlloc', PREFS_DEF.wyckoff_alloc)),
-      wyckoff_basis: Math.round(num('pfgWyckoffBasis', PREFS_DEF.wyckoff_basis)),
+      bsjp_capital:  parseBgt(document.getElementById('pfgBsjpCap').value)      || PREFS_DEF.bsjp_capital,
+      bsjp_alloc:    parseBgt(document.getElementById('pfgBsjpAlloc').value)    || PREFS_DEF.bsjp_alloc,
+      wyckoff_alloc: parseBgt(document.getElementById('pfgWyckoffAlloc').value) || PREFS_DEF.wyckoff_alloc,
+      wyckoff_basis: parseBgt(document.getElementById('pfgWyckoffBasis').value) || PREFS_DEF.wyckoff_basis,
       fees_enabled:  document.getElementById('pfgFeesOn').checked,
-      fee_buy:  num('pfgFeeBuy',  PREFS_DEF.fee_buy),
-      fee_sell: num('pfgFeeSell', PREFS_DEF.fee_sell),
-      fee_pph:  num('pfgFeePph',  PREFS_DEF.fee_pph),
+      fee_buy:  flt('pfgFeeBuy',  PREFS_DEF.fee_buy),
+      fee_sell: flt('pfgFeeSell', PREFS_DEF.fee_sell),
+      fee_pph:  flt('pfgFeePph',  PREFS_DEF.fee_pph),
     };
     localStorage.setItem(PREFS_KEY, JSON.stringify(S.prefs));
     panel.style.display='none'; open=false;
@@ -498,11 +507,34 @@ function renderChips(){
     c.addEventListener('click', function(){ toggleAlgo(c.dataset.algo); });
   });
 }
+function firstSignalISO(algoId){
+  if (!S.data) return null;
+  var ad = S.data[algoId];
+  if (!ad || !ad.trades || !ad.trades.length) return null;
+  var key = algoId === 'bsjp' ? 'date' : 'entry_date';
+  var min = null;
+  ad.trades.forEach(function(t){
+    var d = t[key]; if (!d || d.length !== 10) return;
+    var cmp = d.slice(6)+d.slice(3,5)+d.slice(0,2);
+    if (!min || cmp < min.cmp) min = {cmp:cmp, dmy:d};
+  });
+  return min ? window.DD_MM_YYYYtoISO(min.dmy) : null;
+}
+
 function toggleAlgo(id){
   var next = Object.assign({}, S.active); next[id] = !next[id];
-  if (!next.wyckoff && !next.bsjp) return;   // minimal 1 aktif
+  if (!next.wyckoff && !next.bsjp) return;
   S.active = next;
-  renderChips(); renderChart(); renderStats();
+  renderChips();
+  if (S.data){
+    var sigs = [];
+    PF_ALGOS.forEach(function(a){ if(next[a.id]){ var s=firstSignalISO(a.id); if(s) sigs.push(s); } });
+    if (sigs.length){
+      var earliest = sigs.sort()[0];
+      if (earliest !== S.dateFrom){ S.dateFrom=earliest; sdp.setDates(earliest, S.dateTo); runSim(); return; }
+    }
+  }
+  renderChart(); renderStats();
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -550,15 +582,34 @@ function statRows(algoId, st, trades){
     { label:'Profit Factor',   val:(st.profit_factor!=null?st.profit_factor+'×':'—'), c: (st.profit_factor!=null&&st.profit_factor>=1)?'up':'down' },
     { label:'Total Transaksi', val:(st.total_txn_value!=null?fmtRp(st.total_txn_value):'—'), c:'ink' },
   ];
-  if (algoId === 'wyckoff' && S.prefs.fees_enabled && trades) {
-    var fees = calcFees(trades);
-    var netRet = +((st.total_return_pct||0) - (fees / S.prefs.wyckoff_basis * 100)).toFixed(2);
-    rows.push({ label:'Est. Biaya',    val:'−'+fmtRp(fees), c:'down' });
-    rows.push({ label:'Return Bersih', val:fmtPctS(netRet), c: netRet>=0?'up':'down' });
-  }
   return rows;
 }
 function colorVar(c){ return c==='up'?'var(--up)':c==='down'?'var(--down)':'var(--ink)'; }
+
+function animateStatVal(el, finalText){
+  var neg = finalText.charAt(0)==='−' || finalText.charAt(0)==='-';
+  var stripped = finalText.replace(/^[+\-−]\s*/,'').replace(/^Rp\s*/,'');
+  var num = parseFloat(stripped.replace(/\./g,'').replace(',','.'));
+  var isPct = /%/.test(finalText), isTimes = /×/.test(finalText), isRp = /Rp/.test(finalText);
+  var sign = finalText.charAt(0)==='+' ? '+' : (neg ? '−' : '');
+  if (isNaN(num) || num === 0){
+    el.style.cssText += ';opacity:0;transition:opacity .2s .04s';
+    requestAnimationFrame(function(){ el.style.opacity='1'; el.textContent=finalText; });
+    return;
+  }
+  var raw = num * (neg ? -1 : 1), dur = 440, t0 = performance.now();
+  function frame(now){
+    var p = Math.min(1,(now-t0)/dur), e = 1-Math.pow(1-p,3), cur = raw*e, abs = Math.abs(cur);
+    var txt;
+    if (isRp)       txt = (neg?'−':'')+'Rp '+Math.round(abs).toLocaleString('id-ID');
+    else if (isPct) txt = sign+abs.toFixed(2)+'%';
+    else if (isTimes) txt = abs.toFixed(2)+'×';
+    else txt = Math.round(abs).toLocaleString('id-ID');
+    el.textContent = txt;
+    if (p < 1) requestAnimationFrame(frame); else el.textContent = finalText;
+  }
+  requestAnimationFrame(frame);
+}
 
 function renderStats(){
   var wrap = document.getElementById('pfStats');
@@ -583,7 +634,7 @@ function renderStats(){
     var rowData = isOpen ? openStatRows(trades) : statRows(a.id, st, trades);
     var rows = rowData.map(function(r){
       return '<div class="pf-stats-row"><span class="pf-stats-label">'+r.label+'</span>'
-        + '<span class="pf-stats-val" style="color:'+colorVar(r.c)+'">'+r.val+'</span></div>';
+        + '<span class="pf-stats-val" data-val="'+r.val.replace(/"/g,'&quot;')+'" style="color:'+colorVar(r.c)+'">'+r.val+'</span></div>';
     }).join('');
 
     var foot = '';
@@ -591,15 +642,15 @@ function renderStats(){
       foot = st.initial_equity != null
         ? '<div class="pf-stats-foot">'
           + '<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11.5px;color:var(--muted)">Equity awal</span>'
-          +   '<span style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim)">'+fmtRp(st.initial_equity)+'</span></div>'
+          +   '<span data-val="'+fmtRp(st.initial_equity)+'" style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim)">'+fmtRp(st.initial_equity)+'</span></div>'
           + '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11.5px;color:var(--text);font-weight:500">Equity akhir</span>'
-          +   '<span style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:'+(st.final_equity>=st.initial_equity?'var(--up)':'var(--down)')+'">'+fmtRp(st.final_equity)+'</span></div>'
+          +   '<span data-val="'+fmtRp(st.final_equity)+'" style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:'+(st.final_equity>=st.initial_equity?'var(--up)':'var(--down)')+'">'+fmtRp(st.final_equity)+'</span></div>'
           + '</div>'
         : '<div class="pf-stats-foot">'
           + '<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11.5px;color:var(--muted)">Basis</span>'
           +   '<span style="font-family:var(--font-mono);font-size:11px;color:var(--muted)">Kumulatif P&L dari 0</span></div>'
           + '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11.5px;color:var(--text);font-weight:500">Total P&L Rp</span>'
-          +   '<span style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:'+(st.final_equity>=0?'var(--up)':'var(--down)')+'">'+fmtRp(st.final_equity)+'</span></div>'
+          +   '<span data-val="'+fmtRp(st.final_equity)+'" style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:'+(st.final_equity>=0?'var(--up)':'var(--down)')+'">'+fmtRp(st.final_equity)+'</span></div>'
           + '</div>';
     }
 
@@ -620,6 +671,7 @@ function renderStats(){
       renderStats();
     });
   });
+  wrap.querySelectorAll('[data-val]').forEach(function(el){ animateStatVal(el, el.dataset.val); });
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -842,7 +894,7 @@ var pollTimer = null;
 function runSim(){
   if (S.loading) return;
   S.loading = true;
-  setStatus('<span class="pf-spinner"></span> &nbsp;Menghitung simulasi portfolio…');
+  if (!S.data) setStatus('<span class="pf-spinner"></span> &nbsp;Menghitung simulasi portfolio…');
   var from = window.isoToDD_MM_YYYY(S.dateFrom), to = window.isoToDD_MM_YYYY(S.dateTo);
   var p = S.prefs;
   var url = '/api/portfolio?run=1&date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to)
@@ -888,19 +940,24 @@ function syncPickerToRange(d){
   if (parts.length !== 2) return;
   var f = window.DD_MM_YYYYtoISO(parts[0]);
   var t = window.DD_MM_YYYYtoISO(parts[1]);
-  // Always update the Reset target so user can get back to full range
   sdp.setDefault(f, t);
-  // Only update visible dates on first load (don't clobber user's custom range)
   if (!pickerSynced){
-    S.dateFrom = f; S.dateTo = t;
-    sdp.setDates(f, t);
+    // Start from the earliest trade signal among active algos, not the axis start
+    var sigs = [];
+    PF_ALGOS.forEach(function(a){ if(S.active[a.id]){ var s=firstSignalISO(a.id); if(s) sigs.push(s); } });
+    var start = sigs.length ? sigs.sort()[0] : f;
+    S.dateFrom = start; S.dateTo = t;
+    sdp.setDates(start, t);
     pickerSynced = true;
   }
 }
 
 /* ── Initial load: read cache or wait for auto-triggered run ──────────────── */
 fetch('/api/portfolio').then(function(r){ return r.json(); }).then(function(d){
-  if (d && d.equity){ S.data=d; syncPickerToRange(d); renderAll(); }
+  if (d && d.equity){
+    S.data=d; syncPickerToRange(d); renderAll();
+    runSim(); // silent: filter to first-signal start date (instant cache hit, no spinner)
+  }
   else if (d && d.status === 'running'){ S.loading=true; poll(); }
   else setStatus('<span style="color:var(--down)">⚠ Tidak ada data eod_summary.</span>');
 }).catch(function(){ setStatus('<span style="color:var(--down)">⚠ Gagal memuat.</span>'); });
