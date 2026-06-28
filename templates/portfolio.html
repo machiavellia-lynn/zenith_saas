@@ -72,6 +72,24 @@ html, body { height: 100%; }
   0%   { r: 5px; stroke-opacity: 0.6; }
   100% { r: 20px; stroke-opacity: 0; }
 }
+
+/* Gear / settings panel */
+.pf-gear-panel {
+  position: fixed; z-index: 9001;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,.15);
+  padding: 18px 20px; min-width: 290px;
+}
+.pfg-section { font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted);margin:12px 0 8px; }
+.pfg-row { display:flex;align-items:center;gap:8px;margin-bottom:7px; }
+.pfg-label { font-size:12px;color:var(--text-dim);flex:1; }
+.pfg-input { font-family:var(--font-mono);font-size:12px;color:var(--ink);
+  background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+  padding:4px 8px;width:110px;text-align:right;-moz-appearance:textfield; }
+.pfg-input:focus { outline:none;border-color:var(--accent); }
+.pfg-input::-webkit-inner-spin-button,.pfg-input::-webkit-outer-spin-button { -webkit-appearance:none; }
+.pfg-suffix { font-size:11px;color:var(--muted);width:18px;flex-shrink:0; }
 </style>
 </head>
 <body class="sidebar-layout">
@@ -86,6 +104,15 @@ html, body { height: 100%; }
     <div class="page-header-actions">
       <span style="font-size:11.5px;color:var(--muted)">Periode</span>
       <div id="pfDatePicker"></div>
+      <button id="pfGearBtn" type="button" title="Pengaturan simulasi"
+              style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);
+                     background:var(--surface);color:var(--muted);cursor:pointer;
+                     display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+          <circle cx="7" cy="7" r="2"/>
+          <path d="M7 1v1M7 12v1M1 7h1M12 7h1M2.9 2.9l.7.7M10.4 10.4l.7.7M11.1 2.9l-.7.7M3.6 10.4l-.7.7"/>
+        </svg>
+      </button>
     </div>
   </div>
 
@@ -137,8 +164,8 @@ html, body { height: 100%; }
 
 /* ── Algo + setup definitions ────────────────────────────────────────────── */
 var PF_ALGOS = [
-  { id:'wyckoff', label:'Wyckoff', color:'#4a8fdb', alloc:'5 juta'  },
-  { id:'bsjp',    label:'BSJP',    color:'#e8923a', alloc:'10 juta' },
+  { id:'wyckoff', label:'Wyckoff', color:'#4a8fdb' },
+  { id:'bsjp',    label:'BSJP',    color:'#e8923a' },
 ];
 // Real algo setup names → simplified display names (kita sederhanakan)
 var SETUP_NAMES = {
@@ -168,7 +195,18 @@ var S = {
   wyPage: 1, bsPage: 1,   // how many PAGE_SIZE chunks to show
   dateFrom: '', dateTo: '',
   loading: false,
+  prefs: null,
 };
+
+/* ── Preferences ──────────────────────────────────────────────────────────── */
+var PREFS_KEY = 'zenith_pf_prefs';
+var PREFS_DEF = {
+  bsjp_capital: 150000000, bsjp_alloc: 15000000,
+  wyckoff_alloc: 5000000,  wyckoff_basis: 50000000,
+  fees_enabled: true,
+  fee_buy: 0.15, fee_sell: 0.25, fee_pph: 0.10,
+};
+S.prefs = Object.assign({}, PREFS_DEF, JSON.parse(localStorage.getItem(PREFS_KEY) || 'null') || {});
 
 /* ── Formatters ──────────────────────────────────────────────────────────── */
 function fmtRp(v){ return v==null ? '—' : 'Rp ' + Math.round(v).toLocaleString('id-ID'); }
@@ -216,6 +254,95 @@ var sdp = new window.StockbitDatePicker('pfDatePicker', {
     runSimDebounced();
   }
 });
+
+/* ── Gear / Settings Panel ───────────────────────────────────────────────── */
+(function(){
+  var panel = document.createElement('div');
+  panel.className = 'pf-gear-panel';
+  panel.style.display = 'none';
+  panel.innerHTML =
+    '<div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:2px;display:flex;align-items:center;gap:6px">'
+    + '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">'
+    + '<circle cx="7" cy="7" r="2"/><path d="M7 1v1M7 12v1M1 7h1M12 7h1M2.9 2.9l.7.7M10.4 10.4l.7.7M11.1 2.9l-.7.7M3.6 10.4l-.7.7"/>'
+    + '</svg>Pengaturan Simulasi</div>'
+    + '<div class="pfg-section">Modal &amp; Alokasi</div>'
+    + '<div class="pfg-row"><span class="pfg-label">Modal BSJP</span><input class="pfg-input" id="pfgBsjpCap" type="number"></div>'
+    + '<div class="pfg-row"><span class="pfg-label">Per sinyal BSJP</span><input class="pfg-input" id="pfgBsjpAlloc" type="number"></div>'
+    + '<div class="pfg-row"><span class="pfg-label">Per sinyal Wyckoff</span><input class="pfg-input" id="pfgWyckoffAlloc" type="number"></div>'
+    + '<div class="pfg-row"><span class="pfg-label">Basis return Wyckoff</span><input class="pfg-input" id="pfgWyckoffBasis" type="number"></div>'
+    + '<div class="pfg-section" style="margin-top:14px">Biaya Transaksi</div>'
+    + '<div class="pfg-row"><span class="pfg-label"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none">'
+    + '<input id="pfgFeesOn" type="checkbox" style="width:14px;height:14px;cursor:pointer"> Hitung biaya transaksi</label></span></div>'
+    + '<div id="pfgFeeRows">'
+    + '<div class="pfg-row"><span class="pfg-label">Fee Beli</span><input class="pfg-input" id="pfgFeeBuy" type="number" step="0.01" min="0"><span class="pfg-suffix">%</span></div>'
+    + '<div class="pfg-row"><span class="pfg-label">Fee Jual</span><input class="pfg-input" id="pfgFeeSell" type="number" step="0.01" min="0"><span class="pfg-suffix">%</span></div>'
+    + '<div class="pfg-row"><span class="pfg-label">PPh Final</span><input class="pfg-input" id="pfgFeePph" type="number" step="0.01" min="0"><span class="pfg-suffix">%</span></div>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">'
+    + '<button type="button" id="pfgResetBtn" style="flex:1;padding:7px 0;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text-dim);font-size:12px;cursor:pointer">Reset</button>'
+    + '<button type="button" id="pfgSaveBtn" style="flex:2;padding:7px 0;border:none;border-radius:8px;background:var(--ink);color:var(--bg);font-size:12px;font-weight:600;cursor:pointer">Simpan &amp; Hitung Ulang</button>'
+    + '</div>';
+  document.body.appendChild(panel);
+
+  function populate(){
+    var p = S.prefs;
+    document.getElementById('pfgBsjpCap').value      = p.bsjp_capital;
+    document.getElementById('pfgBsjpAlloc').value    = p.bsjp_alloc;
+    document.getElementById('pfgWyckoffAlloc').value = p.wyckoff_alloc;
+    document.getElementById('pfgWyckoffBasis').value = p.wyckoff_basis;
+    document.getElementById('pfgFeesOn').checked     = p.fees_enabled;
+    document.getElementById('pfgFeeBuy').value       = p.fee_buy;
+    document.getElementById('pfgFeeSell').value      = p.fee_sell;
+    document.getElementById('pfgFeePph').value       = p.fee_pph;
+    document.getElementById('pfgFeeRows').style.display = p.fees_enabled ? '' : 'none';
+  }
+
+  var open = false;
+  var btn = document.getElementById('pfGearBtn');
+  btn.addEventListener('click', function(e){
+    e.stopPropagation();
+    if (open){ panel.style.display='none'; open=false; return; }
+    populate();
+    var r = btn.getBoundingClientRect(), pw = 290;
+    var left = Math.min(r.right - pw, window.innerWidth - pw - 8);
+    if (left < 8) left = 8;
+    panel.style.left = left + 'px';
+    panel.style.top  = (r.bottom + 6) + 'px';
+    panel.style.display = ''; open = true;
+  });
+
+  document.addEventListener('mousedown', function(e){
+    if (open && !panel.contains(e.target) && !btn.contains(e.target)){
+      panel.style.display='none'; open=false;
+    }
+  });
+
+  document.getElementById('pfgFeesOn').addEventListener('change', function(){
+    document.getElementById('pfgFeeRows').style.display = this.checked ? '' : 'none';
+  });
+
+  document.getElementById('pfgResetBtn').addEventListener('click', function(){
+    S.prefs = Object.assign({}, PREFS_DEF);
+    populate();
+  });
+
+  document.getElementById('pfgSaveBtn').addEventListener('click', function(){
+    var num = function(id, def){ return parseFloat(document.getElementById(id).value) || def; };
+    S.prefs = {
+      bsjp_capital:  Math.round(num('pfgBsjpCap',      PREFS_DEF.bsjp_capital)),
+      bsjp_alloc:    Math.round(num('pfgBsjpAlloc',    PREFS_DEF.bsjp_alloc)),
+      wyckoff_alloc: Math.round(num('pfgWyckoffAlloc', PREFS_DEF.wyckoff_alloc)),
+      wyckoff_basis: Math.round(num('pfgWyckoffBasis', PREFS_DEF.wyckoff_basis)),
+      fees_enabled:  document.getElementById('pfgFeesOn').checked,
+      fee_buy:  num('pfgFeeBuy',  PREFS_DEF.fee_buy),
+      fee_sell: num('pfgFeeSell', PREFS_DEF.fee_sell),
+      fee_pph:  num('pfgFeePph',  PREFS_DEF.fee_pph),
+    };
+    localStorage.setItem(PREFS_KEY, JSON.stringify(S.prefs));
+    panel.style.display='none'; open=false;
+    runSim();
+  });
+})();
 
 /* ════════════════════════════════════════════════════════════════════════
    EQUITY CHART — pure SVG, no external deps
@@ -374,9 +501,24 @@ function toggleAlgo(id){
 /* ════════════════════════════════════════════════════════════════════════
    STATS PANEL
    ════════════════════════════════════════════════════════════════════════ */
-function statRows(algoId, st){
+function calcFees(trades){
+  if (!S.prefs.fees_enabled || !trades || !trades.length) return 0;
+  var p = S.prefs, total = 0;
+  trades.forEach(function(t){
+    if (t.status === 'OPEN') return;
+    var bv = (t.lots||0) * 100 * (t.entry_price||0);
+    var sv = (t.lots||0) * 100 * (t.exit_price||0);
+    total += bv * (p.fee_buy / 100);
+    total += sv * ((p.fee_sell + p.fee_pph) / 100);
+    if (bv > 10000000) total += 10000;
+    if (sv > 10000000) total += 10000;
+  });
+  return Math.round(total);
+}
+
+function statRows(algoId, st, trades){
   var holdVal = algoId === 'bsjp' ? 'T+1' : (st.avg_hold!=null ? st.avg_hold + ' hari' : '—');
-  return [
+  var rows = [
     { label:'Total Return',    val:fmtPctS(st.total_return_pct), c: st.total_return_pct>=0?'up':'down' },
     { label:'Win Rate',        val:(st.win_rate!=null?st.win_rate+'%':'—'), c: (st.win_rate!=null&&st.win_rate>=50)?'up':'down' },
     { label:'Max Drawdown',    val:st.max_drawdown_rp!=null?fmtRp(st.max_drawdown_rp):fmtPctS(st.max_drawdown_pct), c:'down' },
@@ -385,6 +527,14 @@ function statRows(algoId, st){
     { label:'Profit Factor',   val:(st.profit_factor!=null?st.profit_factor+'×':'—'), c: (st.profit_factor!=null&&st.profit_factor>=1)?'up':'down' },
     { label:'Total Transaksi', val:(st.total_txn_value!=null?fmtRp(st.total_txn_value):'—'), c:'ink' },
   ];
+  if (S.prefs.fees_enabled && trades) {
+    var fees = calcFees(trades);
+    var basis = algoId === 'bsjp' ? S.prefs.bsjp_capital : S.prefs.wyckoff_basis;
+    var netRet = +((st.total_return_pct||0) - (fees / basis * 100)).toFixed(2);
+    rows.push({ label:'Est. Biaya',    val:'−'+fmtRp(fees), c:'down' });
+    rows.push({ label:'Return Bersih', val:fmtPctS(netRet), c: netRet>=0?'up':'down' });
+  }
+  return rows;
 }
 function colorVar(c){ return c==='up'?'var(--up)':c==='down'?'var(--down)':'var(--ink)'; }
 
@@ -395,14 +545,17 @@ function renderStats(){
   wrap.style.display = '';
   wrap.innerHTML = cols.map(function(a){
     var st = S.data[a.id].stats;
-    var rows = statRows(a.id, st).map(function(r){
+    var trades = S.data[a.id].trades;
+    var allocM = a.id === 'bsjp' ? S.prefs.bsjp_alloc : S.prefs.wyckoff_alloc;
+    var allocFmt = allocM >= 1e6 ? (allocM/1e6).toFixed(0)+'jt' : allocM.toLocaleString('id-ID');
+    var rows = statRows(a.id, st, trades).map(function(r){
       return '<div class="pf-stats-row"><span class="pf-stats-label">'+r.label+'</span>'
         + '<span class="pf-stats-val" style="color:'+colorVar(r.c)+'">'+r.val+'</span></div>';
     }).join('');
     return '<div class="pf-stats-col">'
       + '<div class="pf-stats-head"><span style="width:10px;height:10px;border-radius:99px;background:'+a.color+'"></span>'
       + '<span style="font-size:14px;font-weight:600;color:var(--ink)">'+a.label+'</span>'
-      + '<span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-left:2px">· '+a.alloc+'/signal</span></div>'
+      + '<span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-left:2px">· '+allocFmt+'/signal</span></div>'
       + '<div class="pf-stats-rows">'+rows+'</div>'
       + (st.initial_equity != null
           ? '<div class="pf-stats-foot">'
@@ -630,7 +783,11 @@ function runSim(){
   S.loading = true;
   setStatus('<span class="pf-spinner"></span> &nbsp;Menghitung simulasi portfolio…');
   var from = window.isoToDD_MM_YYYY(S.dateFrom), to = window.isoToDD_MM_YYYY(S.dateTo);
-  fetch('/api/portfolio?run=1&date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to))
+  var p = S.prefs;
+  var url = '/api/portfolio?run=1&date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to)
+    + '&bsjp_capital='+p.bsjp_capital+'&bsjp_alloc='+p.bsjp_alloc
+    + '&wyckoff_alloc='+p.wyckoff_alloc+'&wyckoff_basis='+p.wyckoff_basis;
+  fetch(url)
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (d && d.equity) {

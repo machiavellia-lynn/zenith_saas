@@ -98,10 +98,11 @@ def _max_drawdown_rp(series: list) -> int:
 
 
 # ── Wyckoff simulation (multi-entry swing, MTM equity) ────────────────────────
-def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list):
-    """Walk eod_summary day-by-day, deploying PF_WYCKOFF_ALLOC per BUY signal.
-    Equity is snapshotted on every date in `axis_dates` so the curve aligns 1:1
-    with the BSJP curve. Returns (equity_values, trades, stats)."""
+def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list,
+                       wyckoff_alloc: int = None, wyckoff_basis: int = None):
+    """Walk eod_summary day-by-day, deploying PF_WYCKOFF_ALLOC per BUY signal."""
+    alloc = wyckoff_alloc or PF_WYCKOFF_ALLOC
+    basis = wyckoff_basis or PF_INITIAL_EQUITY
     all_rows = fetchall(conn, """
         SELECT ticker, date, price_close, phase, atr_pct,
                sri, sm_val, bm_val, bm_sma10, price_change_pct, watch
@@ -195,7 +196,7 @@ def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list):
                     continue
                 atr_pct = row.get("atr_pct") or 2.5
                 sl      = -min(max(atr_pct * 2.0, 5.0), 12.0)
-                lots    = _lots(PF_WYCKOFF_ALLOC, price)
+                lots    = _lots(alloc, price)
                 if lots <= 0:
                     continue
                 open_pos[ticker].append({
@@ -251,7 +252,8 @@ def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list):
             })
 
     closed = [t for t in trades if t["status"] != "OPEN"]
-    stats  = _build_stats(eq_values, closed, avg_hold_days=True, is_pnl_curve=True)
+    stats  = _build_stats(eq_values, closed, avg_hold_days=True, is_pnl_curve=True,
+                          equity_basis=basis)
     stats["open_count"]      = sum(1 for t in trades if t["status"] == "OPEN")
     stats["closed_count"]    = len(closed)
     stats["total_trades"]    = len(trades)
@@ -260,10 +262,11 @@ def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list):
 
 
 # ── BSJP simulation (overnight, every trade resolves T+1) ─────────────────────
-def _simulate_bsjp(conn, date_from: str, date_to: str, axis_dates: list):
-    """Reuse the BSJP backtest engine, size each trade at PF_BSJP_ALLOC, and
-    build a step-wise equity curve aligned to `axis_dates` (DD-MM-YYYY).
-    Returns (equity_values, trades, stats)."""
+def _simulate_bsjp(conn, date_from: str, date_to: str, axis_dates: list,
+                    bsjp_alloc: int = None, bsjp_initial: int = None):
+    """Reuse the BSJP backtest engine, size each trade at PF_BSJP_ALLOC."""
+    alloc   = bsjp_alloc   or PF_BSJP_ALLOC
+    initial = bsjp_initial or PF_BSJP_INITIAL_EQUITY
     from algo.algo_backtest import run_bsjp_backtest
 
     bt = run_bsjp_backtest(conn, date_from=date_from, date_to=date_to)
@@ -282,7 +285,7 @@ def _simulate_bsjp(conn, date_from: str, date_to: str, axis_dates: list):
         exitp = t.get("exit_price")
         if not entry or entry <= 0 or exitp is None:
             continue
-        lots  = _lots(PF_BSJP_ALLOC, entry)
+        lots  = _lots(alloc, entry)
         txn_v = lots * PF_LOT_SIZE * entry
         pnl   = lots * PF_LOT_SIZE * (exitp - entry)
         realized_by_date[t.get("exit_date")] += pnl
@@ -308,7 +311,7 @@ def _simulate_bsjp(conn, date_from: str, date_to: str, axis_dates: list):
         t["status"] = "WIN" if (g is not None and g > 0) else "LOSS"
 
     stats = _build_stats(eq_values, trades, avg_hold_days=False, is_pnl_curve=True,
-                         equity_basis=PF_BSJP_INITIAL_EQUITY)
+                         equity_basis=initial)
     stats["open_count"]      = 0
     stats["closed_count"]    = len(trades)
     stats["total_trades"]    = len(trades)
@@ -365,16 +368,22 @@ def _build_stats(eq_values: list, closed_trades: list, avg_hold_days: bool,
 
 
 # ── Public: run / async wrappers ──────────────────────────────────────────────
-def simulate_portfolio(conn, date_from: str = None, date_to: str = None) -> dict:
+def simulate_portfolio(conn, date_from: str = None, date_to: str = None,
+                        user_params: dict = None) -> dict:
     """Full portfolio simulation across both algos over a shared date axis."""
     global _pf_result
 
+    up = user_params or {}
     # One canonical trading-day axis drives both curves so they line up 1:1.
     axis_dates = _axis_dates(conn, date_from, date_to)
     labels     = [_label(d) for d in axis_dates]
 
-    wy_eq, wy_trades, wy_stats = _simulate_wyckoff(conn, date_from, date_to, axis_dates)
-    bs_eq, bs_trades, bs_stats = _simulate_bsjp(conn, date_from, date_to, axis_dates)
+    wy_eq, wy_trades, wy_stats = _simulate_wyckoff(
+        conn, date_from, date_to, axis_dates,
+        wyckoff_alloc=up.get("wyckoff_alloc"), wyckoff_basis=up.get("wyckoff_basis"))
+    bs_eq, bs_trades, bs_stats = _simulate_bsjp(
+        conn, date_from, date_to, axis_dates,
+        bsjp_alloc=up.get("bsjp_alloc"), bsjp_initial=up.get("bsjp_capital"))
 
     result = {
         "equity": {
@@ -387,6 +396,12 @@ def simulate_portfolio(conn, date_from: str = None, date_to: str = None) -> dict
         "axis_dates":  axis_dates,
         "date_range":  f"{axis_dates[0]} - {axis_dates[-1]}" if axis_dates else "-",
         "computed_at": datetime.now(WIB).strftime("%d-%m-%Y %H:%M"),
+        "user_params": {
+            "bsjp_capital":  up.get("bsjp_capital")  or PF_BSJP_INITIAL_EQUITY,
+            "bsjp_alloc":    up.get("bsjp_alloc")    or PF_BSJP_ALLOC,
+            "wyckoff_alloc": up.get("wyckoff_alloc") or PF_WYCKOFF_ALLOC,
+            "wyckoff_basis": up.get("wyckoff_basis") or PF_INITIAL_EQUITY,
+        },
     }
 
     with _pf_lock:
@@ -451,6 +466,7 @@ def filter_result(full: dict, date_from: str, date_to: str) -> dict:
         "axis_dates":  sub_dates,
         "date_range":  f"{sub_dates[0]} - {sub_dates[-1]}",
         "computed_at": full["computed_at"],
+        "user_params": full.get("user_params"),
     }
 
 
@@ -471,7 +487,8 @@ def _axis_dates(conn, date_from: str, date_to: str) -> list:
     return sorted(dates, key=_to_cmp)
 
 
-def request_portfolio_sim(date_from: str = None, date_to: str = None) -> bool:
+def request_portfolio_sim(date_from: str = None, date_to: str = None,
+                           user_params: dict = None) -> bool:
     """Non-blocking trigger from the HTTP thread (BSJP backtest is slow)."""
     global _pf_running, _pf_error
 
@@ -479,7 +496,8 @@ def request_portfolio_sim(date_from: str = None, date_to: str = None) -> bool:
         global _pf_running, _pf_error
         try:
             from core.db import get_db
-            simulate_portfolio(get_db(), date_from=date_from, date_to=date_to)
+            simulate_portfolio(get_db(), date_from=date_from, date_to=date_to,
+                               user_params=user_params)
             _pf_error = None
         except Exception as e:
             log.error("Portfolio sim error: %s", e)

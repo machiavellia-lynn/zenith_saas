@@ -27,12 +27,30 @@ def api_portfolio():
     if request.args.get("run") == "1":
         date_from = request.args.get("date_from") or None
         date_to   = request.args.get("date_to") or None
+
+        def _int(key):
+            v = request.args.get(key)
+            try: return int(v) if v else None
+            except (ValueError, TypeError): return None
+
+        req_params = {k: v for k, v in {
+            "bsjp_capital":  _int("bsjp_capital"),
+            "bsjp_alloc":    _int("bsjp_alloc"),
+            "wyckoff_alloc": _int("wyckoff_alloc"),
+            "wyckoff_basis": _int("wyckoff_basis"),
+        }.items() if v is not None}
+
         from algo.algo_portfolio import filter_result
         cached = get_portfolio_result()
-        if cached:
+        cached_params = (cached or {}).get("user_params") or {}
+
+        # Use cache when budget params match (or user sent none)
+        params_match = (not req_params) or (
+            req_params == {k: cached_params.get(k) for k in req_params})
+        if cached and params_match:
             return jsonify(filter_result(cached, date_from, date_to))
-        # No cache yet — trigger full simulation
-        triggered = request_portfolio_sim()
+
+        triggered = request_portfolio_sim(user_params=req_params or None)
         return jsonify({"triggered": triggered})
 
     # Status polling while running
