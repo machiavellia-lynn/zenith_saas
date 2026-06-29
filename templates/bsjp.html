@@ -63,9 +63,9 @@ body.sidebar-layout { overflow: hidden; }
         <div class="stat-card-sub" id="statBMSub">— emiten</div>
       </div>
       <div class="stat-card emph">
-        <div class="stat-card-label">Clean money</div>
+        <div class="stat-card-label">Clean Money</div>
         <div class="stat-card-value" id="statCM">—</div>
-        <div class="stat-card-sub">net accumulation</div>
+        <div class="stat-card-sub">SM − BM</div>
       </div>
       <div class="stat-card">
         <div class="stat-card-label">Signals</div>
@@ -90,7 +90,7 @@ body.sidebar-layout { overflow: hidden; }
 
     <div class="data-table">
       <div class="data-table-head bsjp-cols">
-        <div style="color:var(--muted);font-size:11px">Rank</div>
+        <div>#</div>
         <div class="th-sortable" data-col="ticker">Ticker <span class="sort-arrow">↓</span></div>
         <div class="th-sortable" data-col="setup" style="text-align:center">Setup <span class="sort-arrow">↓</span></div>
         <div class="th-sortable" data-col="entry" style="text-align:right">Entry <span class="sort-arrow">↓</span></div>
@@ -207,7 +207,7 @@ function render() {
   document.getElementById('resultCount').textContent = rows.length + ' sinyal';
   if (!rows.length) {
     body.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Tidak ada sinyal untuk filter ini.</div>';
-    document.getElementById('rowCount').textContent = '0 sinyal';
+    document.getElementById('rowCount').textContent = '0 dari ' + S.rows.length + ' sinyal';
     return;
   }
   body.innerHTML = rows.map(function(r,i){

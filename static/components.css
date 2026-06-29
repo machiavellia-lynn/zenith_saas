@@ -12,8 +12,9 @@
 
 /* ── STAT CARDS ──────────────────────────────────────────────────── */
 .stat-cards-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
-.stat-cards-6 { display: grid; grid-template-columns: repeat(6,1fr); gap: 10px; }
+.stat-cards-6 { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
 .stat-cards-5 { display: grid; grid-template-columns: repeat(5,1fr); gap: 10px; }
+@media (min-width: 640px) { .stat-cards-6 { grid-template-columns: repeat(6,1fr); } }
 
 .stat-card {
   padding: 12px 14px;

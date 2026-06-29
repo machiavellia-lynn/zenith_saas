@@ -131,7 +131,7 @@ body.sidebar-layout { overflow: hidden; }
         </div>
       </div>
       <div class="data-table-foot">
-        <span id="rowCount">— emiten</span>
+        <span id="rowCount">—</span>
         <div style="display:flex;align-items:center;gap:10px">
           <span id="liveTs" style="font-family:var(--font-mono);font-size:10.5px;color:var(--muted)"></span>
           <span class="foot-sort" id="sortLabel">Sort: Clean Money ↓</span>
@@ -325,7 +325,7 @@ function renderTable() {
   var rows = state.filtered;
   if (!rows.length) {
     body.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Tidak ada data untuk filter ini.</div>';
-    document.getElementById('rowCount').textContent = '0 emiten';
+    document.getElementById('rowCount').textContent = '0 dari ' + state.rows.length + ' emiten';
     return;
   }
 
@@ -359,7 +359,7 @@ function renderTable() {
   }).join('');
 
   body.innerHTML = html;
-  document.getElementById('rowCount').textContent = rows.length + ' emiten';
+  document.getElementById('rowCount').textContent = rows.length + ' dari ' + state.rows.length + ' emiten';
 }
 
 /* ── Load data ── */
@@ -386,9 +386,9 @@ function fetchData(silent) {
       var bmCount  = state.rows.filter(function(r){ return (r.bm_val||0) > 0; }).length;
 
       document.getElementById('statSM').textContent       = '+' + window.fmtMoney(smTotal);
-      document.getElementById('statSMCount').textContent  = smCount + ' emiten today';
+      document.getElementById('statSMCount').textContent  = smCount + ' emiten';
       document.getElementById('statBM').textContent       = window.fmtMoney(bmTotal);
-      document.getElementById('statBMCount').textContent  = bmCount + ' emiten today';
+      document.getElementById('statBMCount').textContent  = bmCount + ' emiten';
       var cmEl = document.getElementById('statCM');
       cmEl.textContent = (cmTotal >= 0 ? '+' : '') + window.fmtMoney(cmTotal);
       cmEl.className   = 'stat-card-value ' + (cmTotal >= 0 ? 'up' : 'down');

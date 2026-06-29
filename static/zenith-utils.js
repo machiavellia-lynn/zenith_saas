@@ -106,12 +106,12 @@ window.actionBadgeHTML = function(action) {
 
 /* ── BSJP Setup badge HTML ─────────────────────────────────────────── */
 window.BSJP_STYLE = {
-  'POWER_BREAK_V21':   { col:'#3a6b58', bg:'rgba(58,107,88,.11)'   },
-  'POWER_BREAK_V22':   { col:'#4a7fdb', bg:'rgba(74,127,219,.11)'  },
-  'SMA5_BREAKOUT_V13': { col:'#2a7a5a', bg:'rgba(58,107,88,.09)'   },
-  'SMA5_BREAKOUT_V11': { col:'#c8633a', bg:'rgba(200,99,58,.11)'   },
-  'BB_PULLBACK':       { col:'#8252c8', bg:'rgba(130,82,200,.11)'  },
-  'SMA5_PULLBACK_V12': { col:'#3a6fbb', bg:'rgba(74,127,219,.09)'  },
+  'POWER_BREAK_V21':   { col:'#22C55E', bg:'rgba(34,197,94,.11)'  },
+  'POWER_BREAK_V22':   { col:'#22C55E', bg:'rgba(34,197,94,.11)'  },
+  'SMA5_BREAKOUT_V13': { col:'#F97316', bg:'rgba(249,115,22,.11)' },
+  'SMA5_BREAKOUT_V11': { col:'#F97316', bg:'rgba(249,115,22,.11)' },
+  'BB_PULLBACK':       { col:'#A855F7', bg:'rgba(168,85,247,.11)' },
+  'SMA5_PULLBACK_V12': { col:'#3B82F6', bg:'rgba(59,130,246,.11)' },
 };
 window.setupBadgeHTML = function(setup) {
   if (!setup) return '';

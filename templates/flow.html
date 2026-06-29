@@ -102,16 +102,16 @@ body.sidebar-layout { overflow: hidden; }
     <div class="data-table">
       <div class="data-table-head mf-cols">
         <div>#</div>
-        <div class="th-sortable" data-col="ticker">Ticker <span class="sort-arrow"></span></div>
-        <div class="th-sortable" data-col="tx" style="text-align:right">TX <span class="sort-arrow"></span></div>
+        <div class="th-sortable" data-col="ticker">Ticker <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable" data-col="tx" style="text-align:right">TX <span class="sort-arrow">↓</span></div>
         <div class="th-sortable active" data-col="clean_money" style="text-align:right">Clean Money <span class="sort-arrow">↓</span></div>
-        <div class="th-sortable" data-col="sm_val" style="text-align:right">SM <span class="sort-arrow"></span></div>
-        <div class="th-sortable" data-col="bm_val" style="text-align:right">BM <span class="sort-arrow"></span></div>
-        <div class="th-sortable" data-col="rsm" style="text-align:right">RSM <span class="sort-arrow"></span></div>
-        <div class="th-sortable" data-col="mf_plus" style="text-align:right">MF+ <span class="sort-arrow"></span></div>
-        <div class="th-sortable" data-col="mf_minus" style="text-align:right">MF− <span class="sort-arrow"></span></div>
-        <div class="th-sortable" data-col="net_mf" style="text-align:right">Net MF <span class="sort-arrow"></span></div>
-        <div class="th-sortable" data-col="gain_pct" style="text-align:right">Last <span class="sort-arrow"></span></div>
+        <div class="th-sortable" data-col="sm_val" style="text-align:right">SM <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable" data-col="bm_val" style="text-align:right">BM <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable" data-col="rsm" style="text-align:right">RSM <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable" data-col="mf_plus" style="text-align:right">MF+ <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable" data-col="mf_minus" style="text-align:right">MF− <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable" data-col="net_mf" style="text-align:right">Net MF <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable" data-col="gain_pct" style="text-align:right">Last <span class="sort-arrow">↓</span></div>
       </div>
       <div class="data-table-body" id="tableBody">
         <div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Loading...</div>
@@ -120,7 +120,7 @@ body.sidebar-layout { overflow: hidden; }
         <span id="rowCount">—</span>
         <div style="display:flex;align-items:center;gap:10px">
           <span id="liveTs" style="font-family:var(--font-mono);font-size:10.5px;color:var(--muted)"></span>
-          <span class="foot-sort" id="sortLabel">Sort: CM ↓</span>
+          <span class="foot-sort" id="sortLabel">Sort: Clean Money ↓</span>
         </div>
       </div>
     </div>
@@ -140,8 +140,8 @@ window.loadIHSGBadge(document.getElementById('ihsgPrice'),document.getElementByI
 var sEl=document.getElementById('tickerSearch'),cBtn=document.getElementById('searchClear');
 sEl.addEventListener('input',function(){S.q=this.value.toUpperCase().trim();cBtn.style.display=S.q?'inline':'none';filter();});
 cBtn.addEventListener('click',function(){sEl.value='';S.q='';cBtn.style.display='none';filter();});
-var _colLabels={ticker:'Ticker',tx:'TX',clean_money:'CM',sm_val:'SM',bm_val:'BM',rsm:'RSM',mf_plus:'MF+',mf_minus:'MF−',net_mf:'Net MF',gain_pct:'Gain'};
-document.querySelectorAll('.th-sortable').forEach(function(th){th.addEventListener('click',function(){var col=th.dataset.col;S.sortCol===col?S.sortAsc=!S.sortAsc:(S.sortCol=col,S.sortAsc=false);document.querySelectorAll('.th-sortable').forEach(function(e){e.classList.remove('active');e.querySelector('.sort-arrow').textContent='';});th.classList.add('active');th.querySelector('.sort-arrow').textContent=S.sortAsc?'↑':'↓';document.getElementById('sortLabel').textContent='Sort: '+(_colLabels[col]||col)+' '+(S.sortAsc?'↑':'↓');filter();});});
+var _colLabels={ticker:'Ticker',tx:'TX',clean_money:'Clean Money',sm_val:'SM',bm_val:'BM',rsm:'RSM',mf_plus:'MF+',mf_minus:'MF−',net_mf:'Net MF',gain_pct:'Last'};
+document.querySelectorAll('.th-sortable').forEach(function(th){th.addEventListener('click',function(){var col=th.dataset.col;S.sortCol===col?S.sortAsc=!S.sortAsc:(S.sortCol=col,S.sortAsc=false);document.querySelectorAll('.th-sortable').forEach(function(e){e.classList.remove('active');e.querySelector('.sort-arrow').textContent='↓';});th.classList.add('active');th.querySelector('.sort-arrow').textContent=S.sortAsc?'↑':'↓';document.getElementById('sortLabel').textContent='Sort: '+(_colLabels[col]||col)+' '+(S.sortAsc?'↑':'↓');filter();});});
 var fBtn=document.getElementById('filterBtn'),fDD=document.getElementById('filterDropdown');
 fBtn.addEventListener('click',function(e){e.stopPropagation();fDD.classList.toggle('open');document.getElementById('filterChevron').textContent=fDD.classList.contains('open')?'▲':'▼';});
 document.addEventListener('mousedown',function(e){if(!fBtn.contains(e.target)){fDD.classList.remove('open');document.getElementById('filterChevron').textContent='▼';}});
@@ -149,7 +149,7 @@ document.querySelectorAll('.filter-opt').forEach(function(o){o.addEventListener(
 document.getElementById('filterClear').addEventListener('click',function(e){e.stopPropagation();Object.keys(S.filters).forEach(function(k){S.filters[k]=false;});document.querySelectorAll('.filter-checkbox').forEach(function(c){c.classList.remove('checked');});badge();filter();});
 function badge(){var c=Object.values(S.filters).filter(Boolean).length;var b=document.getElementById('filterBadge');b.textContent=c;b.style.display=c?'flex':'none';fBtn.classList.toggle('has-filters',c>0);}
 function filter(){var rows=S.rows.slice();if(S.q)rows=rows.filter(function(r){return r.ticker.startsWith(S.q);});if(S.filters.netPos)rows=rows.filter(function(r){return(r.net_mf||0)>0;});if(S.filters.cmPos)rows=rows.filter(function(r){return(r.clean_money||0)>0;});if(S.filters.tx10)rows=rows.filter(function(r){return(r.tx||0)>=10;});var col=S.sortCol;rows.sort(function(a,b){var av=a[col]!=null?a[col]:-999999,bv=b[col]!=null?b[col]:-999999;if(typeof av==='string')return S.sortAsc?av.localeCompare(bv):bv.localeCompare(av);return S.sortAsc?av-bv:bv-av;});S.filtered=rows;render();}
-function render(){var body=document.getElementById('tableBody'),rows=S.filtered;if(!rows.length){body.innerHTML='<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Tidak ada data.</div>';document.getElementById('rowCount').textContent='0 emiten';return;}
+function render(){var body=document.getElementById('tableBody'),rows=S.filtered;if(!rows.length){body.innerHTML='<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Tidak ada data.</div>';document.getElementById('rowCount').textContent='0 dari '+S.rows.length+' emiten';return;}
 var maxCM=rows.reduce(function(m,r){return Math.max(m,Math.abs(r.clean_money||0));},1);
 body.innerHTML=rows.map(function(r,i){var nmf=r.net_mf,rC=r.rsm>60?'var(--up)':'var(--text-dim)';return'<div class="data-table-row mf-cols">'+
 '<div class="row-num'+(i<3?' top3':'')+'">'+String(i+1).padStart(2,'0')+'</div>'+
