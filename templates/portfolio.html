@@ -209,7 +209,7 @@ var S = {
 var PREFS_KEY = 'zenith_pf_prefs';
 var PREFS_DEF = {
   bsjp_capital: 150000000, bsjp_alloc: 15000000,
-  wyckoff_alloc: 5000000,  wyckoff_basis: 50000000,
+  wyckoff_alloc: 5000000,  wyckoff_basis: 2500000000,
   fees_enabled: true,
   fee_buy: 0.15, fee_sell: 0.25, fee_pph: 0.10,
 };
@@ -642,20 +642,15 @@ function renderStats(){
     }).join('');
 
     var foot = '';
-    if (!isOpen) {
-      foot = st.initial_equity != null
-        ? '<div class="pf-stats-foot">'
-          + '<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11.5px;color:var(--muted)">Equity awal</span>'
-          +   '<span data-val="'+fmtRp(st.initial_equity)+'" style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim)">'+fmtRp(st.initial_equity)+'</span></div>'
-          + '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11.5px;color:var(--text);font-weight:500">Equity akhir</span>'
-          +   '<span data-val="'+fmtRp(st.final_equity)+'" style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:'+(st.final_equity>=st.initial_equity?'var(--up)':'var(--down)')+'">'+fmtRp(st.final_equity)+'</span></div>'
-          + '</div>'
-        : '<div class="pf-stats-foot">'
-          + '<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11.5px;color:var(--muted)">Basis</span>'
-          +   '<span style="font-family:var(--font-mono);font-size:11px;color:var(--muted)">Kumulatif P&L dari 0</span></div>'
-          + '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11.5px;color:var(--text);font-weight:500">Total P&L Rp</span>'
-          +   '<span data-val="'+fmtRp(st.final_equity)+'" style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:'+(st.final_equity>=0?'var(--up)':'var(--down)')+'">'+fmtRp(st.final_equity)+'</span></div>'
-          + '</div>';
+    if (!isOpen && st.available_balance != null) {
+      var avail = st.available_balance, totEq = st.total_equity;
+      var initEq = st.initial_equity || 0;
+      foot = '<div class="pf-stats-foot">'
+        + '<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11.5px;color:var(--muted)">Available Balance</span>'
+        +   '<span data-val="'+fmtRp(avail)+'" style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim)">'+fmtRp(avail)+'</span></div>'
+        + '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11.5px;color:var(--text);font-weight:500">Total Equity</span>'
+        +   '<span data-val="'+fmtRp(totEq)+'" style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:'+(totEq>=initEq?'var(--up)':'var(--down)')+'">'+fmtRp(totEq)+'</span></div>'
+        + '</div>';
     }
 
     return '<div class="pf-stats-col">'
@@ -903,7 +898,7 @@ function runSim(){
   var p = S.prefs;
   var url = '/api/portfolio?run=1&date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to)
     + '&bsjp_capital='+p.bsjp_capital+'&bsjp_alloc='+p.bsjp_alloc
-    + '&wyckoff_alloc='+p.wyckoff_alloc+'&wyckoff_basis='+p.wyckoff_basis;
+    + '&wyckoff_alloc='+p.wyckoff_alloc;
   fetch(url)
     .then(function(r){ return r.json(); })
     .then(function(d){

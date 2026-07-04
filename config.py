@@ -77,8 +77,9 @@ INTERVAL_MAP = {
 # ── Portfolio Simulation ───────────────────────────────────────────────────────
 # Fixed simulation parameters — NOT user-configurable in the UI.
 # Owner controls these here; the only user control on /portfolio is the date range.
-PF_INITIAL_EQUITY      = 50_000_000   # Rp — Wyckoff return basis (max concurrent notional ~10 pos × 5M)
-PF_BSJP_INITIAL_EQUITY = 150_000_000  # Rp — BSJP return basis (total capital pool, T+1 recycles daily)
+PF_WYCKOFF_INITIAL_EQUITY = 2_500_000_000  # Rp — Wyckoff starting equity (basis for return % + available balance)
+PF_INITIAL_EQUITY         = 50_000_000    # Rp — kept for backward compat; no longer used as Wyckoff basis
+PF_BSJP_INITIAL_EQUITY    = 150_000_000   # Rp — BSJP starting capital pool (T+1 recycled daily)
 PF_WYCKOFF_ALLOC       = 5_000_000    # Rp — capital deployed per Wyckoff BUY signal
 PF_BSJP_ALLOC          = 15_000_000   # Rp — capital deployed per BSJP signal
 PF_LOT_SIZE            = 100          # IDX: 1 lot = 100 shares

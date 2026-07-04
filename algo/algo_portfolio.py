@@ -23,7 +23,7 @@ import threading
 from collections import defaultdict
 from datetime import datetime
 
-from config import WIB, PF_INITIAL_EQUITY, PF_BSJP_INITIAL_EQUITY, PF_WYCKOFF_ALLOC, PF_BSJP_ALLOC, PF_LOT_SIZE
+from config import WIB, PF_INITIAL_EQUITY, PF_WYCKOFF_INITIAL_EQUITY, PF_BSJP_INITIAL_EQUITY, PF_WYCKOFF_ALLOC, PF_BSJP_ALLOC, PF_LOT_SIZE
 from core.db import fetchall
 from algo.algo_wyckoff import get_action
 
@@ -102,7 +102,7 @@ def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list,
                        wyckoff_alloc: int = None, wyckoff_basis: int = None):
     """Walk eod_summary day-by-day, deploying PF_WYCKOFF_ALLOC per BUY signal."""
     alloc = wyckoff_alloc or PF_WYCKOFF_ALLOC
-    basis = wyckoff_basis or PF_INITIAL_EQUITY
+    basis = wyckoff_basis or PF_WYCKOFF_INITIAL_EQUITY
     all_rows = fetchall(conn, """
         SELECT ticker, date, price_close, phase, atr_pct,
                sri, sm_val, bm_val, bm_sma10, price_change_pct, watch
@@ -258,6 +258,14 @@ def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list,
     stats["closed_count"]    = len(closed)
     stats["total_trades"]    = len(trades)
     stats["total_txn_value"] = sum(t.get("txn_value", 0) for t in trades)
+    # Capital locked in still-open positions (entry value, not current MTM)
+    deployed = sum(
+        pos["lots"] * PF_LOT_SIZE * pos["entry_price"]
+        for positions in open_pos.values() for pos in positions
+    )
+    stats["initial_equity"]    = basis
+    stats["available_balance"] = round(basis + realized - deployed)
+    stats["total_equity"]      = round(basis + (eq_values[-1] if eq_values else 0))
     return eq_values, trades, stats
 
 
@@ -316,6 +324,10 @@ def _simulate_bsjp(conn, date_from: str, date_to: str, axis_dates: list,
     stats["closed_count"]    = len(trades)
     stats["total_trades"]    = len(trades)
     stats["total_txn_value"] = sum(t.get("txn_value", 0) for t in trades)
+    final_eq = round(initial + (eq_values[-1] if eq_values else 0))
+    stats["initial_equity"]    = initial
+    stats["available_balance"] = final_eq   # all T+1 — no capital locked overnight
+    stats["total_equity"]      = final_eq
     return eq_values, trades, stats
 
 
@@ -400,7 +412,7 @@ def simulate_portfolio(conn, date_from: str = None, date_to: str = None,
             "bsjp_capital":  up.get("bsjp_capital")  or PF_BSJP_INITIAL_EQUITY,
             "bsjp_alloc":    up.get("bsjp_alloc")    or PF_BSJP_ALLOC,
             "wyckoff_alloc": up.get("wyckoff_alloc") or PF_WYCKOFF_ALLOC,
-            "wyckoff_basis": up.get("wyckoff_basis") or PF_INITIAL_EQUITY,
+            "wyckoff_basis": up.get("wyckoff_basis") or PF_WYCKOFF_INITIAL_EQUITY,
         },
     }
 
@@ -442,13 +454,21 @@ def filter_result(full: dict, date_from: str, date_to: str) -> dict:
     bs_trades = [t for t in full["bsjp"]["trades"]    if _in(t.get("date", ""))]
 
     wy_closed = [t for t in wy_trades if t.get("status") != "OPEN"]
-    wy_stats  = _build_stats(sub_wy, wy_closed, avg_hold_days=True, is_pnl_curve=True)
+    wy_open   = [t for t in wy_trades if t.get("status") == "OPEN"]
+    wy_stats  = _build_stats(sub_wy, wy_closed, avg_hold_days=True, is_pnl_curve=True,
+                             equity_basis=PF_WYCKOFF_INITIAL_EQUITY)
     wy_stats.update({
-        "open_count":      sum(1 for t in wy_trades if t.get("status") == "OPEN"),
+        "open_count":      len(wy_open),
         "closed_count":    len(wy_closed),
         "total_trades":    len(wy_trades),
         "total_txn_value": sum(t.get("txn_value", 0) for t in wy_trades),
     })
+    # Absolute equity: wy_base = P&L already accumulated before this sub-period
+    wy_deployed = sum(t.get("lots", 0) * PF_LOT_SIZE * t.get("entry_price", 0) for t in wy_open)
+    wy_realized = sum(t.get("pnl_rp", 0) for t in wy_closed)
+    wy_stats["initial_equity"]    = PF_WYCKOFF_INITIAL_EQUITY
+    wy_stats["available_balance"] = round(PF_WYCKOFF_INITIAL_EQUITY + wy_base + wy_realized - wy_deployed)
+    wy_stats["total_equity"]      = round(PF_WYCKOFF_INITIAL_EQUITY + wy_base + (sub_wy[-1] if sub_wy else 0))
 
     bs_stats = _build_stats(sub_bs, bs_trades, avg_hold_days=False, is_pnl_curve=True,
                             equity_basis=PF_BSJP_INITIAL_EQUITY)
@@ -458,6 +478,10 @@ def filter_result(full: dict, date_from: str, date_to: str) -> dict:
         "total_trades":    len(bs_trades),
         "total_txn_value": sum(t.get("txn_value", 0) for t in bs_trades),
     })
+    bs_total = round(PF_BSJP_INITIAL_EQUITY + bs_base + (sub_bs[-1] if sub_bs else 0))
+    bs_stats["initial_equity"]    = PF_BSJP_INITIAL_EQUITY
+    bs_stats["available_balance"] = bs_total
+    bs_stats["total_equity"]      = bs_total
 
     return {
         "equity": {"labels": sub_labels, "wyckoff": sub_wy, "bsjp": sub_bs},
