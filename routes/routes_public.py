@@ -61,26 +61,36 @@ def api_public_performance():
     })
 
 
-def _top_clean_money(limit: int = 5) -> list:
+def _daily_watchlist(limit: int = 5) -> list:
     """
-    Reuses the existing, already-correct /api/flow computation in-process via
-    Flask's test client (with a synthetic authed session) instead of
-    duplicating its ~150 lines of clean-money logic here. routes_flow.py is
-    not touched or imported into directly — this just calls it like any
-    other client would, internally.
+    /api/flow's clean-money ranking depends on today's eod_summary having
+    been scraped already, so it's empty whenever the scraper hasn't caught
+    up yet (weekends, early morning, etc). Instead: pick `limit` liquid
+    tickers from the existing Kompas100 reference file, seeded by today's
+    date (WIB) so the set is stable all day — matching the once-a-day
+    cadence of the backtest data — then fetch live prices straight from
+    Yahoo via price_cache._fetch_batch_quotes (already-existing function,
+    same one the live stock cache uses; not duplicated here).
     """
-    from flask import current_app
+    import os
+    import random
+    from datetime import datetime
+    from config import WIB
+    from core.utils import load_kompas100_reference
+    from data.price_cache import _fetch_batch_quotes
 
-    with current_app.test_client() as c:
-        with c.session_transaction() as sess:
-            sess["authed"] = True
-        resp = c.get("/api/flow")
-        data = resp.get_json() or {}
+    kompas_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "kompas100.md")
+    tickers, _esg = load_kompas100_reference(kompas_file)
+    if not tickers:
+        return []
 
-    tickers = data.get("tickers", [])  # already sorted by clean_money desc
+    today = datetime.now(WIB).strftime("%Y-%m-%d")
+    picked = random.Random(today).sample(tickers, min(limit, len(tickers)))
+
+    quotes = _fetch_batch_quotes(picked)
     return [
-        {"sym": t["ticker"], "price": t.get("price"), "chg": t.get("gain_pct")}
-        for t in tickers[:limit]
+        {"sym": t, "price": quotes[t]["price"], "chg": quotes[t]["gain_pct"]}
+        for t in picked if t in quotes
     ]
 
 
@@ -89,4 +99,4 @@ def api_public_watchlist():
     if not EXPORT_SECRET or request.args.get("secret") != EXPORT_SECRET:
         return jsonify({"error": "unauthorized"}), 401
 
-    return jsonify({"tickers": _top_clean_money(5)})
+    return jsonify({"tickers": _daily_watchlist(5)})
