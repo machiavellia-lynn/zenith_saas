@@ -780,15 +780,15 @@ def trigger_backtest():
 @bp_admin.route("/admin/upload-session", methods=["POST"])
 def upload_session():
     if not is_authed():
-        return "Unauthorized", 401
-    data = request.get_data()
-    if not data:
-        return "No file data", 400
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    file = request.files.get("session")
+    if not file or not file.filename:
+        return jsonify({"ok": False, "error": "No file data"}), 400
     from config import TG_SESSION_PATH
     os.makedirs(os.path.dirname(TG_SESSION_PATH) or "/data", exist_ok=True)
-    with open(TG_SESSION_PATH, "wb") as f:
-        f.write(data)
-    return f"✅ Session uploaded ({len(data):,} bytes) → {TG_SESSION_PATH}"
+    file.save(TG_SESSION_PATH)
+    size = os.path.getsize(TG_SESSION_PATH)
+    return jsonify({"ok": True, "message": f"Session uploaded ({size:,} bytes) → {TG_SESSION_PATH}"})
 
 
 @bp_admin.route("/admin/users")
