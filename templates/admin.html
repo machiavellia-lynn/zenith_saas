@@ -1148,7 +1148,7 @@ function hmRenderGaps(y,m,days){
 function hmLoad(y,m){
   hmYear=y; hmMonth=m;
   document.getElementById('hmMonthLabel').textContent=HM_MONTHS[m-1]+' '+y;
-  document.getElementById('hmBtnPrev').disabled=(y===2026&&m===1);
+  document.getElementById('hmBtnPrev').disabled=false;
   var ny=hmNow.getFullYear(),nm=hmNow.getMonth()+1;
   document.getElementById('hmBtnNext').disabled=(y===ny&&m===nm);
   hmRenderSkeleton(y, m);
@@ -1172,7 +1172,6 @@ window.hmNav=function(dir){
   var m=hmMonth+dir,y=hmYear;
   if(m<1){m=12;y--;} if(m>12){m=1;y++;}
   var ny=hmNow.getFullYear(),nm=hmNow.getMonth()+1;
-  if(y<2026||(y===2026&&m<1)) return;
   if(y>ny||(y===ny&&m>nm)) return;
   hmLoad(y,m);
 };
