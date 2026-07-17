@@ -1073,6 +1073,26 @@ def admin_bsjp_recompute_status():
     return jsonify(_bsjp_recompute)
 
 
+# ── Portfolio Recompute (refresh cached Wyckoff+BSJP simulation) ───────────────
+
+@bp_admin.route("/admin/portfolio-recompute")
+def admin_portfolio_recompute():
+    from algo.algo_portfolio import request_portfolio_sim
+    triggered = request_portfolio_sim()
+    if not triggered:
+        return jsonify({"ok": False, "error": "Sudah berjalan, tunggu selesai dulu."})
+    return jsonify({"ok": True, "message": "Portfolio recompute dimulai di background."})
+
+
+@bp_admin.route("/admin/portfolio-recompute-status")
+def admin_portfolio_recompute_status():
+    from algo.algo_portfolio import get_portfolio_status
+    s = get_portfolio_status()
+    if s.get("status") == "error":
+        return jsonify({"status": "error", "error": s.get("result")})
+    return jsonify(s)
+
+
 @bp_admin.route("/admin/data-coverage")
 def admin_data_coverage():
     if not is_authed():

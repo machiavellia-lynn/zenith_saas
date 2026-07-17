@@ -236,6 +236,7 @@ body.sidebar-layout { overflow: hidden; }
               <button class="a-btn primary" id="btnRecomputeW" onclick="runAction('recompute_w')">Wyckoff Signals</button>
               <button class="a-btn" id="btnFetchDaily" onclick="runAction('fetch_daily')">Price History (Daily)</button>
               <button class="a-btn" id="btnEodSummary" onclick="runAction('eod_summary')">EOD Summary</button>
+              <button class="a-btn" id="btnRecomputePfW" onclick="runAction('recompute_pf_w')">Recompute Portfolio</button>
             </div>
             <div id="enrichWStatus" style="margin-top:8px;font-family:var(--font-mono);font-size:11px;color:var(--muted);min-height:16px"></div>
             <div id="progWyckoff" style="display:none" class="a-progress"><div class="a-progress-fill anim" id="progWyckoffFill"></div></div>
@@ -255,6 +256,7 @@ body.sidebar-layout { overflow: hidden; }
               </button>
               <button class="a-btn primary" id="btnRecomputeB" onclick="runAction('recompute_b')">BSJP Signals</button>
               <button class="a-btn" id="btnFetch15m" onclick="runAction('fetch_15m')">Price History (15m)</button>
+              <button class="a-btn" id="btnRecomputePfB" onclick="runAction('recompute_pf_b')">Recompute Portfolio</button>
             </div>
             <div id="enrichBStatus" style="margin-top:8px;font-family:var(--font-mono);font-size:11px;color:var(--muted);min-height:16px"></div>
             <div id="progBSJP" style="display:none" class="a-progress"><div class="a-progress-fill anim" id="progBSJPFill"></div></div>
@@ -514,6 +516,18 @@ var PROGRESS_CONFIGS = {
     },
     doneText: function(s) { return '✓ Selesai · ' + s.done + ' dates'; },
     toastLabel: 'EOD Summary'
+  },
+  recompute_pf_w: {
+    statusUrl: '/admin/portfolio-recompute-status',
+    runningText: function(s) { return 'Menghitung ulang simulasi Wyckoff + BSJP...'; },
+    doneText: function(s) { return '✓ Portfolio ter-update'; },
+    toastLabel: 'Recompute Portfolio'
+  },
+  recompute_pf_b: {
+    statusUrl: '/admin/portfolio-recompute-status',
+    runningText: function(s) { return 'Menghitung ulang simulasi Wyckoff + BSJP...'; },
+    doneText: function(s) { return '✓ Portfolio ter-update'; },
+    toastLabel: 'Recompute Portfolio'
   }
 };
 
@@ -521,9 +535,10 @@ var PROGRESS_CONFIGS = {
 window.runAction = function(action) {
   if (loadingAction) return;
   loadingAction = action;
-  var btnMap = { fetch_daily:'btnFetchDaily', recompute_w:'btnRecomputeW', rebuild:'btnRebuild', fetch_15m:'btnFetch15m', recompute_b:'btnRecomputeB', eod_summary:'btnEodSummary' };
-  var progId  = (action === 'fetch_15m' || action === 'recompute_b') ? 'progBSJP' : 'progWyckoff';
-  var statusId = (action === 'fetch_15m' || action === 'recompute_b') ? 'enrichBStatus' : 'enrichWStatus';
+  var btnMap = { fetch_daily:'btnFetchDaily', recompute_w:'btnRecomputeW', rebuild:'btnRebuild', fetch_15m:'btnFetch15m', recompute_b:'btnRecomputeB', eod_summary:'btnEodSummary', recompute_pf_w:'btnRecomputePfW', recompute_pf_b:'btnRecomputePfB' };
+  var isBsjpAction = (action === 'fetch_15m' || action === 'recompute_b' || action === 'recompute_pf_b');
+  var progId  = isBsjpAction ? 'progBSJP' : 'progWyckoff';
+  var statusId = isBsjpAction ? 'enrichBStatus' : 'enrichWStatus';
   var btn = document.getElementById(btnMap[action]);
   if (btn) { btn.disabled = true; btn.innerHTML = '<span style="display:inline-block;width:11px;height:11px;border:2px solid rgba(0,0,0,.3);border-top-color:currentColor;border-radius:99px;animation:adminSpin .6s linear infinite"></span> Processing...'; }
   document.getElementById(progId).style.display = '';
@@ -548,6 +563,7 @@ window.runAction = function(action) {
   else if (action === 'fetch_15m') url = '/admin/backfill-intraday?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to);
   else if (action === 'recompute_b') url = '/admin/bsjp-recompute?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to);
   else if (action === 'eod_summary') url = '/admin/eod-summary-rebuild?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to);
+  else if (action === 'recompute_pf_w' || action === 'recompute_pf_b') url = '/admin/portfolio-recompute';
 
   var statEl = document.getElementById(statusId);
 
@@ -607,7 +623,8 @@ window.runAction = function(action) {
 
 var BTN_LABELS = {
   btnFetchDaily: 'Price History (Daily)', btnRecomputeW: 'Wyckoff Signals', btnEodSummary: 'EOD Summary',
-  btnFetch15m: 'Price History (15m)', btnRecomputeB: 'BSJP Signals'
+  btnFetch15m: 'Price History (15m)', btnRecomputeB: 'BSJP Signals',
+  btnRecomputePfW: 'Recompute Portfolio', btnRecomputePfB: 'Recompute Portfolio'
 };
 function resetBtn(id) {
   var btn = document.getElementById(id);
