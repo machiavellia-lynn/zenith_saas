@@ -6,6 +6,9 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import logging
 from flask import Flask, jsonify
 from werkzeug.exceptions import HTTPException

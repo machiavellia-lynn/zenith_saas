@@ -190,7 +190,7 @@ function setupName(k){ return SETUP_NAMES[k] || k || '—'; }
 function setupCol(k){ return SETUP_COL[setupName(k)] || 'var(--muted)'; }
 
 /* ── State ───────────────────────────────────────────────────────────────── */
-var PAGE_SIZE = 100;
+var PAGE_SIZE = 30;
 var S = {
   data: null,
   active: { wyckoff:true, bsjp:true },
@@ -586,33 +586,46 @@ function statRows(algoId, st, trades){
 }
 function colorVar(c){ return c==='up'?'var(--up)':c==='down'?'var(--down)':'var(--ink)'; }
 
-function animateStatVal(el, finalText){
+function animateStatVal(el, finalText, delay){
   var neg = finalText.charAt(0)==='−' || finalText.charAt(0)==='-';
   var stripped = finalText.replace(/^[+\-−]\s*/,'').replace(/^Rp\s*/,'');
   var isPct = /%/.test(finalText), isTimes = /×/.test(finalText), isRp = /Rp/.test(finalText);
   var sign = finalText.charAt(0)==='+' ? '+' : (neg ? '−' : '');
-  // % and × values use a JS period as decimal; Rp and plain ints use id-ID dot as thousands separator
   var rawStr = (isPct || isTimes)
     ? stripped.replace(/[^0-9.]/g, '')
     : stripped.replace(/\./g, '').replace(',', '.');
   var num = parseFloat(rawStr);
+  el.style.fontVariantNumeric = 'tabular-nums';
   if (isNaN(num) || num === 0){
-    el.style.cssText += ';opacity:0;transition:opacity .2s .04s';
+    el.style.cssText += ';opacity:0;transition:opacity .3s '+((delay||0)/1000)+'s';
     requestAnimationFrame(function(){ el.style.opacity='1'; el.textContent=finalText; });
     return;
   }
-  var raw = num * (neg ? -1 : 1), dur = 1000, t0 = performance.now();
-  function frame(now){
-    var p = Math.min(1,(now-t0)/dur), e = 1-Math.pow(1-p,3), cur = raw*e, abs = Math.abs(cur);
-    var txt;
-    if (isRp)       txt = (neg?'−':'')+'Rp '+Math.round(abs).toLocaleString('id-ID');
-    else if (isPct) txt = sign+abs.toFixed(2)+'%';
-    else if (isTimes) txt = abs.toFixed(2)+'×';
-    else txt = Math.round(abs).toLocaleString('id-ID');
-    el.textContent = txt;
-    if (p < 1) requestAnimationFrame(frame); else el.textContent = finalText;
+  var raw = num * (neg ? -1 : 1), dur = 900;
+  el.style.opacity = '0';
+  el.style.cssText += ';transition:opacity .25s';
+  var started = false;
+  function start(){
+    if (started) return;
+    started = true;
+    el.style.opacity = '1';
+    var t0 = performance.now();
+    function frame(now){
+      var p = Math.min(1,(now-t0)/dur);
+      var e = p >= 1 ? 1 : 1 - Math.pow(2, -10*p);
+      var cur = raw*e, abs = Math.abs(cur);
+      var txt;
+      if (isRp)       txt = (neg?'−':'')+'Rp '+Math.round(abs).toLocaleString('id-ID');
+      else if (isPct) txt = sign+abs.toFixed(2)+'%';
+      else if (isTimes) txt = abs.toFixed(2)+'×';
+      else txt = Math.round(abs).toLocaleString('id-ID');
+      el.textContent = txt;
+      if (p < 1) requestAnimationFrame(frame); else el.textContent = finalText;
+    }
+    requestAnimationFrame(frame);
   }
-  requestAnimationFrame(frame);
+  setTimeout(start, delay || 0);
+  setTimeout(function(){ if (!started){ started = true; el.style.opacity='1'; el.textContent = finalText; } }, (delay||0) + dur + 400);
 }
 
 function renderStats(){
@@ -670,7 +683,7 @@ function renderStats(){
       renderStats();
     });
   });
-  wrap.querySelectorAll('[data-val]').forEach(function(el){ animateStatVal(el, el.dataset.val); });
+  wrap.querySelectorAll('[data-val]').forEach(function(el, i){ animateStatVal(el, el.dataset.val, i*50); });
 }
 
 /* ════════════════════════════════════════════════════════════════════════

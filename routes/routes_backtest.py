@@ -1,18 +1,11 @@
 """
-routes_backtest.py — Blueprint: /backtest, /api/backtest, /api/ticker-fitness
+routes_backtest.py — Blueprint: /api/backtest, /api/backtest/bsjp, /api/ticker-fitness
 RULE: Routing only. All backtest computation in algo_backtest.py.
 """
-from flask import Blueprint, render_template, jsonify, request, redirect
+from flask import Blueprint, jsonify, request, redirect
 from core.auth import is_authed
 
 bp_backtest = Blueprint("backtest", __name__)
-
-
-@bp_backtest.route("/backtest")
-def backtest_page():
-    if not is_authed():
-        return redirect("/")
-    return render_template("backtest.html")
 
 
 @bp_backtest.route("/api/backtest")

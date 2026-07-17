@@ -50,9 +50,10 @@ body.sidebar-layout {
 .sidebar-brand-icon {
   width: 26px; height: 26px;
   border-radius: 7px;
-  background: var(--ink);
+  background: var(--accent);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
+  position: relative;
 }
 .sidebar-brand-name {
   font-family: var(--font-display);

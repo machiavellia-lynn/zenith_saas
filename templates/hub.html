@@ -191,7 +191,7 @@ body { display: flex; flex-direction: column; }
 }
 .hub-modules {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 14px;
   margin-bottom: 24px;
 }
@@ -472,10 +472,6 @@ body { display: flex; flex-direction: column; }
       <div>
         <h1 class="hub-greeting" id="hubGreeting">Good morning, {{ session.get('user','Trader') | capitalize }}.</h1>
         <p class="hub-greeting-sub" id="hubSub">Smart money is rotating. Here's where to look first today.</p>
-        <div class="hub-cta-row">
-          <a href="/flow" class="btn-ink">Open Flow →</a>
-          <a href="/wyckoff" class="btn-outline">Wyckoff analysis</a>
-        </div>
       </div>
 
       <!-- Snapshot card -->
@@ -526,64 +522,33 @@ body { display: flex; flex-direction: column; }
       <div class="hub-section-sub">Four lenses · same source of truth</div>
     </div>
     <div class="hub-modules">
-      <a href="/chart" class="hub-module-card">
-        <div class="hub-module-header">
-          <div class="hub-module-icon">
-            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13L6 8L9 11L14 4"/><circle cx="2" cy="13" r="1.2" fill="currentColor"/><circle cx="14" cy="4" r="1.2" fill="currentColor"/></svg>
-          </div>
-          <div class="hub-module-num">01</div>
-        </div>
-        <div class="hub-module-name">Chart</div>
-        <div class="hub-module-sub">Candlesticks with flow overlay</div>
-        <div class="hub-module-stat" id="statChart"></div>
-        <div class="hub-module-desc">Price action with smart money markers, every timeframe.</div>
-        <div class="hub-module-footer">
-          <span class="hub-module-open">Open</span>
-          <span style="color:var(--text-dim)">→</span>
-        </div>
-      </a>
       <a href="/flow" class="hub-module-card">
         <div class="hub-module-header">
           <div class="hub-module-icon accent">
             <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 11C3 11 3 5 5 5S7 11 9 11S11 5 13 5S14.5 8 15 7"/></svg>
           </div>
-          <div class="hub-module-num">02</div>
+          <div class="hub-module-num">01</div>
         </div>
         <div class="hub-module-name">Flow</div>
-        <div class="hub-module-sub">Smart vs bad money ledger</div>
+        <div class="hub-module-sub">Daily SM/BM ledger per emiten</div>
         <div class="hub-module-stat" id="statFlow"></div>
-        <div class="hub-module-desc">Per-ticker breakdown with multi-sort and date filter.</div>
+        <div class="hub-module-desc">Tabel aliran dana institusional — Smart Money, Bad Money, Clean Money, dan RSM per ticker. Sort dan filter by date.</div>
         <div class="hub-module-footer">
           <span class="hub-module-open">Open</span>
           <span style="color:var(--text-dim)">→</span>
         </div>
       </a>
-      <a href="/sector" class="hub-module-card">
+      <a href="/wyckoff" class="hub-module-card">
         <div class="hub-module-header">
           <div class="hub-module-icon">
-            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 9C2.5 9 2.5 5 4 5S5.5 9 7 9S8.5 5 10 5S11.5 9 13 8"/></svg>
           </div>
-          <div class="hub-module-num">03</div>
+          <div class="hub-module-num">02</div>
         </div>
-        <div class="hub-module-name">Sector</div>
-        <div class="hub-module-sub">Sector rotation analysis</div>
-        <div class="hub-module-stat" id="statSector"></div>
-        <div class="hub-module-desc">Which industries are being accumulated, ranked.</div>
-        <div class="hub-module-footer">
-          <span class="hub-module-open">Open</span>
-          <span style="color:var(--text-dim)">→</span>
-        </div>
-      </a>
-      <a href="/backtest" class="hub-module-card">
-        <div class="hub-module-header">
-          <div class="hub-module-icon">
-            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 5V11H6"/><path d="M2 11A6 6 0 1 0 4 4.5"/></svg>
-          </div>
-          <div class="hub-module-num">04</div>
-        </div>
-        <div class="hub-module-name">Backtest</div>
-        <div class="hub-module-sub">Strategy leaderboard</div>
-        <div class="hub-module-desc">Test entry/exit pairings against historical data.</div>
+        <div class="hub-module-name">Wyckoff</div>
+        <div class="hub-module-sub">Smart money phase scanner</div>
+        <div class="hub-module-stat" id="statWyckoff"></div>
+        <div class="hub-module-desc">Klasifikasi fase per emiten (SOS / SPRING / ACCUM / DISTRI) dari dominasi SM terhadap BM, disaring tiga safety gate.</div>
         <div class="hub-module-footer">
           <span class="hub-module-open">Open</span>
           <span style="color:var(--text-dim)">→</span>
@@ -594,12 +559,28 @@ body { display: flex; flex-direction: column; }
           <div class="hub-module-icon">
             <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12L5 7L8 10L14 3"/><path d="M11 3h3v3"/></svg>
           </div>
-          <div class="hub-module-num">05</div>
+          <div class="hub-module-num">03</div>
         </div>
         <div class="hub-module-name">BSJP</div>
-        <div class="hub-module-sub">Breakout · Pullback algo</div>
+        <div class="hub-module-sub">Overnight MA5 breakout</div>
         <div class="hub-module-stat" id="statBSJP"></div>
-        <div class="hub-module-desc">Signal generation with Wyckoff-based breakout and smart pullback entry.</div>
+        <div class="hub-module-desc">Sinyal entry EOD dari setup SMA5 breakout dan pullback — murni data harga OHLCV, tanpa flow data Telegram.</div>
+        <div class="hub-module-footer">
+          <span class="hub-module-open">Open</span>
+          <span style="color:var(--text-dim)">→</span>
+        </div>
+      </a>
+      <a href="/sector" class="hub-module-card">
+        <div class="hub-module-header">
+          <div class="hub-module-icon">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="5" height="5" rx="1.2"/><rect x="8" y="1" width="5" height="5" rx="1.2"/><rect x="1" y="8" width="5" height="5" rx="1.2"/><rect x="8" y="8" width="5" height="5" rx="1.2"/></svg>
+          </div>
+          <div class="hub-module-num">04</div>
+        </div>
+        <div class="hub-module-name">Sector</div>
+        <div class="hub-module-sub">Rotation map</div>
+        <div class="hub-module-stat" id="statSector"></div>
+        <div class="hub-module-desc">Peta rotasi sektor — industri mana yang sedang diakumulasi atau didistribusi smart money.</div>
         <div class="hub-module-footer">
           <span class="hub-module-open">Open</span>
           <span style="color:var(--text-dim)">→</span>

@@ -417,3 +417,25 @@ def ohlcv():
     if "error" in result:
         return jsonify(result), 404
     return jsonify(result)
+
+
+# ── /api/ticker-search — lightweight list for chart ticker autocomplete ───────
+@bp_flow.route("/api/ticker-search")
+def ticker_search():
+    if not is_authed():
+        return jsonify({"error": "unauthorized"}), 401
+
+    conn = get_db()
+    tickers = fetchall(conn, """
+        SELECT tu.ticker,
+               p.close AS price
+        FROM ticker_universe tu
+        LEFT JOIN LATERAL (
+            SELECT close FROM price_history
+            WHERE ticker = tu.ticker
+            ORDER BY date DESC LIMIT 1
+        ) p ON TRUE
+        WHERE tu.is_active = TRUE
+        ORDER BY tu.ticker
+    """)
+    return jsonify({"tickers": tickers})

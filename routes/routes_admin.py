@@ -831,6 +831,58 @@ def delete_user(user_id):
     return jsonify({"ok": True})
 
 
+# ── API Keys (multi-key auth for /api/v1/*, see core/api_auth.py) ──────────────
+
+@bp_admin.route("/admin/api-keys")
+def list_api_keys():
+    if not is_authed():
+        return jsonify({"error": "unauthorized"}), 401
+    from core.db import get_db, fetchall
+    conn = get_db()
+    keys = fetchall(conn, """
+        SELECT id, name, key_prefix, environment, created_at, last_used_at
+        FROM api_keys WHERE revoked = FALSE ORDER BY id
+    """)
+    return jsonify([dict(k) for k in keys])
+
+
+@bp_admin.route("/admin/api-keys/add", methods=["POST"])
+def add_api_key():
+    if not is_authed():
+        return jsonify({"ok": False}), 401
+    import hashlib
+    import secrets as _secrets
+    data = request.get_json() or {}
+    name        = (data.get("name") or "Default").strip() or "Default"
+    environment = data.get("environment", "live")
+    if environment not in ("live", "test"):
+        return jsonify({"ok": False, "error": "Environment harus live atau test"})
+
+    raw_key   = f"zenith_{environment}_{_secrets.token_urlsafe(24)}"
+    key_hash  = hashlib.sha256(raw_key.encode()).hexdigest()
+    key_prefix = raw_key[:16]
+
+    from core.db import get_db, execute, transaction
+    conn = get_db()
+    with transaction(conn):
+        execute(conn, """
+            INSERT INTO api_keys (name, key_prefix, key_hash, environment)
+            VALUES (%s, %s, %s, %s)
+        """, [name, key_prefix, key_hash, environment])
+    return jsonify({"ok": True, "key": raw_key})
+
+
+@bp_admin.route("/admin/api-keys/delete/<int:key_id>", methods=["POST"])
+def delete_api_key(key_id):
+    if not is_authed():
+        return jsonify({"ok": False}), 401
+    from core.db import get_db, execute, transaction
+    conn = get_db()
+    with transaction(conn):
+        execute(conn, "UPDATE api_keys SET revoked = TRUE WHERE id = %s", [key_id])
+    return jsonify({"ok": True})
+
+
 # ── Wyckoff Recompute (rebuild summary + analytics per date range) ─────────────
 
 _wyckoff_recompute = {
@@ -892,6 +944,62 @@ def admin_wyckoff_recompute_status():
     if not is_authed():
         return redirect("/")
     return jsonify(_wyckoff_recompute)
+
+
+# ── EOD Summary rebuild (raw Telegram → eod_summary rows only, no analytics) ───
+
+_eod_summary_progress = {
+    "status": "idle", "current_date": None,
+    "done": 0, "total": 0, "error": None,
+}
+
+
+@bp_admin.route("/admin/eod-summary-rebuild")
+def admin_eod_summary_rebuild():
+    if _eod_summary_progress["status"] == "running":
+        return jsonify({"ok": False, "error": "Sudah berjalan, tunggu selesai dulu."})
+    date_from = request.args.get("date_from", "").strip()
+    date_to   = request.args.get("date_to",   "").strip()
+    if not date_from or not date_to:
+        return jsonify({"ok": False, "error": "date_from dan date_to wajib (DD-MM-YYYY)"}), 400
+
+    import threading
+    from algo.summary_rebuild import rebuild_summary_for_date
+    from core.db import get_scraper_db, transaction
+    from core.utils import date_range
+    import logging as _logging
+    _log = _logging.getLogger("zenith.admin")
+
+    def _run():
+        conn = get_scraper_db()
+        dates = date_range(date_from, date_to)
+        _eod_summary_progress.update({
+            "status": "running", "total": len(dates),
+            "done": 0, "error": None, "current_date": None,
+        })
+        _log.info("eod_summary_rebuild: %d dates %s → %s", len(dates), date_from, date_to)
+
+        for i, d in enumerate(dates):
+            _eod_summary_progress["current_date"] = d
+            try:
+                with transaction(conn):
+                    rebuild_summary_for_date(conn, d)
+            except Exception as e:
+                _log.error("eod_summary_rebuild failed %s: %s", d, e)
+                conn.rollback()
+            _eod_summary_progress["done"] = i + 1
+
+        _eod_summary_progress.update({"status": "done", "current_date": None})
+        _log.info("eod_summary_rebuild done: %d dates", len(dates))
+        conn.close()
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"ok": True, "message": "EOD Summary rebuild dimulai di background."})
+
+
+@bp_admin.route("/admin/eod-summary-status")
+def admin_eod_summary_status():
+    return jsonify(_eod_summary_progress)
 
 
 # ── BSJP Recompute (enrich analytics + generate signals per date range) ────────
@@ -1050,6 +1158,12 @@ def admin_data_coverage():
             "WHERE date LIKE %s GROUP BY date", [dmy_pat])
         sources.append({"key": "bsjp_results", "label": "bsjp_results",
                         "group": "BSJP", "days": _day_dict_dmy(rows)})
+
+        rows = fetchall(conn,
+            "SELECT date, COUNT(DISTINCT ticker) AS cnt FROM eod_summary "
+            "WHERE phase IS NOT NULL AND date LIKE %s GROUP BY date", [dmy_pat])
+        sources.append({"key": "wyckoff_signals", "label": "wyckoff_signals",
+                        "group": "SIGNALS", "days": _day_dict_dmy(rows)})
 
         return jsonify({"year": year, "month": month, "sources": sources})
     except Exception as e:

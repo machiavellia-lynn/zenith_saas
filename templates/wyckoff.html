@@ -21,7 +21,7 @@ body.sidebar-layout { overflow: hidden; }
 
 /* Table columns: # | Ticker | TX | Clean Money | SM | BM | RSM | Last | Phase | Action */
 .flow-cols {
-  grid-template-columns: 32px 0.9fr 0.35fr 1.15fr 0.7fr 0.7fr 0.55fr 0.82fr 1.0fr 0.8fr;
+  grid-template-columns: 32px 1.2fr 0.35fr 0.85fr 0.7fr 0.7fr 0.55fr 0.82fr 1.15fr 0.8fr;
   column-gap: 8px;
 }
 </style>
@@ -35,7 +35,7 @@ body.sidebar-layout { overflow: hidden; }
   <div class="page-header">
     <div>
       <div class="page-subtitle">Smart Money · Bad Money · Clean Money</div>
-      <h1 class="page-title">Wyckoff / Flow</h1>
+      <h1 class="page-title">Wyckoff Algo</h1>
     </div>
     <div class="page-header-actions">
       <div class="ihsg-pill">
@@ -122,8 +122,8 @@ body.sidebar-layout { overflow: hidden; }
           RSM <span class="sort-arrow">↓</span>
         </div>
         <div class="th-sortable" data-col="gain_pct" style="text-align:right">Last <span class="sort-arrow">↓</span></div>
-        <div class="th-sortable" data-col="phase">Phase <span class="sort-arrow">↓</span></div>
-        <div class="th-sortable" data-col="action">Action <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable" data-col="phase" style="justify-content:center">Phase <span class="sort-arrow">↓</span></div>
+        <div class="th-sortable" data-col="action" style="justify-content:center">Action <span class="sort-arrow">↓</span></div>
       </div>
       <div class="data-table-body" id="tableBody">
         <div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">
@@ -134,7 +134,6 @@ body.sidebar-layout { overflow: hidden; }
         <span id="rowCount">—</span>
         <div style="display:flex;align-items:center;gap:10px">
           <span id="liveTs" style="font-family:var(--font-mono);font-size:10.5px;color:var(--muted)"></span>
-          <span class="foot-sort" id="sortLabel">Sort: Clean Money ↓</span>
         </div>
       </div>
     </div>
@@ -225,8 +224,6 @@ document.querySelectorAll('.th-sortable').forEach(function(th) {
     });
     th.classList.add('active');
     th.querySelector('.sort-arrow').textContent = state.sortAsc ? '↑' : '↓';
-    document.getElementById('sortLabel').textContent =
-      'Sort: ' + (_colLabels[state.sortCol] || state.sortCol) + (state.sortAsc ? ' ↑' : ' ↓');
     applyFilter();
   });
 });
@@ -338,14 +335,14 @@ function renderTable() {
 
     return '<div class="data-table-row flow-cols" onclick="openDetail(' + JSON.stringify(r).replace(/"/g,'&quot;') + ')">' +
       '<div class="row-num' + (i < 3 ? ' top3' : '') + '">' + String(i+1).padStart(2,'0') + '</div>' +
-      '<div class="ticker-cell">' + window.tickerAvHTML(r.ticker) +
+      '<div class="ticker-cell">' +
         '<div class="ticker-cell-info">' +
           '<div class="ticker-cell-name">' + r.ticker + '</div>' +
           '<div class="ticker-cell-sub">' + (r.name || '') + '</div>' +
         '</div>' +
       '</div>' +
       '<div style="text-align:right;font-family:var(--font-mono);font-size:13px;color:' + (r.tx >= 15 ? 'var(--ink)' : 'var(--text-dim)') + ';font-weight:' + (r.tx >= 15 ? '700' : '400') + '">' + (r.tx || '—') + '</div>' +
-      '<div>' + window.cmBarHTML(cm, maxCM) + '</div>' +
+      '<div style="text-align:right;font-family:var(--font-mono);font-size:13px;font-weight:600;color:' + (cmUp ? 'var(--up)' : 'var(--down)') + '">' + (cm != null ? window.fmtMoneySign(cm) : '—') + '</div>' +
       '<div style="text-align:right;font-family:var(--font-mono);font-size:12px;color:var(--up)">' + (r.sm_val != null ? window.fmtMoney(r.sm_val) : '—') + '</div>' +
       '<div style="text-align:right;font-family:var(--font-mono);font-size:12px;color:#e07840">' + (r.bm_val != null ? window.fmtMoney(r.bm_val) : '—') + '</div>' +
       '<div style="text-align:right;font-family:var(--font-mono);font-size:13px;color:' + rsmColor + '">' + (r.rsm != null ? r.rsm.toFixed(1) + '%' : '—') + '</div>' +
@@ -353,8 +350,8 @@ function renderTable() {
         '<div class="price-cell-price">' + (r.price ? window.fmtPrice(r.price) : '—') + '</div>' +
         '<div class="price-cell-chg ' + (r.gain_pct >= 0 ? 'up' : 'down') + '">' + (r.gain_pct != null ? window.fmtPct(r.gain_pct) : '—') + '</div>' +
       '</div>' +
-      '<div>' + window.phaseBadgeHTML(r.phase) + '</div>' +
-      '<div>' + window.actionBadgeHTML(r.action) + '</div>' +
+      '<div style="display:flex;justify-content:center">' + window.phaseBadgeHTML(r.phase) + '</div>' +
+      '<div style="display:flex;justify-content:center">' + window.actionBadgeHTML(r.action) + '</div>' +
     '</div>';
   }).join('');
 
@@ -410,7 +407,7 @@ function openDetail(r) {
   var title = document.getElementById('detailTitle');
   var body  = document.getElementById('detailBody');
 
-  title.innerHTML = window.tickerAvHTML(r.ticker) + ' <span style="margin-left:8px">' + r.ticker + '</span>' +
+  title.innerHTML = '<span>' + r.ticker + '</span>' +
     (r.phase ? '&nbsp;' + window.phaseBadgeHTML(r.phase) : '') +
     (r.action ? '&nbsp;' + window.actionBadgeHTML(r.action) : '');
   title.style.display = 'flex';

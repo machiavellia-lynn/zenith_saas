@@ -19,7 +19,7 @@ body.sidebar-layout { overflow: hidden; }
 .data-table { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .data-table-body { flex: 1; overflow-y: auto; min-height: 0; }
 .mf-cols {
-  grid-template-columns: 32px 1.45fr 0.38fr 1.05fr 0.68fr 0.68fr 0.58fr 0.72fr 0.72fr 0.82fr 0.82fr;
+  grid-template-columns: 32px 1.75fr 0.38fr 0.75fr 0.68fr 0.68fr 0.58fr 0.72fr 0.72fr 0.82fr 0.82fr;
 }
 </style>
 </head>
@@ -120,7 +120,6 @@ body.sidebar-layout { overflow: hidden; }
         <span id="rowCount">—</span>
         <div style="display:flex;align-items:center;gap:10px">
           <span id="liveTs" style="font-family:var(--font-mono);font-size:10.5px;color:var(--muted)"></span>
-          <span class="foot-sort" id="sortLabel">Sort: Clean Money ↓</span>
         </div>
       </div>
     </div>
@@ -141,7 +140,7 @@ var sEl=document.getElementById('tickerSearch'),cBtn=document.getElementById('se
 sEl.addEventListener('input',function(){S.q=this.value.toUpperCase().trim();cBtn.style.display=S.q?'inline':'none';filter();});
 cBtn.addEventListener('click',function(){sEl.value='';S.q='';cBtn.style.display='none';filter();});
 var _colLabels={ticker:'Ticker',tx:'TX',clean_money:'Clean Money',sm_val:'SM',bm_val:'BM',rsm:'RSM',mf_plus:'MF+',mf_minus:'MF−',net_mf:'Net MF',gain_pct:'Last'};
-document.querySelectorAll('.th-sortable').forEach(function(th){th.addEventListener('click',function(){var col=th.dataset.col;S.sortCol===col?S.sortAsc=!S.sortAsc:(S.sortCol=col,S.sortAsc=false);document.querySelectorAll('.th-sortable').forEach(function(e){e.classList.remove('active');e.querySelector('.sort-arrow').textContent='↓';});th.classList.add('active');th.querySelector('.sort-arrow').textContent=S.sortAsc?'↑':'↓';document.getElementById('sortLabel').textContent='Sort: '+(_colLabels[col]||col)+' '+(S.sortAsc?'↑':'↓');filter();});});
+document.querySelectorAll('.th-sortable').forEach(function(th){th.addEventListener('click',function(){var col=th.dataset.col;S.sortCol===col?S.sortAsc=!S.sortAsc:(S.sortCol=col,S.sortAsc=false);document.querySelectorAll('.th-sortable').forEach(function(e){e.classList.remove('active');e.querySelector('.sort-arrow').textContent='↓';});th.classList.add('active');th.querySelector('.sort-arrow').textContent=S.sortAsc?'↑':'↓';filter();});});
 var fBtn=document.getElementById('filterBtn'),fDD=document.getElementById('filterDropdown');
 fBtn.addEventListener('click',function(e){e.stopPropagation();fDD.classList.toggle('open');document.getElementById('filterChevron').textContent=fDD.classList.contains('open')?'▲':'▼';});
 document.addEventListener('mousedown',function(e){if(!fBtn.contains(e.target)){fDD.classList.remove('open');document.getElementById('filterChevron').textContent='▼';}});
@@ -153,9 +152,9 @@ function render(){var body=document.getElementById('tableBody'),rows=S.filtered;
 var maxCM=rows.reduce(function(m,r){return Math.max(m,Math.abs(r.clean_money||0));},1);
 body.innerHTML=rows.map(function(r,i){var nmf=r.net_mf,rC=r.rsm>60?'var(--up)':'var(--text-dim)';return'<div class="data-table-row mf-cols">'+
 '<div class="row-num'+(i<3?' top3':'')+'">'+String(i+1).padStart(2,'0')+'</div>'+
-'<div class="ticker-cell">'+window.tickerAvHTML(r.ticker)+'<div class="ticker-cell-info"><div class="ticker-cell-name">'+r.ticker+'</div><div class="ticker-cell-sub">'+(r.name||'')+'</div></div></div>'+
+'<div class="ticker-cell">'+'<div class="ticker-cell-info"><div class="ticker-cell-name">'+r.ticker+'</div><div class="ticker-cell-sub">'+(r.name||'')+'</div></div></div>'+
 '<div style="text-align:right;font-family:var(--font-mono);font-size:13px;color:'+(r.tx>=15?'var(--ink)':'var(--text-dim)')+';font-weight:'+(r.tx>=15?700:400)+'">'+( r.tx||'—')+'</div>'+
-'<div>'+window.cmBarHTML(r.clean_money,maxCM)+'</div>'+
+'<div style="text-align:right;font-family:var(--font-mono);font-size:13px;font-weight:600;color:'+(r.clean_money>=0?'var(--up)':'var(--down)')+'">'+(r.clean_money!=null?window.fmtMoneySign(r.clean_money):'—')+'</div>'+
 '<div style="text-align:right;font-family:var(--font-mono);font-size:12px;color:var(--up)">'+(r.sm_val!=null?window.fmtMoney(r.sm_val):'—')+'</div>'+
 '<div style="text-align:right;font-family:var(--font-mono);font-size:12px;color:#e07840">'+(r.bm_val!=null?window.fmtMoney(r.bm_val):'—')+'</div>'+
 '<div style="text-align:right;font-family:var(--font-mono);font-size:12px;color:'+rC+'">'+(r.rsm!=null?r.rsm.toFixed(1)+'%':'—')+'</div>'+

@@ -26,6 +26,7 @@ def ensure_schema():
     _create_inst_flow_cache(conn)
     _create_bsjp_signals(conn)
     _create_bsjp_results(conn)
+    _create_api_keys(conn)
     conn.commit()
     log.info("Schema ensured OK")
 
@@ -368,5 +369,23 @@ def _create_bsjp_results(conn):
         )
     """)
     conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_bsjp_res_date ON bsjp_results(date)")
+
+
+def _create_api_keys(conn):
+    """Multi-key auth for /api/v1/* external API. Legacy single ZENITH_API_KEY
+    env var still accepted as a fallback — see core/api_auth.py."""
+    conn.cursor().execute("""
+        CREATE TABLE IF NOT EXISTS api_keys (
+            id           SERIAL PRIMARY KEY,
+            name         TEXT NOT NULL,
+            key_prefix   TEXT NOT NULL,
+            key_hash     TEXT NOT NULL UNIQUE,
+            environment  TEXT NOT NULL DEFAULT 'live',
+            created_at   TIMESTAMPTZ DEFAULT NOW(),
+            last_used_at TIMESTAMPTZ,
+            revoked      BOOLEAN DEFAULT FALSE
+        )
+    """)
+    conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)")
 
 

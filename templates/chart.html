@@ -18,15 +18,23 @@ body.sidebar-layout { overflow: hidden; }
 .chart-ticker-input-wrap {
   display: flex; align-items: center; gap: 8px;
   padding: 9px 14px; background: var(--surface);
-  border: 1.5px solid var(--accent); border-radius: 9px;
-  flex: 0 0 200px; box-shadow: 0 0 0 3px var(--accent-soft);
+  border: 1px solid var(--border); border-radius: 10px;
+  flex: 0 0 260px;
 }
 .chart-ticker-input {
   border: none; outline: none; background: transparent;
   font-size: 14px; font-weight: 600; font-family: var(--font-display);
   color: var(--ink); letter-spacing: .04em; text-transform: uppercase; width: 100%;
+  box-shadow: none;
 }
+.chart-ticker-input:focus { outline: none; box-shadow: none; }
 .chart-ticker-input::placeholder { color: var(--muted); text-transform: none; }
+.ticker-suggest-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 12px; cursor: pointer; font-size: 12.5px;
+}
+.ticker-suggest-item:hover, .ticker-suggest-item.active { background: var(--surface2); }
+.ticker-suggest-item + .ticker-suggest-item { border-top: 1px solid var(--border); }
 .tf-selector {
   display: flex; align-items: center; background: var(--surface2);
   border: 1px solid var(--border2); border-radius: 7px; overflow: hidden;
@@ -78,10 +86,13 @@ body.sidebar-layout { overflow: hidden; }
   display: flex; background: var(--surface); border: 1px solid var(--border);
   border-radius: 10px; overflow: hidden; flex-shrink: 0;
 }
-.metric-cell { flex: 1; padding: 12px 16px; border-right: 1px solid var(--border); }
-.metric-cell:last-child { border-right: none; }
-.metric-lbl { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; margin-bottom: 5px; }
-.metric-val { font-family: var(--font-mono); font-size: 15px; font-weight: 700; line-height: 1; color: var(--ink); }
+.metric-group { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 14px; justify-content: center; }
+.metric-group + .metric-group { border-left: 1px solid var(--border); }
+.metric-group-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: .14em; color: var(--muted); text-transform: uppercase; }
+.metric-group-cells { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+.metric-cell { display: flex; flex-direction: column; gap: 3px; align-items: center; }
+.metric-lbl { font-family: var(--font-mono); font-size: 10px; letter-spacing: .04em; color: var(--text-dim); cursor: help; }
+.metric-val { font-family: var(--font-mono); font-size: 16px; font-weight: 700; line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; }
 .trx-tables { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .trx-table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .trx-head { padding: 9px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 7px; background: var(--surface2); }
@@ -193,11 +204,11 @@ body.sidebar-layout { overflow: hidden; }
 
     <!-- Ticker row -->
     <div style="display:flex;align-items:center;gap:12px">
-      <div class="chart-ticker-input-wrap">
+      <div class="chart-ticker-input-wrap" id="tickerWrap" style="position:relative">
         <span style="color:var(--muted);font-size:13px">⌕</span>
-        <input type="text" class="chart-ticker-input" id="tickerInput" value="BBRI" placeholder="Ticker..." maxlength="8" autocomplete="off"/>
+        <input type="text" class="chart-ticker-input" id="tickerInput" value="BBRI" placeholder="Cari ticker atau nama emiten..." maxlength="40" autocomplete="off"/>
+        <div id="tickerSuggest" style="display:none;position:absolute;top:calc(100% + 6px);left:0;min-width:260px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.1);z-index:40;overflow:hidden"></div>
       </div>
-      <button class="action-btn" id="loadBtn" style="padding:9px 18px;font-size:13px;font-weight:600">Load</button>
       <div style="width:1px;height:28px;background:var(--border)"></div>
       <div>
         <div style="font-size:12px;color:var(--muted)" id="tName">—</div>
@@ -278,14 +289,27 @@ body.sidebar-layout { overflow: hidden; }
 
     <!-- Metrics strip -->
     <div class="metrics-strip">
-      <div class="metric-cell"><div class="metric-lbl">Avg SM</div><div class="metric-val" id="mpAvgSM" style="color:var(--up)">—</div></div>
-      <div class="metric-cell"><div class="metric-lbl">Avg BM</div><div class="metric-val" id="mpAvgBM" style="color:var(--down)">—</div></div>
-      <div class="metric-cell"><div class="metric-lbl">ATR%</div><div class="metric-val" id="mpATR">—</div></div>
-      <div class="metric-cell"><div class="metric-lbl">SRI</div><div class="metric-val" id="mpSRI">—</div></div>
-      <div class="metric-cell"><div class="metric-lbl">MES</div><div class="metric-val" id="mpMES">—</div></div>
-      <div class="metric-cell"><div class="metric-lbl">RPR</div><div class="metric-val" id="mpRPR">—</div></div>
-      <div class="metric-cell"><div class="metric-lbl">Vx Gap</div><div class="metric-val" id="mpVXG">—</div></div>
-      <div class="metric-cell"><div class="metric-lbl">Phase · Action</div><div id="mpPhaseBadge" style="margin-top:4px">—</div></div>
+      <div class="metric-group">
+        <div class="metric-group-label">Flow</div>
+        <div class="metric-group-cells">
+          <div class="metric-cell"><div class="metric-lbl" title="Volume-weighted average price dari transaksi Smart Money">Avg SM</div><div class="metric-val" id="mpAvgSM" style="color:var(--up)">—</div></div>
+          <div class="metric-cell"><div class="metric-lbl" title="Volume-weighted average price dari transaksi Bad Money">Avg BM</div><div class="metric-val" id="mpAvgBM" style="color:var(--down)">—</div></div>
+        </div>
+      </div>
+      <div class="metric-group" style="flex:1.3">
+        <div class="metric-group-label">Metric</div>
+        <div class="metric-group-cells">
+          <div class="metric-cell"><div class="metric-lbl" title="Average True Range — volatilitas harian sebagai % harga">ATR%</div><div class="metric-val" id="mpATR">—</div></div>
+          <div class="metric-cell"><div class="metric-lbl" title="Smart Rotation Index — kekuatan rotasi smart money, makin tinggi makin dominan">SRI</div><div class="metric-val" id="mpSRI">—</div></div>
+          <div class="metric-cell"><div class="metric-lbl" title="Money Efficiency Score — efisiensi clean money relatif terhadap total transaksi">MES</div><div class="metric-val" id="mpMES">—</div></div>
+          <div class="metric-cell"><div class="metric-lbl" title="Risk/Reward Potential Ratio — estimasi potensi imbal hasil vs risiko">RPR</div><div class="metric-val" id="mpRPR">—</div></div>
+          <div class="metric-cell"><div class="metric-lbl" title="Volume Excess Gap — selisih dominasi transaksi SM vs BM">Vx Gap</div><div class="metric-val" id="mpVXG">—</div></div>
+        </div>
+      </div>
+      <div class="metric-group">
+        <div class="metric-group-label">Phase · Action</div>
+        <div class="metric-group-cells" id="mpPhaseBadge" style="align-items:center">—</div>
+      </div>
     </div>
 
     <!-- Transaction tables -->
@@ -331,6 +355,7 @@ var INIT_CANDLES = 150;
 var prevCloseMap = {};
 var chart = null, candleSeries = null, volumeSeries = null;
 var ovlSeriesCM = null, ovlSeriesSM = null, ovlSeriesBM = null;
+var ovlHoverVals = { cm:null, sm:null, bm:null };
 var ovlShowCM = true, ovlShowSM = false, ovlShowBM = false;
 var overlayDataCache = [];
 var txDateFrom = '', txDateTo = '';
@@ -532,7 +557,7 @@ function initChart() {
   });
 
   chart.subscribeCrosshairMove(function(param) {
-    if (!param.time || !param.seriesData) { updateIndLegend(null); return; }
+    if (!param.time || !param.seriesData) { updateIndLegend(null); ovlHoverVals={cm:null,sm:null,bm:null}; return; }
     var bar = param.seriesData.get(candleSeries);
     if (!bar) { updateIndLegend(null); return; }
     var fmt = function(v){ return Math.round(v).toLocaleString('id-ID'); };
@@ -540,8 +565,19 @@ function initChart() {
     document.getElementById('htHigh').textContent  = fmt(bar.high);
     document.getElementById('htLow').textContent   = fmt(bar.low);
     document.getElementById('htClose').textContent = fmt(bar.close);
+    var prevClose = prevCloseMap[param.time];
+    if (prevClose != null) {
+      var chgH = ((bar.close-prevClose)/prevClose*100).toFixed(2);
+      var otEl = document.getElementById('ohlcTicker');
+      otEl.textContent = (chgH>=0?'+':'')+chgH+'%';
+      otEl.style.color = chgH>=0 ? 'var(--up)' : 'var(--down)';
+    }
     var vb = param.seriesData.get(volumeSeries);
     if (vb) { var v=vb.value; document.getElementById('htVol').textContent = v>=1e9?(v/1e9).toFixed(1)+'B':v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(1)+'K':String(v); }
+    var cmPt = ovlSeriesCM ? param.seriesData.get(ovlSeriesCM) : null;
+    var smPt = ovlSeriesSM ? param.seriesData.get(ovlSeriesSM) : null;
+    var bmPt = ovlSeriesBM ? param.seriesData.get(ovlSeriesBM) : null;
+    ovlHoverVals = { cm: cmPt ? cmPt.value : null, sm: smPt ? smPt.value : null, bm: bmPt ? bmPt.value : null };
     updateIndLegend(param.time);
   });
 
@@ -749,34 +785,11 @@ function renderIndicators(candles) {
 function updateIndLegend(time) {
   var legend = document.getElementById('indLegend');
   if (!legend) return;
-  var idx = time !== null ? timeToIdx[time] : null;
+  function fmtOvl(v){ return v==null ? '' : ' '+(v>=0?'+':'')+Math.round(v).toLocaleString('id-ID'); }
   var parts = [];
-
-  maList.forEach(function(x) {
-    var v = (idx!=null && x.cachedArr) ? x.cachedArr[idx] : null;
-    parts.push('<span style="color:'+x.color+'">MA'+x.period+(v!=null?' '+Math.round(v).toLocaleString('id-ID'):'')+'</span>');
-  });
-  emaList.forEach(function(x) {
-    var v = (idx!=null && x.cachedArr) ? x.cachedArr[idx] : null;
-    parts.push('<span style="color:'+x.color+'">EMA'+x.period+(v!=null?' '+Math.round(v).toLocaleString('id-ID'):'')+'</span>');
-  });
-
-  if (IND_BB && idx!=null && indData.bbU && indData.bbU[idx]!==null) {
-    parts.push('<span style="color:rgba(33,150,243,.75)">BB '+Math.round(indData.bbU[idx])+'<span style="opacity:.6">/'+ Math.round(indData.bbM[idx])+'/'+ Math.round(indData.bbL[idx])+'</span></span>');
-  } else if (IND_BB) {
-    parts.push('<span style="color:rgba(33,150,243,.75)">BB</span>');
-  }
-
-  if (IND_RSI) {
-    var rv = (idx!=null&&indData.rsi) ? indData.rsi[idx] : null;
-    parts.push('<span style="color:#9c27b0">RSI'+(rv!==null?' '+rv.toFixed(1):'')+'</span>');
-  }
-
-  if (IND_MACD) {
-    var ml = (idx!=null&&indData.macdLine) ? indData.macdLine[idx] : null;
-    parts.push('<span style="color:#2196f3">MACD'+(ml!==null?' '+ml.toFixed(1):'')+'</span>');
-  }
-
+  if (ovlShowCM) parts.push('<div style="color:#3a6b58">CM'+fmtOvl(ovlHoverVals.cm)+'</div>');
+  if (ovlShowSM) parts.push('<div style="color:#4a7fdb">SM'+fmtOvl(ovlHoverVals.sm)+'</div>');
+  if (ovlShowBM) parts.push('<div style="color:#c87d3a">BM'+fmtOvl(ovlHoverVals.bm)+'</div>');
   legend.innerHTML = parts.join('');
 }
 
@@ -958,7 +971,7 @@ async function doLoad() {
   var input = document.getElementById('tickerInput').value.trim().toUpperCase();
   if (!input) return;
   currentTicker = input;
-  document.getElementById('ohlcTicker').textContent = currentTicker + ' · ' + currentTF.toUpperCase();
+  document.getElementById('ohlcTicker').textContent = '—';
   showLoad('Mengambil data...');
   cleanupChart();
   initChart();
@@ -988,6 +1001,12 @@ async function doLoad() {
     document.getElementById('htHigh').textContent  = Math.round(last.high).toLocaleString('id-ID');
     document.getElementById('htLow').textContent   = Math.round(last.low).toLocaleString('id-ID');
     document.getElementById('htClose').textContent = Math.round(last.close).toLocaleString('id-ID');
+    if (prev) {
+      var chgHead = ((last.close-prev.close)/prev.close*100).toFixed(2);
+      var ohlcTickerEl = document.getElementById('ohlcTicker');
+      ohlcTickerEl.textContent = (chgHead>=0?'+':'')+chgHead+'%';
+      ohlcTickerEl.style.color = chgHead>=0 ? 'var(--up)' : 'var(--down)';
+    }
     if (data.name) document.getElementById('tName').textContent = data.name;
     document.getElementById('tPrice').textContent = Math.round(last.close).toLocaleString('id-ID');
     if (prev) {
@@ -1131,7 +1150,6 @@ document.getElementById('indBtn').addEventListener('click', function(e){
 /* Scale, load, and overlay toggle event listeners */
 document.getElementById('btnAuto').addEventListener('click', function(){ setScale('auto'); });
 document.getElementById('btnLog').addEventListener('click',  function(){ setScale('log'); });
-document.getElementById('loadBtn').addEventListener('click', function(){ doLoad(); });
 document.getElementById('ovlBtnCM').addEventListener('click', function(){ toggleOverlay('cm'); });
 document.getElementById('ovlBtnSM').addEventListener('click', function(){ toggleOverlay('sm'); });
 document.getElementById('ovlBtnBM').addEventListener('click', function(){ toggleOverlay('bm'); });
@@ -1159,8 +1177,60 @@ new MutationObserver(function(mutations) {
   });
 }).observe(document.documentElement, { attributes: true });
 
+/* ── Ticker autocomplete ───────────────────────────────────────────────── */
+var ZENITH_TICKERS = [];
+fetch('/api/ticker-search').then(function(r){ return r.json(); }).then(function(d){ ZENITH_TICKERS = d.tickers || []; }).catch(function(){});
+
+document.getElementById('tickerInput').addEventListener('keydown', function(e){
+  var box = document.getElementById('tickerSuggest');
+  var items = box.querySelectorAll('.ticker-suggest-item');
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (!items.length) return;
+    e.preventDefault();
+    var cur = box.querySelector('.ticker-suggest-item.active');
+    var idx = cur ? Array.prototype.indexOf.call(items, cur) : -1;
+    idx = e.key === 'ArrowDown' ? Math.min(items.length-1, idx+1) : Math.max(0, idx-1);
+    items.forEach(function(it){ it.classList.remove('active'); });
+    items[idx].classList.add('active');
+    items[idx].scrollIntoView({block:'nearest'});
+    return;
+  }
+  if (e.key === 'Enter') {
+    var active = box.querySelector('.ticker-suggest-item.active') || items[0];
+    if (active) { document.getElementById('tickerInput').value = active.dataset.ticker; }
+    hideSuggest();
+    doLoad();
+    return;
+  }
+  if (e.key === 'Escape') { hideSuggest(); }
+});
+function hideSuggest(){ document.getElementById('tickerSuggest').style.display='none'; }
+function renderSuggest(query){
+  var box = document.getElementById('tickerSuggest');
+  var q = query.trim().toUpperCase();
+  var matches = q ? ZENITH_TICKERS.filter(function(t){ return t.ticker.indexOf(q) === 0; }).slice(0, 7) : [];
+  if (!matches.length) { hideSuggest(); return; }
+  box.innerHTML = matches.map(function(t, i){
+    return '<div class="ticker-suggest-item'+(i===0?' active':'')+'" data-ticker="'+t.ticker+'">'
+      + '<span style="font-weight:700;color:var(--ink);font-family:var(--font-mono)">'+t.ticker+'</span>'
+      + '<span style="color:var(--muted);text-align:right;flex:1;margin-left:10px;font-family:var(--font-mono)">'+(t.price?window.fmtPrice(t.price):'')+'</span>'
+      + '</div>';
+  }).join('');
+  box.style.display = '';
+  box.querySelectorAll('.ticker-suggest-item').forEach(function(el){
+    el.addEventListener('mousedown', function(e){
+      e.preventDefault();
+      document.getElementById('tickerInput').value = el.dataset.ticker;
+      hideSuggest();
+      doLoad();
+    });
+  });
+}
+document.getElementById('tickerInput').addEventListener('input', function(){ renderSuggest(this.value); });
+document.getElementById('tickerInput').addEventListener('focus', function(){ if (this.value) renderSuggest(this.value); });
+document.addEventListener('click', function(e){ if (!document.getElementById('tickerWrap').contains(e.target)) hideSuggest(); });
+
 /* Init */
-document.getElementById('tickerInput').addEventListener('keydown', function(e){ if(e.key==='Enter') doLoad(); });
 window.addEventListener('resize', sizeChart);
 window.addEventListener('DOMContentLoaded', async function() {
   var initDate = window.todayLocal();

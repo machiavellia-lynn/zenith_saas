@@ -79,7 +79,7 @@
 
 /* ── STOCKBIT DATE PICKER ─────────────────────────────────────────── */
 .sdp-strip {
-  display: flex; align-items: center;
+  display: inline-flex; align-items: center;
   border: 1px solid var(--border);
   border-radius: 8px; overflow: hidden;
   background: var(--surface); height: 34px;

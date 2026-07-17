@@ -43,9 +43,10 @@ body {
 .login-logo-icon {
   width: 24px; height: 24px;
   border-radius: 7px;
-  background: var(--ink);
+  background: var(--accent);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
+  position: relative;
 }
 .login-hero {
   flex: 1;
@@ -291,9 +292,9 @@ body {
 <div class="login-left">
   <div class="login-logo">
     <div class="login-logo-icon">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path d="M2 10L5.5 5L8.5 8L12 3" stroke="#c8633a" stroke-width="1.7" stroke-linecap="round"/>
-      </svg>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="#fff" style="position:relative;z-index:2"><path d="M12 0C12 6.6 6.6 12 0 12C6.6 12 12 17.4 12 24C12 17.4 17.4 12 24 12C17.4 12 12 6.6 12 0Z"/></svg>
+      <svg width="6" height="6" viewBox="0 0 24 24" fill="#fff" style="position:absolute;top:3px;right:3px;opacity:.85"><path d="M12 0C12 6.6 6.6 12 0 12C6.6 12 12 17.4 12 24C12 17.4 17.4 12 24 12C17.4 12 12 6.6 12 0Z"/></svg>
+      <svg width="4" height="4" viewBox="0 0 24 24" fill="#fff" style="position:absolute;bottom:3px;left:4px;opacity:.7"><path d="M12 0C12 6.6 6.6 12 0 12C6.6 12 12 17.4 12 24C12 17.4 17.4 12 24 12C17.4 12 12 6.6 12 0Z"/></svg>
     </div>
     Zenith
   </div>
@@ -330,8 +331,8 @@ body {
           <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2 5.5L4.5 8L9 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
         </div>
         <div>
-          <div class="login-feature-title">Backtest engine</div>
-          <div class="login-feature-desc">Validate before you commit</div>
+          <div class="login-feature-title">Portfolio simulation</div>
+          <div class="login-feature-desc">Simulate equity growth before you commit</div>
         </div>
       </div>
     </div>

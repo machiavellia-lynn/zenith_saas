@@ -116,10 +116,12 @@ body.sidebar-layout { overflow: hidden; }
     <!-- ══════════════ DATA TAB ══════════════ -->
     <div id="tabData">
 
-      <!-- Scraper Control -->
-      <div class="a-section" style="margin-bottom:14px">
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+
+      <!-- Scraper -->
+      <div class="a-section">
         <div class="a-section-head">
-          <div class="a-section-title">Scraper Control</div>
+          <div class="a-section-title">Scraper</div>
           <div class="a-section-sub">Realtime Telegram listener · session management</div>
         </div>
         <div class="a-section-body">
@@ -148,24 +150,33 @@ body.sidebar-layout { overflow: hidden; }
             </div>
 
           </div>
+        </div>
+      </div>
 
-          <!-- Quick Actions -->
-          <div style="margin-top:18px;padding-top:18px;border-top:1px solid var(--border)">
-            <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Quick Actions</div>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-              <div id="scraperQDP"></div>
-              <button class="a-btn" style="background:var(--accent);color:#fff;border-color:var(--accent)" id="btnQRebuild" onclick="quickAction('rebuild')">
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M13.9 2.1a1 1 0 0 0-1-.3L1.6 5.6a1 1 0 0 0 .1 1.9l3.8 1 1 3.8a1 1 0 0 0 1.9.1l3.8-11.3a1 1 0 0 0-.3-1z"/></svg>
-                Rebuild Summary
-              </button>
-              <button class="a-btn primary" id="btnQRecompute" onclick="quickAction('recompute')">Recompute Wyckoff</button>
+      <!-- Data Coverage (Table / Heatmap) -->
+      <div class="a-section">
+        <div class="a-section-head">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+            <div>
+              <div class="a-section-title">Data Coverage</div>
+              <div class="a-section-sub">Kelengkapan data per tabel</div>
             </div>
-            <div id="quickActionStatus" style="margin-top:6px;font-family:var(--font-mono);font-size:11px;color:var(--muted);min-height:14px"></div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <div id="hmNavWrap" style="display:none;align-items:center;gap:6px">
+                <button class="a-btn small" id="hmBtnPrev" onclick="hmNav(-1)">&#8249;</button>
+                <span id="hmMonthLabel" style="font-size:13px;font-weight:600;color:var(--ink);min-width:100px;text-align:center"></span>
+                <button class="a-btn small" id="hmBtnNext" onclick="hmNav(1)">&#8250;</button>
+              </div>
+              <div class="seg-ctrl" id="covViewToggle">
+                <div class="seg-btn active" data-view="table" onclick="switchCovView('table')">Table</div>
+                <div class="seg-btn" data-view="heatmap" onclick="switchCovView('heatmap')">Heatmap</div>
+              </div>
+            </div>
           </div>
+        </div>
+        <div class="a-section-body">
 
-          <!-- Data Coverage -->
-          <div style="margin-top:18px">
-            <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Data Coverage</div>
+          <div id="covViewTable">
             <table class="cov-table">
               <thead><tr>
                 <th class="cov-th" style="text-align:left">Channel</th>
@@ -178,34 +189,19 @@ body.sidebar-layout { overflow: hidden; }
               </tbody>
             </table>
           </div>
-        </div>
-      </div>
 
-      <!-- Data Coverage Heatmap -->
-      <div class="a-section" style="margin-bottom:14px">
-        <div class="a-section-head">
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-            <div>
-              <div class="a-section-title">Data Coverage Heatmap</div>
-              <div class="a-section-sub">Kelengkapan data per tabel per hari</div>
+          <div id="covViewHeatmap" style="display:none">
+            <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+              <span style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">Status</span>
+              <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-dim)"><span style="width:11px;height:11px;border-radius:3px;background:#4caf74;display:inline-block"></span>Lengkap</span>
+              <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-dim)"><span style="width:11px;height:11px;border-radius:3px;background:#c87d3a;display:inline-block"></span>Sebagian</span>
+              <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-dim)"><span style="width:11px;height:11px;border-radius:3px;background:#c03838;display:inline-block"></span>Kosong</span>
+              <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-dim)"><span style="width:11px;height:11px;border-radius:3px;background:var(--surface3);border:1px solid var(--border);display:inline-block"></span>Libur/Weekend</span>
             </div>
-            <div style="display:flex;align-items:center;gap:6px">
-              <button class="a-btn small" id="hmBtnPrev" onclick="hmNav(-1)">&#8249;</button>
-              <span id="hmMonthLabel" style="font-size:13px;font-weight:600;color:var(--ink);min-width:100px;text-align:center"></span>
-              <button class="a-btn small" id="hmBtnNext" onclick="hmNav(1)">&#8250;</button>
-            </div>
+            <div id="hmGrid" style="overflow-x:auto"></div>
+            <div id="hmGaps" style="margin-top:14px"></div>
           </div>
-        </div>
-        <div class="a-section-body">
-          <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
-            <span style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">Status</span>
-            <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-dim)"><span style="width:11px;height:11px;border-radius:3px;background:#4caf74;display:inline-block"></span>Lengkap</span>
-            <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-dim)"><span style="width:11px;height:11px;border-radius:3px;background:#c87d3a;display:inline-block"></span>Sebagian</span>
-            <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-dim)"><span style="width:11px;height:11px;border-radius:3px;background:#c03838;display:inline-block"></span>Kosong</span>
-            <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-dim)"><span style="width:11px;height:11px;border-radius:3px;background:var(--surface3);border:1px solid var(--border);display:inline-block"></span>Libur/Weekend</span>
-          </div>
-          <div id="hmGrid" style="overflow-x:auto"></div>
-          <div id="hmGaps" style="margin-top:14px"></div>
+
         </div>
       </div>
 
@@ -227,15 +223,19 @@ body.sidebar-layout { overflow: hidden; }
 
           <!-- Wyckoff panel -->
           <div id="algoWyckoff">
-            <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Date Range</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Date Range</div>
+              <button class="a-btn small" onclick="showDataReq('wyckoff')">ℹ Data requirements</button>
+            </div>
             <div id="wyckoffDP"></div>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px">
               <button class="a-btn" style="background:var(--accent);color:#fff;border-color:var(--accent)" id="btnEnrichW" onclick="runEnrich('wyckoff')">
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M13.9 2.1a1 1 0 0 0-1-.3L1.6 5.6a1 1 0 0 0 .1 1.9l3.8 1 1 3.8a1 1 0 0 0 1.9.1l3.8-11.3a1 1 0 0 0-.3-1z"/></svg>
                 Enrich Telegram
               </button>
-              <button class="a-btn primary" id="btnFetchDaily" onclick="runAction('fetch_daily')">Fetch OHLCV Daily</button>
-              <button class="a-btn" id="btnRecomputeW" onclick="runAction('recompute_w')">Recompute Analytics</button>
+              <button class="a-btn primary" id="btnRecomputeW" onclick="runAction('recompute_w')">Wyckoff Signals</button>
+              <button class="a-btn" id="btnFetchDaily" onclick="runAction('fetch_daily')">Price History (Daily)</button>
+              <button class="a-btn" id="btnEodSummary" onclick="runAction('eod_summary')">EOD Summary</button>
             </div>
             <div id="enrichWStatus" style="margin-top:8px;font-family:var(--font-mono);font-size:11px;color:var(--muted);min-height:16px"></div>
             <div id="progWyckoff" style="display:none" class="a-progress"><div class="a-progress-fill anim" id="progWyckoffFill"></div></div>
@@ -243,15 +243,18 @@ body.sidebar-layout { overflow: hidden; }
 
           <!-- BSJP panel -->
           <div id="algoBSJP" style="display:none">
-            <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Date Range</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Date Range</div>
+              <button class="a-btn small" onclick="showDataReq('bsjp')">ℹ Data requirements</button>
+            </div>
             <div id="bsjpDP"></div>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px">
               <button class="a-btn" style="background:var(--accent);color:#fff;border-color:var(--accent)" id="btnEnrichB" onclick="runEnrich('bsjp')">
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M13.9 2.1a1 1 0 0 0-1-.3L1.6 5.6a1 1 0 0 0 .1 1.9l3.8 1 1 3.8a1 1 0 0 0 1.9.1l3.8-11.3a1 1 0 0 0-.3-1z"/></svg>
                 Enrich Telegram
               </button>
-              <button class="a-btn primary" id="btnFetch15m" onclick="runAction('fetch_15m')">Fetch OHLCV 15M</button>
-              <button class="a-btn" id="btnRecomputeB" onclick="runAction('recompute_b')">Recompute BSJP</button>
+              <button class="a-btn primary" id="btnRecomputeB" onclick="runAction('recompute_b')">BSJP Signals</button>
+              <button class="a-btn" id="btnFetch15m" onclick="runAction('fetch_15m')">Price History (15m)</button>
             </div>
             <div id="enrichBStatus" style="margin-top:8px;font-family:var(--font-mono);font-size:11px;color:var(--muted);min-height:16px"></div>
             <div id="progBSJP" style="display:none" class="a-progress"><div class="a-progress-fill anim" id="progBSJPFill"></div></div>
@@ -260,36 +263,70 @@ body.sidebar-layout { overflow: hidden; }
         </div>
       </div>
 
+      </div><!-- /admin-main -->
+
     </div><!-- /tabData -->
 
     <!-- ══════════════ USERS TAB ══════════════ -->
     <div id="tabUsers" style="display:none">
 
-      <!-- Add user -->
-      <div class="a-section" style="margin-bottom:14px">
-        <div class="a-section-head"><div class="a-section-title">Tambah User</div></div>
-        <div class="a-section-body">
-          <div style="display:flex;flex-direction:column;gap:8px;max-width:340px">
-            <input type="text" class="a-input" id="newUsername" placeholder="username" autocomplete="off"/>
-            <input type="password" class="a-input" id="newPassword" placeholder="password" autocomplete="new-password"/>
-            <div style="display:flex;gap:8px">
-              <select class="a-select" id="newRole" style="flex:1">
-                <option value="guest">guest</option>
-                <option value="admin">admin</option>
-              </select>
-              <button class="a-btn primary" id="addUserBtn" onclick="addUser()">Add User</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
+        <!-- Add user -->
+        <div class="a-section" style="height:100%">
+          <div class="a-section-head"><div class="a-section-title">Tambah User</div></div>
+          <div class="a-section-body">
+            <div style="display:flex;flex-direction:column;gap:8px;max-width:320px">
+              <input type="text" class="a-input" id="newUsername" placeholder="username" autocomplete="off"/>
+              <input type="password" class="a-input" id="newPassword" placeholder="password" autocomplete="new-password"/>
+              <div style="display:flex;gap:8px">
+                <select class="a-select" id="newRole" style="flex:1">
+                  <option value="guest">guest</option>
+                  <option value="admin">admin</option>
+                </select>
+                <button class="a-btn primary" id="addUserBtn" onclick="addUser()">Add User</button>
+              </div>
+              <div id="addUserMsg" style="font-size:12px;min-height:16px"></div>
             </div>
-            <div id="addUserMsg" style="font-size:12px;min-height:16px"></div>
+          </div>
+        </div>
+
+        <!-- User list -->
+        <div class="a-section" style="height:100%">
+          <div class="a-section-head"><div class="a-section-title">Daftar User</div></div>
+          <div class="a-section-body">
+            <div id="userList" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto">
+              <div style="color:var(--muted);font-size:13px">Loading...</div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- User list -->
-      <div class="a-section">
-        <div class="a-section-head"><div class="a-section-title">Daftar User</div></div>
+      <!-- API Keys -->
+      <div class="a-section" style="margin-top:14px">
+        <div class="a-section-head" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div>
+            <div class="a-section-title">API Keys</div>
+            <div style="font-size:11.5px;color:var(--muted);margin-top:2px;text-transform:none;letter-spacing:0" id="apiKeyQuota">Loading...</div>
+          </div>
+          <button class="a-btn primary" id="createKeyBtn" onclick="createApiKey()" style="flex-shrink:0">+ Create API key</button>
+        </div>
         <div class="a-section-body">
-          <div id="userList" style="display:flex;flex-direction:column;gap:6px">
-            <div style="color:var(--muted);font-size:13px">Loading...</div>
+          <div style="max-height:320px;overflow-y:auto;overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+              <colgroup>
+                <col style="width:18%"><col style="width:28%"><col style="width:15%"><col style="width:19%"><col style="width:20%">
+              </colgroup>
+              <thead>
+                <tr style="border-bottom:1px solid var(--border)">
+                  <th style="text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:0 10px 10px;position:sticky;top:0;background:var(--surface)">Name</th>
+                  <th style="text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:0 10px 10px;position:sticky;top:0;background:var(--surface)">Key</th>
+                  <th style="text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:0 10px 10px;position:sticky;top:0;background:var(--surface)">Environment</th>
+                  <th style="text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:0 10px 10px;position:sticky;top:0;background:var(--surface)">Last Used</th>
+                  <th style="text-align:right;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:0 10px 10px;position:sticky;top:0;background:var(--surface)">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="apiKeyList"><tr><td colspan="5" style="padding:20px 10px;text-align:center;color:var(--muted);font-size:13px">Loading...</td></tr></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -298,6 +335,61 @@ body.sidebar-layout { overflow: hidden; }
 
   </div><!-- /page-body -->
 </div><!-- /main-content -->
+
+<!-- Data requirements modal -->
+<div class="modal-overlay" id="dataReqModal">
+  <div class="modal-box" style="width:min(90vw,480px);max-height:78vh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div id="dataReqTitle" style="font-size:16px;font-weight:600;color:var(--ink)"></div>
+      <button onclick="closeDataReq()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1">✕</button>
+    </div>
+    <div id="dataReqBody" style="overflow-y:auto;display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+</div>
+
+<!-- Create API Key modal -->
+<div class="modal-overlay" id="createKeyModal">
+  <div class="modal-box" style="width:min(90vw,420px)">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+      <div style="font-size:16px;font-weight:600;color:var(--ink)">Create API Key</div>
+      <button onclick="closeCreateKeyModal()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1">✕</button>
+    </div>
+    <div style="font-size:12.5px;color:var(--text-dim);line-height:1.5;margin-bottom:20px">Create a new API key for authentication. The key will only be shown once.</div>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
+      <label style="font-size:12px;font-weight:600;color:var(--ink)">Key Name</label>
+      <input type="text" class="a-input" id="createKeyName" placeholder="Default"/>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:22px">
+      <label style="font-size:12px;font-weight:600;color:var(--ink)">Environment</label>
+      <select class="a-select" id="createKeyEnv">
+        <option value="live">Live</option>
+        <option value="test">Test</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="a-btn" onclick="closeCreateKeyModal()">Cancel</button>
+      <button class="a-btn primary" id="createKeySubmitBtn" onclick="confirmCreateApiKey()">Create Key</button>
+    </div>
+  </div>
+</div>
+
+<!-- New key reveal modal (shown once, right after creation) -->
+<div class="modal-overlay" id="revealKeyModal">
+  <div class="modal-box" style="width:min(90vw,460px)">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+      <div style="font-size:16px;font-weight:600;color:var(--ink)">API Key Created</div>
+      <button onclick="closeRevealKeyModal()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1">✕</button>
+    </div>
+    <div style="font-size:12.5px;color:var(--text-dim);line-height:1.5;margin-bottom:16px">Salin key ini sekarang — tidak akan ditampilkan lagi setelah modal ini ditutup.</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
+      <code id="revealKeyValue" style="flex:1;overflow-x:auto;white-space:nowrap;font-family:var(--font-mono);font-size:12.5px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--ink)"></code>
+      <button class="a-btn small" id="revealKeyCopyBtn" onclick="copyRevealKey()">Copy</button>
+    </div>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="a-btn primary" onclick="closeRevealKeyModal()">Selesai</button>
+    </div>
+  </div>
+</div>
 
 <!-- Confirm modal -->
 <div id="confirmModal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;padding:24px">
@@ -325,7 +417,6 @@ var loadingAction = null;
 var today = window.todayLocal();
 var wyckoffDates  = { from: today, to: today };
 var bsjpDates     = { from: today, to: today };
-var scraperQDate  = { from: today };
 
 var dpWyckoff = new window.StockbitDatePicker('wyckoffDP', {
   from: today, to: today,
@@ -335,11 +426,16 @@ var dpBsjp = new window.StockbitDatePicker('bsjpDP', {
   from: today, to: today,
   onChange: function(f, t) { bsjpDates.from = f; bsjpDates.to = t || f; }
 });
-var dpScraperQ = new window.StockbitDatePicker('scraperQDP', {
-  from: today, to: today,
-  onChange: function(f) { scraperQDate.from = f; }
-});
-fetch('/api/last-date',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){if(d.date){var iso=window.DD_MM_YYYYtoISO(d.date.replace(/\//g,'-'));wyckoffDates.from=wyckoffDates.to=bsjpDates.from=bsjpDates.to=scraperQDate.from=iso;dpWyckoff.setDates(iso,iso);dpBsjp.setDates(iso,iso);dpScraperQ.setDates(iso,iso);}}).catch(function(){});
+fetch('/api/last-date',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){if(d.date){var iso=window.DD_MM_YYYYtoISO(d.date.replace(/\//g,'-'));wyckoffDates.from=wyckoffDates.to=bsjpDates.from=bsjpDates.to=iso;dpWyckoff.setDates(iso,iso);dpBsjp.setDates(iso,iso);}}).catch(function(){});
+
+window.switchCovView = function(view) {
+  document.getElementById('covViewTable').style.display   = view === 'table' ? '' : 'none';
+  document.getElementById('covViewHeatmap').style.display = view === 'heatmap' ? '' : 'none';
+  document.getElementById('hmNavWrap').style.display = view === 'heatmap' ? 'flex' : 'none';
+  document.querySelectorAll('#covViewToggle .seg-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.view === view);
+  });
+};
 
 /* Tab switching */
 window.switchTab = function(tab) {
@@ -349,7 +445,7 @@ window.switchTab = function(tab) {
   document.querySelectorAll('#tabToggle .seg-btn').forEach(function(b) {
     b.classList.toggle('active', b.dataset.tab === tab);
   });
-  if (tab === 'users') loadUsers();
+  if (tab === 'users') { loadUsers(); loadApiKeys(); }
 };
 
 /* Algo switching */
@@ -383,7 +479,7 @@ var PROGRESS_CONFIGS = {
     doneText: function(s) {
       return '✓ Selesai · ' + s.rows_inserted + ' rows · ' + s.failed_count + ' failed';
     },
-    toastLabel: 'Fetch 15M'
+    toastLabel: 'Price History (15m)'
   },
   recompute_w: {
     statusUrl: '/admin/wyckoff-recompute-status',
@@ -400,7 +496,7 @@ var PROGRESS_CONFIGS = {
            + (s.signals ? ' · ' + s.signals + ' signals' : '');
     },
     doneText: function(s) { return '✓ Selesai · ' + s.done + ' dates · ' + (s.signals || 0) + ' signals'; },
-    toastLabel: 'Recompute BSJP'
+    toastLabel: 'BSJP Signals'
   },
   fetch_daily: {
     statusUrl: '/admin/prices-progress',
@@ -410,6 +506,14 @@ var PROGRESS_CONFIGS = {
     },
     doneText: function(s) { return '✓ Selesai · ' + (s.prices_updated || 0) + ' prices · ' + (s.analytics_recomputed || 0) + ' analytics'; },
     toastLabel: 'Fetch OHLCV Daily'
+  },
+  eod_summary: {
+    statusUrl: '/admin/eod-summary-status',
+    runningText: function(s) {
+      return s.done + ' / ' + s.total + (s.current_date ? ' · ' + s.current_date : '');
+    },
+    doneText: function(s) { return '✓ Selesai · ' + s.done + ' dates'; },
+    toastLabel: 'EOD Summary'
   }
 };
 
@@ -417,7 +521,7 @@ var PROGRESS_CONFIGS = {
 window.runAction = function(action) {
   if (loadingAction) return;
   loadingAction = action;
-  var btnMap = { fetch_daily:'btnFetchDaily', recompute_w:'btnRecomputeW', rebuild:'btnRebuild', fetch_15m:'btnFetch15m', recompute_b:'btnRecomputeB' };
+  var btnMap = { fetch_daily:'btnFetchDaily', recompute_w:'btnRecomputeW', rebuild:'btnRebuild', fetch_15m:'btnFetch15m', recompute_b:'btnRecomputeB', eod_summary:'btnEodSummary' };
   var progId  = (action === 'fetch_15m' || action === 'recompute_b') ? 'progBSJP' : 'progWyckoff';
   var statusId = (action === 'fetch_15m' || action === 'recompute_b') ? 'enrichBStatus' : 'enrichWStatus';
   var btn = document.getElementById(btnMap[action]);
@@ -443,6 +547,7 @@ window.runAction = function(action) {
   else if (action === 'rebuild') url = '/admin/rebuild-summary';
   else if (action === 'fetch_15m') url = '/admin/backfill-intraday?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to);
   else if (action === 'recompute_b') url = '/admin/bsjp-recompute?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to);
+  else if (action === 'eod_summary') url = '/admin/eod-summary-rebuild?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to);
 
   var statEl = document.getElementById(statusId);
 
@@ -501,8 +606,8 @@ window.runAction = function(action) {
 };
 
 var BTN_LABELS = {
-  btnFetchDaily: 'Fetch OHLCV Daily', btnRecomputeW: 'Recompute Analytics',
-  btnFetch15m: 'Fetch OHLCV 15M', btnRecomputeB: 'Recompute BSJP'
+  btnFetchDaily: 'Price History (Daily)', btnRecomputeW: 'Wyckoff Signals', btnEodSummary: 'EOD Summary',
+  btnFetch15m: 'Price History (15m)', btnRecomputeB: 'BSJP Signals'
 };
 function resetBtn(id) {
   var btn = document.getElementById(id);
@@ -569,46 +674,6 @@ window.runEnrich = function(algo) {
     .catch(function(e) {
       btn.disabled = false;
       btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M13.9 2.1a1 1 0 0 0-1-.3L1.6 5.6a1 1 0 0 0 .1 1.9l3.8 1 1 3.8a1 1 0 0 0 1.9.1l3.8-11.3a1 1 0 0 0-.3-1z"/></svg> Enrich Telegram';
-      toast('Gagal: ' + e.message, 'error');
-    });
-};
-
-/* ── Quick Actions (Scraper Control section) ── */
-window.quickAction = function(type) {
-  var btnId  = type === 'rebuild' ? 'btnQRebuild' : 'btnQRecompute';
-  var btn    = document.getElementById(btnId);
-  var statEl = document.getElementById('quickActionStatus');
-  var dmy    = window.isoToDD_MM_YYYY(scraperQDate.from);
-  var url    = type === 'rebuild'
-    ? '/admin/rebuild-summary?date=' + encodeURIComponent(dmy)
-    : '/admin/recompute-analytics?date=' + encodeURIComponent(dmy);
-
-  btn.disabled = true;
-  var origHTML = btn.innerHTML;
-  btn.innerHTML = '<span style="display:inline-block;width:11px;height:11px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:99px;animation:adminSpin .6s linear infinite"></span> Processing...';
-  statEl.textContent = '';
-
-  fetch(url)
-    .then(function(r){ return r.json(); })
-    .then(function(d) {
-      btn.disabled = false;
-      btn.innerHTML = origHTML;
-      if (d.ok !== false) {
-        var info = d.message || (type === 'rebuild' ? 'Summary rebuilt ✓' : 'Analytics recomputed ✓');
-        statEl.style.color = 'var(--up)';
-        statEl.textContent = '✓ ' + dmy + ' — ' + info;
-        toast(info, 'success');
-      } else {
-        statEl.style.color = 'var(--down)';
-        statEl.textContent = 'Error: ' + (d.error || '?');
-        toast('Error: ' + (d.error || '?'), 'error');
-      }
-    })
-    .catch(function(e) {
-      btn.disabled = false;
-      btn.innerHTML = origHTML;
-      statEl.style.color = 'var(--down)';
-      statEl.textContent = 'Gagal: ' + e.message;
       toast('Gagal: ' + e.message, 'error');
     });
 };
@@ -751,6 +816,149 @@ window.addUser = function() {
     }).catch(function() { btn.disabled=false; msgEl.style.color='var(--down)'; msgEl.textContent='Network error.'; });
 };
 
+/* Data requirements modal */
+var DATA_REQS = {
+  wyckoff: {
+    title: 'Wyckoff — data yang dibutuhkan per ticker',
+    items: [
+      'eod_summary row ada untuk tanggal itu',
+      'sm_val > 0 (ada flow SM dari Telegram)',
+      'bm_val ≠ 0 (ada flow BM)',
+      'tx_sm > 0 dan tx_bm > 0',
+      'SM/BM history minimal 1 hari sebelumnya (untuk SRI & Gate A)',
+      'price_history minimal 1 row (untuk price_close)',
+      'price_history ≥ 5 rows (untuk MA5 + price_change_pct)',
+      'price_history ≥ 34 rows (untuk MA34 → MA structure)',
+      'price_history ≥ 200 rows (untuk MA200 → konteks makro)',
+    ]
+  },
+  bsjp: {
+    title: 'BSJP — data yang dibutuhkan per ticker',
+    items: [
+      'ticker_universe.is_active = TRUE',
+      'price_history row ada untuk tanggal itu',
+      'price_history ≥ 5 rows (MA5 + streak)',
+      'price_history ≥ 20 rows (Bollinger Bands)',
+      'price_history ≥ 50 rows (MA50)',
+      'price_history ≥ 200 rows (MA200)',
+      'volume tidak null',
+    ]
+  }
+};
+window.showDataReq = function(algo) {
+  var d = DATA_REQS[algo];
+  if (!d) return;
+  document.getElementById('dataReqTitle').textContent = d.title;
+  document.getElementById('dataReqBody').innerHTML = d.items.map(function(t, i) {
+    return '<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 12px;background:var(--surface2);border-radius:8px">' +
+      '<span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);flex-shrink:0;margin-top:1px">' + String(i+1).padStart(2,'0') + '</span>' +
+      '<span style="font-size:12.5px;color:var(--text-dim);line-height:1.5">' + t + '</span>' +
+    '</div>';
+  }).join('');
+  document.getElementById('dataReqModal').classList.add('open');
+};
+window.closeDataReq = function() {
+  document.getElementById('dataReqModal').classList.remove('open');
+};
+document.getElementById('dataReqModal').addEventListener('click', function(e) {
+  if (e.target === this) closeDataReq();
+});
+
+/* API Keys */
+function fmtKeyDate(iso) {
+  if (!iso) return '—';
+  var d = new Date(iso);
+  if (isNaN(d)) return '—';
+  var MON = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  return d.getDate() + ' ' + MON[d.getMonth()] + ' ' + d.getFullYear();
+}
+function loadApiKeys() {
+  fetch('/admin/api-keys')
+    .then(function(r){ return r.json(); })
+    .then(function(keys) {
+      document.getElementById('apiKeyQuota').textContent = keys.length + ' API key' + (keys.length===1?'':'s') + ' aktif.';
+      var body = document.getElementById('apiKeyList');
+      if (!keys.length) {
+        body.innerHTML = '<tr><td colspan="5" style="padding:20px 10px;text-align:center;color:var(--muted);font-size:13px">Belum ada API key.</td></tr>';
+        return;
+      }
+      body.innerHTML = keys.map(function(k) {
+        return '<tr style="border-bottom:1px solid var(--border)">' +
+          '<td style="padding:12px 10px;font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + k.name + '</td>' +
+          '<td style="padding:12px 10px;overflow:hidden"><code style="display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;font-family:var(--font-mono);font-size:11.5px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:3px 8px;color:var(--text-dim)">' + k.key_prefix + '••••••••</code></td>' +
+          '<td style="padding:12px 10px"><span style="display:inline-block;padding:2px 10px;border-radius:20px;background:var(--ink);color:var(--bg);font-size:11px;font-weight:600">' + k.environment + '</span></td>' +
+          '<td style="padding:12px 10px;font-size:12.5px;color:var(--text-dim);white-space:nowrap">' + (k.last_used_at ? fmtKeyDate(k.last_used_at) : 'Belum pernah') + '</td>' +
+          '<td style="padding:12px 10px;text-align:right"><button onclick="deleteApiKey(' + k.id + ',\'' + k.name.replace(/'/g,"\\'") + '\')" title="Hapus key" style="background:none;border:none;cursor:pointer;color:var(--danger);padding:4px">' +
+            '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 4h11M6 4V2.5h4V4M3.5 4l.7 9.5a1 1 0 0 0 1 .9h5.6a1 1 0 0 0 1-.9L12.5 4"/></svg>' +
+          '</button></td>' +
+        '</tr>';
+      }).join('');
+    }).catch(function() {
+      document.getElementById('apiKeyList').innerHTML = '<tr><td colspan="5" style="padding:20px 10px;text-align:center;color:var(--down);font-size:13px">Gagal memuat API keys.</td></tr>';
+    });
+}
+window.createApiKey = function() {
+  document.getElementById('createKeyName').value = '';
+  document.getElementById('createKeyEnv').value = 'live';
+  document.getElementById('createKeyModal').classList.add('open');
+};
+window.closeCreateKeyModal = function() {
+  document.getElementById('createKeyModal').classList.remove('open');
+};
+document.getElementById('createKeyModal').addEventListener('click', function(e) {
+  if (e.target === this) closeCreateKeyModal();
+});
+window.confirmCreateApiKey = function() {
+  var name = document.getElementById('createKeyName').value.trim() || 'Default';
+  var environment = document.getElementById('createKeyEnv').value;
+  var btn = document.getElementById('createKeySubmitBtn');
+  btn.disabled = true;
+  fetch('/admin/api-keys/add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: name, environment: environment })
+  }).then(function(r){ return r.json(); })
+    .then(function(d) {
+      btn.disabled = false;
+      if (d.ok) {
+        closeCreateKeyModal();
+        loadApiKeys();
+        document.getElementById('revealKeyValue').textContent = d.key;
+        document.getElementById('revealKeyModal').classList.add('open');
+      } else {
+        toast('Gagal buat key: ' + (d.error || '?'), 'error');
+      }
+    }).catch(function(e) { btn.disabled = false; toast('Gagal: ' + e.message, 'error'); });
+};
+window.closeRevealKeyModal = function() {
+  document.getElementById('revealKeyModal').classList.remove('open');
+  document.getElementById('revealKeyValue').textContent = '';
+};
+document.getElementById('revealKeyModal').addEventListener('click', function(e) {
+  if (e.target === this) closeRevealKeyModal();
+});
+window.copyRevealKey = function() {
+  var val = document.getElementById('revealKeyValue').textContent;
+  if (!val) return;
+  navigator.clipboard.writeText(val).then(function() {
+    var btn = document.getElementById('revealKeyCopyBtn');
+    var orig = btn.textContent;
+    btn.textContent = 'Copied ✓';
+    setTimeout(function() { btn.textContent = orig; }, 1500);
+  }).catch(function() { toast('Gagal copy, salin manual', 'error'); });
+};
+window.deleteApiKey = function(id, name) {
+  document.getElementById('confirmTitle').textContent = 'Hapus API key "'+name+'"?';
+  document.getElementById('confirmDesc').textContent  = 'Aplikasi yang masih pakai key ini akan langsung kehilangan akses ke /api/v1/*.';
+  document.getElementById('confirmOkBtn').onclick = function() {
+    closeConfirm();
+    fetch('/admin/api-keys/delete/'+id, {method:'POST'})
+      .then(function(){ loadApiKeys(); toast('API key "'+name+'" dihapus ✓', 'success'); })
+      .catch(function(){ toast('Gagal menghapus API key', 'error'); });
+  };
+  document.getElementById('confirmModal').style.display = 'flex';
+};
+
 /* Confirm modal */
 var pendingConfirm = null;
 window.deleteUser = function(id, username) {
@@ -794,14 +1002,14 @@ var HM_GROUPS = [
   {label:'MENTAH',   keys:['raw_messages','raw_mf_messages']},
   {label:'EOD',      keys:['eod_summary','price_history']},
   {label:'INTRADAY', keys:['price_history_15m']},
-  {label:'BSJP',     keys:['bsjp_signals','bsjp_results']},
+  {label:'SIGNALS',  keys:['bsjp_signals','wyckoff_signals']},
 ];
 var HM_BACKFILL = {
   'price_history_15m': '/admin/backfill-intraday',
   'price_history':     '/admin/backfill-prices',
-  'eod_summary':       '/admin/wyckoff-recompute',
+  'eod_summary':       '/admin/eod-summary-rebuild',
   'bsjp_signals':      '/admin/bsjp-recompute',
-  'bsjp_results':      '/admin/bsjp-recompute',
+  'wyckoff_signals':   '/admin/wyckoff-recompute',
 };
 
 var hmYear, hmMonth, hmData;

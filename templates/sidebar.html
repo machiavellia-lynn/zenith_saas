@@ -3,9 +3,9 @@
   <!-- Brand -->
   <div class="sidebar-brand">
     <div class="sidebar-brand-icon">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path d="M2 10L5.5 5L8.5 8L12 3" stroke="#c8633a" stroke-width="1.7" stroke-linecap="round"/>
-      </svg>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff" style="position:relative;z-index:2"><path d="M12 0C12 6.6 6.6 12 0 12C6.6 12 12 17.4 12 24C12 17.4 17.4 12 24 12C17.4 12 12 6.6 12 0Z"/></svg>
+      <svg width="6" height="6" viewBox="0 0 24 24" fill="#fff" style="position:absolute;top:3px;right:3px;opacity:.85"><path d="M12 0C12 6.6 6.6 12 0 12C6.6 12 12 17.4 12 24C12 17.4 17.4 12 24 12C17.4 12 12 6.6 12 0Z"/></svg>
+      <svg width="4" height="4" viewBox="0 0 24 24" fill="#fff" style="position:absolute;bottom:3px;left:4px;opacity:.7"><path d="M12 0C12 6.6 6.6 12 0 12C6.6 12 12 17.4 12 24C12 17.4 17.4 12 24 12C17.4 12 12 6.6 12 0Z"/></svg>
     </div>
     <a href="/hub" class="sidebar-brand-name">Zenith</a>
     <div class="sidebar-brand-version">v2.0</div>
@@ -39,7 +39,7 @@
         <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 7h3l2-4 2 8 2-4h2"/></svg>
       </div>
       <div>
-        <div class="s-item-label">Money Flow</div>
+        <div class="s-item-label">Flow</div>
         <div class="s-item-sub">MF+ · MF− · Net MF</div>
       </div>
     </a>
@@ -59,7 +59,7 @@
               <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 9C2.5 9 2.5 5 4 5S5.5 9 7 9S8.5 5 10 5S11.5 9 13 8"/></svg>
             </div>
             <div>
-              <div class="s-item-label">Wyckoff / Flow</div>
+              <div class="s-item-label">Wyckoff</div>
               <div class="s-item-sub">SM · BM flow</div>
             </div>
           </a>
@@ -68,7 +68,7 @@
               <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 11L4 7L7 9L13 2"/><path d="M10 2h3v3"/></svg>
             </div>
             <div>
-              <div class="s-item-label">BSJP Algo</div>
+              <div class="s-item-label">BSJP</div>
               <div class="s-item-sub">Breakout · Pullback</div>
             </div>
           </a>
@@ -79,7 +79,7 @@
     <div class="s-divider"></div>
 
     <!-- Analysis group -->
-    <div class="s-group{% if request.path in ['/sector', '/backtest', '/portfolio'] %} open{% endif %}" id="group-analysis">
+    <div class="s-group{% if request.path in ['/sector', '/portfolio'] %} open{% endif %}" id="group-analysis">
       <button class="s-group-toggle" onclick="sidebarToggleGroup('group-analysis')" type="button">
         <span class="s-group-toggle-label">Analysis</span>
         <span class="s-group-chevron">▾</span>
@@ -102,15 +102,6 @@
             <div>
               <div class="s-item-label">Sector</div>
               <div class="s-item-sub">Rotation map</div>
-            </div>
-          </a>
-          <a href="/backtest" class="s-item{% if request.path == '/backtest' %} active{% endif %}">
-            <div class="s-item-icon">
-              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1.5 5V10H6"/><path d="M2 10A5.5 5.5 0 1 0 3.5 3"/></svg>
-            </div>
-            <div>
-              <div class="s-item-label">Backtest</div>
-              <div class="s-item-sub">Strategy test</div>
             </div>
           </a>
         </div>
@@ -147,14 +138,6 @@
             <span class="s-account-setting-label">Tampilan</span>
             <div class="dark-toggle" id="darkToggle" onclick="zenithToggleTheme()" title="Toggle dark mode">
               <div class="dark-toggle-thumb"></div>
-            </div>
-          </div>
-          <!-- Language row -->
-          <div class="s-account-setting-row">
-            <span class="s-account-setting-label">Bahasa</span>
-            <div class="s-lang-flags">
-              <div class="s-lang-flag active" id="langId" onclick="zenithSetLang('id')">🇮🇩</div>
-              <div class="s-lang-flag" id="langEn" onclick="zenithSetLang('en')">🇬🇧</div>
             </div>
           </div>
         </div>
@@ -242,21 +225,10 @@
   }
 
   /* ── Language ── */
-  function zenithSetLang(lang) {
-    document.getElementById('langId').classList.toggle('active', lang === 'id');
-    document.getElementById('langEn').classList.toggle('active', lang === 'en');
-    localStorage.setItem('zenith-lang', lang);
-  }
-
-  /* Restore language preference */
-  var storedLang = localStorage.getItem('zenith-lang') || 'id';
-  zenithSetLang(storedLang);
-
   window.sidebarToggleGroup = sidebarToggleGroup;
   window.sidebarToggleAccount = sidebarToggleAccount;
   window.sidebarOpen = sidebarOpen;
   window.sidebarClose = sidebarClose;
   window.zenithToggleTheme = zenithToggleTheme;
-  window.zenithSetLang = zenithSetLang;
 })();
 </script>
