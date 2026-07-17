@@ -19,6 +19,9 @@ DATABASE_URL = os.environ.get(
 # ── Flask ──────────────────────────────────────────────────────────────────────
 FLASK_SECRET = os.environ.get("FLASK_SECRET", "zenith-secret-key-dev")
 
+# ── External Data API (/api/v1/*) ───────────────────────────────────────────────
+API_KEY = os.environ.get("ZENITH_API_KEY", "")
+
 # Session isolation — both 1.0 and 2.0 run on Railway simultaneously
 SESSION_TYPE     = "filesystem"
 SESSION_DIR      = os.environ.get("SESSION_DIR", "/tmp/zenith_2_0_sessions/")

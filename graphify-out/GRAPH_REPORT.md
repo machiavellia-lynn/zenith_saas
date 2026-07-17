@@ -1,12 +1,12 @@
-# Graph Report - zenith_saas  (2026-06-29)
+# Graph Report - zenith_saas  (2026-07-17)
 
 ## Corpus Check
-- 52 files · ~120,806 words
+- 55 files · ~124,165 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 697 nodes · 1085 edges · 106 communities detected
-- Extraction: 67% EXTRACTED · 33% INFERRED · 0% AMBIGUOUS · INFERRED: 363 edges (avg confidence: 0.78)
+- 739 nodes · 1172 edges · 112 communities detected
+- Extraction: 68% EXTRACTED · 32% INFERRED · 0% AMBIGUOUS · INFERRED: 374 edges (avg confidence: 0.78)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
@@ -116,96 +116,102 @@
 - [[_COMMUNITY_Community 111|Community 111]]
 - [[_COMMUNITY_Community 112|Community 112]]
 - [[_COMMUNITY_Community 113|Community 113]]
+- [[_COMMUNITY_Community 114|Community 114]]
+- [[_COMMUNITY_Community 115|Community 115]]
+- [[_COMMUNITY_Community 116|Community 116]]
+- [[_COMMUNITY_Community 117|Community 117]]
+- [[_COMMUNITY_Community 118|Community 118]]
+- [[_COMMUNITY_Community 119|Community 119]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `is_authed()` - 57 edges
-2. `fetchall()` - 39 edges
-3. `BSJPAlgo` - 35 edges
-4. `get_db()` - 23 edges
+2. `BSJPAlgo` - 40 edges
+3. `fetchall()` - 40 edges
+4. `get_db()` - 24 edges
 5. `execute()` - 22 edges
-6. `_compute_one()` - 19 edges
-7. `scraper_main()` - 19 edges
+6. `scraper_main()` - 21 edges
+7. `_compute_one()` - 19 edges
 8. `ensure_schema()` - 18 edges
 9. `run_weekly_backfill()` - 17 edges
-10. `flow()` - 16 edges
+10. `_fetch()` - 16 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `Multi-entry pair-based backtest over eod_summary date range.     - Each BUY open` --uses--> `BSJPAlgo`  [INFERRED]
-  algo\algo_backtest.py → algo\algo_bsjp.py
 - `BSJPAlgo` --uses--> `scraper_daily.py — Zenith 2.0 Telegram Scraper Daemon Realtime listener + sched`  [INFERRED]
   algo\algo_bsjp.py → scraper\scraper_daily.py
-- `BSJPAlgo` --uses--> `Return healthy DB connection, silently reconnecting if the link dropped.`  [INFERRED]
-  algo\algo_bsjp.py → scraper\scraper_daily.py
-- `BSJPAlgo` --uses--> `Parse + save one Telegram message. Returns rows saved.`  [INFERRED]
-  algo\algo_bsjp.py → scraper\scraper_daily.py
-- `BSJPAlgo` --uses--> `Scan today's messages in all 4 topics and fill any gaps.`  [INFERRED]
-  algo\algo_bsjp.py → scraper\scraper_daily.py
+- `Parse + save one Telegram message. Returns rows saved.` --uses--> `BSJPAlgo`  [INFERRED]
+  scraper\scraper_daily.py → algo\algo_bsjp.py
+- `Signal the scraper loop to process pending requests immediately.` --uses--> `BSJPAlgo`  [INFERRED]
+  scraper\scraper_daily.py → algo\algo_bsjp.py
+- `is_authed()` --calls--> `backtest_page()`  [INFERRED]
+  core\auth.py → routes\routes_backtest.py
+- `is_authed()` --calls--> `hub()`  [INFERRED]
+  core\auth.py → routes\routes_main.py
 
 ## Communities
 
 ### Community 0 - "Community 0"
-Cohesion: 0.04
-Nodes (90): Multi-entry pair-based backtest over eod_summary date range.     - Each BUY open, run_backtest(), compute_bsjp_for_date(), compute_bsjp_range(), Run compute_bsjp_for_date for every date in range (DD-MM-YYYY format)., Compute BSJP indicators for ALL tickers in price_history on date_str.     Batch-, compute_analytics_for_date(), compute_analytics_range() (+82 more)
+Cohesion: 0.05
+Nodes (75): run_backtest(), compute_bsjp_for_date(), compute_bsjp_range(), Run compute_bsjp_for_date for every date in range (DD-MM-YYYY format)., Compute BSJP indicators for ALL tickers in price_history on date_str.     Batch-, compute_analytics_for_date(), compute_analytics_range(), analytics_daily.py — Zenith 2.0 Analytics Orchestration RULE: No HTTP calls. No (+67 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.06
-Nodes (58): is_authed(), get_scraper_db(), Dedicated connection for scraper thread (separate from Flask thread-local)., get_cached_ihsg(), add_user(), admin_backfill_200d(), admin_backfill_intraday(), admin_backfill_intraday_all() (+50 more)
+Cohesion: 0.05
+Nodes (72): is_authed(), Create new user. Returns True on success, False if user exists., register(), Context manager for safe commit/rollback., transaction(), check_stop_loss(), get_journal_list(), get_trade_detail() (+64 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.07
-Nodes (45): _days_between(), _dmy_to_ymd(), get_backtest_result(), get_backtest_status(), get_bsjp_result(), get_bsjp_status(), get_ticker_fitness(), algo_backtest.py — Zenith 2.0 Backtest Engine Pair-based backtest: multi-entry B (+37 more)
+Cohesion: 0.05
+Nodes (54): _days_between(), _dmy_to_ymd(), get_backtest_result(), get_backtest_status(), get_bsjp_result(), get_bsjp_status(), get_ticker_fitness(), algo_backtest.py — Zenith 2.0 Backtest Engine Pair-based backtest: multi-entry B (+46 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.05
-Nodes (45): hash_password(), is_admin(), login(), auth.py — Zenith 2.0 Authentication RULE: All auth checks go through functions, Decorator: 403 for non-admin users., Hash password with bcrypt., Verify password against hash., Authenticate user against database. Returns True on success. (+37 more)
+Cohesion: 0.06
+Nodes (52): _compute_atr_pct(), _compute_one(), generate_bsjp_signals(), analytics_bsjp.py — BSJP (Beli Sore Jual Pagi) Indicator Computation Reads from:, Compute all BSJP indicators for one ticker. ph = oldest-first OHLCV rows., Delegate ke run_bsjp_scan di scraper — satu source of truth., ATR% dari H/L/C. ph_asc = oldest-first., compute_bollinger_bands() (+44 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.07
-Nodes (49): _compute_one(), Compute all BSJP indicators for one ticker. ph = oldest-first OHLCV rows., _compute_one(), Compute analytics for one ticker. All data pre-loaded by caller (no DB access)., compute_bollinger_bands(), compute_close_position(), compute_cm_streak(), compute_days_since_near_level() (+41 more)
+Nodes (49): classify_zenith_v3_1(), detect_trade_detail_gate(), get_action(), get_ma_structure(), get_phase_narrative(), get_watch_flag(), algo_wyckoff.py — Zenith Phase Classification Engine v3.1 RULE: Pure functions, Return "ARB_SPRING" if SPRING occurs during extreme drop (>1.5× ATR).     Phase (+41 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.07
-Nodes (43): classify_zenith_v3_1(), detect_trade_detail_gate(), get_action(), get_ma_structure(), get_watch_flag(), algo_wyckoff.py — Zenith Phase Classification Engine v3.1 RULE: Pure functions, Return "ARB_SPRING" if SPRING occurs during extreme drop (>1.5× ATR).     Phase, Detect which (if any) Gate condition is active for Trade Detail display. (+35 more)
+Cohesion: 0.06
+Nodes (37): Trigger background backfill of bsjp_signals for a date range (DD-MM-YYYY)., request_bsjp_backfill(), hash_password(), is_admin(), login(), auth.py — Zenith 2.0 Authentication RULE: All auth checks go through functions, Decorator: 403 for non-admin users., Hash password with bcrypt. (+29 more)
 
 ### Community 6 - "Community 6"
 Cohesion: 0.08
-Nodes (32): get_phase_narrative(), Return Phase × MA Structure narrative, with optional Gate override., Store value under key for ttl seconds., date_range(), date_to_sortkey(), format_idr(), load_kompas100_reference(), parse_date() (+24 more)
+Nodes (36): _axis_dates(), _build_stats(), _days_between(), filter_result(), get_portfolio_result(), get_portfolio_status(), _label(), _lots() (+28 more)
 
 ### Community 7 - "Community 7"
-Cohesion: 0.09
-Nodes (32): _axis_dates(), _build_stats(), _days_between(), filter_result(), get_portfolio_result(), get_portfolio_status(), _label(), _lots() (+24 more)
-
-### Community 8 - "Community 8"
 Cohesion: 0.11
 Nodes (19): _compute_atr_pct_hlc(), True Range ATR% using H/L/C from price_history rows (oldest-first).     TR = max, _make_history(), _make_ph(), _make_row(), tests/test_analytics_daily.py — Unit tests for algo/analytics_daily.py  Strategy, Regression: cc8ab41 — ATR must use H/L/C True Range, not close-to-close., When high/low missing, fallback: H=L=C, so TR = |C - prev_C|. (+11 more)
 
+### Community 8 - "Community 8"
+Cohesion: 0.11
+Nodes (25): _fetch_batch_quotes(), _fetch_ihsg(), get_cached_ihsg(), _is_market_open(), price_cache.py — Server-side live price cache. One background thread refreshes e, Fetch live prices for all ~800 IDX tickers in batches of 100., Mon–Fri 09:00–16:15 WIB., Yahoo /v7/finance/quote for up to 100 IDX tickers. Returns {ticker: {price, gain (+17 more)
+
 ### Community 9 - "Community 9"
+Cohesion: 0.22
+Nodes (23): api_auth.py — Zenith 2.0 External Data API Authentication RULE: Single static ke, before_request guard for bp_api. Returns a 401 response on failure, else None., require_api_key(), api_backtest_cache(), api_bsjp_results(), api_bsjp_signals(), api_corporate_events(), api_eod_summary() (+15 more)
+
+### Community 10 - "Community 10"
+Cohesion: 0.11
+Nodes (19): date_range(), date_to_sortkey(), format_idr(), load_kompas100_reference(), parse_date(), utils.py — Zenith 2.0 Pure Utility Functions RULE: Pure functions only. No DB,, DD-MM-YYYY → datetime.date, DD-MM-YYYY → YYYYMMDD integer for sorting. (+11 more)
+
+### Community 11 - "Community 11"
 Cohesion: 0.17
 Nodes (19): _create_backtest_cache(), _create_bsjp_results(), _create_bsjp_signals(), _create_corporate_events(), _create_eod_summary(), _create_inst_flow_cache(), _create_ohlcv_cache(), _create_price_history() (+11 more)
 
-### Community 10 - "Community 10"
+### Community 12 - "Community 12"
+Cohesion: 0.12
+Nodes (10): cache.py — In-memory TTL cache. RULE: Thread-safe, zero external dependencies. U, Thread-safe key→value cache. Each key has its own expiry.      A background daem, TTLCache, fetch_ohlcv(), fetch_ohlcv_datasectors(), Fetch OHLCV candles from Yahoo Finance. Returns dict with candles list., Fetch OHLCV candles from DataSectors. Returns same format as fetch_ohlcv.     I, ohlcv() (+2 more)
+
+### Community 13 - "Community 13"
 Cohesion: 0.21
 Nodes (13): _addDay(), constructor(), _dim(), _first(), _fmt(), _inRangeWith(), _keyFromDate(), _openCal() (+5 more)
 
-### Community 11 - "Community 11"
-Cohesion: 0.18
-Nodes (14): start_scraper_thread(), close(), open(), do_startup(), _init_schema(), startup.py — Zenith 2.0 Application Startup Orchestrator RULE: Called once by a, Pre-warm portfolio simulation at startup so /portfolio loads instantly., Run all startup tasks inside Flask app context. (+6 more)
-
-### Community 12 - "Community 12"
+### Community 14 - "Community 14"
 Cohesion: 0.16
 Nodes (3): _getTopBar(), topbarDone(), topbarStart()
 
-### Community 13 - "Community 13"
+### Community 15 - "Community 15"
 Cohesion: 0.27
 Nodes (11): _detect_channel_from_header(), detect_format(), detect_mf_channel(), parse_freq(), parse_joker_message(), parse_mf_message(), parse_value(), parse_volx() (+3 more)
-
-### Community 14 - "Community 14"
-Cohesion: 0.18
-Nodes (9): _compute_atr_pct(), generate_bsjp_signals(), analytics_bsjp.py — BSJP (Beli Sore Jual Pagi) Indicator Computation Reads from:, Delegate ke run_bsjp_scan di scraper — satu source of truth., Trigger background backfill of bsjp_signals for a date range (DD-MM-YYYY)., ATR% dari H/L/C. ph_asc = oldest-first., request_bsjp_backfill(), api_bsjp_backfill() (+1 more)
-
-### Community 15 - "Community 15"
-Cohesion: 0.25
-Nodes (3): cache.py — In-memory TTL cache. RULE: Thread-safe, zero external dependencies. U, Thread-safe key→value cache. Each key has its own expiry.      A background daem, TTLCache
 
 ### Community 16 - "Community 16"
 Cohesion: 0.32
@@ -253,11 +259,11 @@ Nodes (1): poc_broker_pdf.py — Parse IDX Daily Statistics PDF Cek apakah PDF p
 
 ### Community 35 - "Community 35"
 Cohesion: 1.0
-Nodes (1): Create initial admin user from ADMIN_INIT_PASSWORD env var if no users exist.
+Nodes (1): Reuse the BSJP backtest engine, size each trade at PF_BSJP_ALLOC.
 
 ### Community 36 - "Community 36"
 Cohesion: 1.0
-Nodes (1): Reuse the BSJP backtest engine, size each trade at PF_BSJP_ALLOC, and     build
+Nodes (1): equity_basis — denominator for total_return_pct.                    Defaults to
 
 ### Community 37 - "Community 37"
 Cohesion: 1.0
@@ -265,310 +271,334 @@ Nodes (1): Full portfolio simulation across both algos over a shared date axis.
 
 ### Community 38 - "Community 38"
 Cohesion: 1.0
-Nodes (1): Distinct trading dates (DD-MM-YYYY) within range, oldest first.
+Nodes (1): Slice a cached full-range result to [date_from, date_to] in-memory — no DB.
 
 ### Community 39 - "Community 39"
 Cohesion: 1.0
-Nodes (1): Non-blocking trigger from the HTTP thread (BSJP backtest is slow).
+Nodes (1): Distinct trading dates (DD-MM-YYYY) within range, oldest first.
 
 ### Community 40 - "Community 40"
 Cohesion: 1.0
-Nodes (1): Fetch gains for all tickers in eod_summary for date_str and write to DB.     Ca
+Nodes (1): Non-blocking trigger from the HTTP thread (BSJP backtest is slow).
 
 ### Community 41 - "Community 41"
 Cohesion: 1.0
-Nodes (1): Run BSJP scan for a specific date. Delegates to scraper's run_bsjp_scan.
+Nodes (1): Create initial admin user from ADMIN_INIT_PASSWORD env var if no users exist.
 
 ### Community 42 - "Community 42"
 Cohesion: 1.0
-Nodes (1): Manual BSJP scan for a specific date (sync, uses historical eod_summary).
+Nodes (1): Reuse the BSJP backtest engine, size each trade at PF_BSJP_ALLOC, and     build
 
 ### Community 43 - "Community 43"
 Cohesion: 1.0
-Nodes (1): Historical BSJP backfill for a date range (background thread).
+Nodes (1): Full portfolio simulation across both algos over a shared date axis.
 
 ### Community 44 - "Community 44"
 Cohesion: 1.0
-Nodes (1): Hitung % change harga saham dari date_from ke date_to.     Single day  → close
+Nodes (1): Distinct trading dates (DD-MM-YYYY) within range, oldest first.
 
 ### Community 45 - "Community 45"
 Cohesion: 1.0
-Nodes (1): DD-MM-YYYY → datetime.date
+Nodes (1): Non-blocking trigger from the HTTP thread (BSJP backtest is slow).
 
 ### Community 46 - "Community 46"
 Cohesion: 1.0
-Nodes (1): DD-MM-YYYY → YYYYMMDD integer for SQLite sorting.
+Nodes (1): Fetch gains for all tickers in eod_summary for date_str and write to DB.     Ca
 
 ### Community 47 - "Community 47"
 Cohesion: 1.0
-Nodes (1): Thread-local connection reuse with optimized PRAGMAs.
+Nodes (1): Run BSJP scan for a specific date. Delegates to scraper's run_bsjp_scan.
 
 ### Community 48 - "Community 48"
 Cohesion: 1.0
-Nodes (1): Download zenith.db dari Dropbox shareable link → simpan ke Railway volume.
+Nodes (1): Manual BSJP scan for a specific date (sync, uses historical eod_summary).
 
 ### Community 49 - "Community 49"
 Cohesion: 1.0
-Nodes (1): Queue a weekly backfill request — runs in scraper thread, not HTTP thread.
+Nodes (1): Historical BSJP backfill for a date range (background thread).
 
 ### Community 50 - "Community 50"
 Cohesion: 1.0
-Nodes (1): Queue full scrape dari awal — fetch semua data dari Telegram.
+Nodes (1): Hitung % change harga saham dari date_from ke date_to.     Single day  → close
 
 ### Community 51 - "Community 51"
 Cohesion: 1.0
-Nodes (1): Queue summary rebuild — runs in scraper thread.
+Nodes (1): DD-MM-YYYY → datetime.date
 
 ### Community 52 - "Community 52"
 Cohesion: 1.0
-Nodes (1): Per-ticker backtest stats from cached results.
+Nodes (1): DD-MM-YYYY → YYYYMMDD integer for SQLite sorting.
 
 ### Community 53 - "Community 53"
 Cohesion: 1.0
-Nodes (1): Bulk-fetch Yahoo close prices into eod_summary. 1 request per ticker.      Par
+Nodes (1): Thread-local connection reuse with optimized PRAGMAs.
 
 ### Community 54 - "Community 54"
 Cohesion: 1.0
-Nodes (1): One-time 200-day price_history backfill for MA200 computation.      Fetches ~3
+Nodes (1): Download zenith.db dari Dropbox shareable link → simpan ke Railway volume.
 
 ### Community 55 - "Community 55"
 Cohesion: 1.0
-Nodes (1): Recompute analytics (gain%, phase, action) for date range after price_close fill
+Nodes (1): Queue a weekly backfill request — runs in scraper thread, not HTTP thread.
 
 ### Community 56 - "Community 56"
 Cohesion: 1.0
-Nodes (1): Check if current DB is valid/corrupt + diagnose file issues.
+Nodes (1): Queue full scrape dari awal — fetch semua data dari Telegram.
 
 ### Community 57 - "Community 57"
 Cohesion: 1.0
-Nodes (1): Check price_close data status.
+Nodes (1): Queue summary rebuild — runs in scraper thread.
 
 ### Community 58 - "Community 58"
 Cohesion: 1.0
-Nodes (1): Force-refresh price_close + recompute analytics for a specific date.     Usage:
+Nodes (1): Per-ticker backtest stats from cached results.
 
 ### Community 59 - "Community 59"
 Cohesion: 1.0
-Nodes (1): Download zenith.db for local backup.
+Nodes (1): Bulk-fetch Yahoo close prices into eod_summary. 1 request per ticker.      Par
 
 ### Community 60 - "Community 60"
 Cohesion: 1.0
-Nodes (1): Track page views and active sessions for authenticated users.
+Nodes (1): One-time 200-day price_history backfill for MA200 computation.      Fetches ~3
 
 ### Community 61 - "Community 61"
 Cohesion: 1.0
-Nodes (1): Spawn run_weekly_backfill in its own thread with its own Telegram client.     B
+Nodes (1): Recompute analytics (gain%, phase, action) for date range after price_close fill
 
 ### Community 62 - "Community 62"
 Cohesion: 1.0
-Nodes (1): Manual override: buka posisi baru di trade_journal.
+Nodes (1): Check if current DB is valid/corrupt + diagnose file issues.
 
 ### Community 63 - "Community 63"
 Cohesion: 1.0
-Nodes (1): Manual override: tutup semua posisi open untuk ticker tertentu.
+Nodes (1): Check price_close data status.
 
 ### Community 64 - "Community 64"
 Cohesion: 1.0
-Nodes (1): Fetch gain% dari Yahoo untuk tanggal tertentu, simpan ke eod_summary.      Mod
+Nodes (1): Force-refresh price_close + recompute analytics for a specific date.     Usage:
 
 ### Community 65 - "Community 65"
 Cohesion: 1.0
-Nodes (1): Push zenith.db ke Dropbox sebagai timestamped backup. Tidak overwrite /zenith.db
+Nodes (1): Download zenith.db for local backup.
 
 ### Community 66 - "Community 66"
 Cohesion: 1.0
-Nodes (1): Fetch Trade Detail narrative and metrics for a specific ticker on a date.
+Nodes (1): Track page views and active sessions for authenticated users.
 
 ### Community 67 - "Community 67"
 Cohesion: 1.0
-Nodes (1): Export entire SQLite database to JSON and upload to Dropbox.     Used for SQLit
+Nodes (1): Spawn run_weekly_backfill in its own thread with its own Telegram client.     B
 
 ### Community 68 - "Community 68"
 Cohesion: 1.0
-Nodes (1): logic.py — Zenith Phase Classification Engine v3.1 ============================
+Nodes (1): Manual override: buka posisi baru di trade_journal.
 
 ### Community 69 - "Community 69"
 Cohesion: 1.0
-Nodes (1): Classify Wyckoff phase using Zenith v3.1 logic.      Parameters     ---------
+Nodes (1): Manual override: tutup semua posisi open untuk ticker tertentu.
 
 ### Community 70 - "Community 70"
 Cohesion: 1.0
-Nodes (1): Derive trading action from phase with 3 safety gates (v3.1).      Gate A — Sup
+Nodes (1): Fetch gain% dari Yahoo untuk tanggal tertentu, simpan ke eod_summary.      Mod
 
 ### Community 71 - "Community 71"
 Cohesion: 1.0
-Nodes (1): Return "ARB_SPRING" if SPRING occurs during extreme drop (>1.5× ATR).     Phase
+Nodes (1): Push zenith.db ke Dropbox sebagai timestamped backup. Tidak overwrite /zenith.db
 
 ### Community 72 - "Community 72"
 Cohesion: 1.0
-Nodes (1): Detect which (if any) Gate condition is active for Trade Detail display.
+Nodes (1): Fetch Trade Detail narrative and metrics for a specific ticker on a date.
 
 ### Community 73 - "Community 73"
 Cohesion: 1.0
-Nodes (1): Simple Moving Average. closes = chronological list (oldest first).     Returns
+Nodes (1): Export entire SQLite database to JSON and upload to Dropbox.     Used for SQLit
 
 ### Community 74 - "Community 74"
 Cohesion: 1.0
-Nodes (1): Wilder RSI-14. closes = chronological (oldest first), needs ≥ 15 values.
+Nodes (1): logic.py — Zenith Phase Classification Engine v3.1 ============================
 
 ### Community 75 - "Community 75"
 Cohesion: 1.0
-Nodes (1): Consecutive Momentum: days close above (+N) or below (-N) MA5.     Returns None
+Nodes (1): Classify Wyckoff phase using Zenith v3.1 logic.      Parameters     ---------
 
 ### Community 76 - "Community 76"
 Cohesion: 1.0
-Nodes (1): Classify MA alignment into 8 structure types per Zenith v3.1 catalog.      gap
+Nodes (1): Derive trading action from phase with 3 safety gates (v3.1).      Gate A — Sup
 
 ### Community 77 - "Community 77"
 Cohesion: 1.0
-Nodes (1): Return Phase × MA Structure narrative, with optional Gate override.
+Nodes (1): Return "ARB_SPRING" if SPRING occurs during extreme drop (>1.5× ATR).     Phase
 
 ### Community 78 - "Community 78"
 Cohesion: 1.0
-Nodes (1): scraper.py — Zenith Unified Scraper ==================================== Runs
+Nodes (1): Detect which (if any) Gate condition is active for Trade Detail display.
 
 ### Community 79 - "Community 79"
 Cohesion: 1.0
-Nodes (1): Parse SM/BM message. Returns list of row dicts.
+Nodes (1): Simple Moving Average. closes = chronological list (oldest first).     Returns
 
 ### Community 80 - "Community 80"
 Cohesion: 1.0
-Nodes (1): Parse MF+/MF- message. Returns list of row dicts.
+Nodes (1): Wilder RSI-14. closes = chronological (oldest first), needs ≥ 15 values.
 
 ### Community 81 - "Community 81"
 Cohesion: 1.0
-Nodes (1): Dedicated DB connection for scraper thread (separate from Flask).
+Nodes (1): Consecutive Momentum: days close above (+N) or below (-N) MA5.     Returns None
 
 ### Community 82 - "Community 82"
 Cohesion: 1.0
-Nodes (1): Insert SM/BM rows. Returns count of new rows inserted.
+Nodes (1): Classify MA alignment into 8 structure types per Zenith v3.1 catalog.      gap
 
 ### Community 83 - "Community 83"
 Cohesion: 1.0
-Nodes (1): Insert MF+/MF- rows. Returns count of new rows inserted.
+Nodes (1): Return Phase × MA Structure narrative, with optional Gate override.
 
 ### Community 84 - "Community 84"
 Cohesion: 1.0
-Nodes (1): Return True if analytics for date_str should be recomputed now.
+Nodes (1): scraper.py — Zenith Unified Scraper ==================================== Runs
 
 ### Community 85 - "Community 85"
 Cohesion: 1.0
-Nodes (1): Extract topic ID from a forum message.
+Nodes (1): Parse SM/BM message. Returns list of row dicts.
 
 ### Community 86 - "Community 86"
 Cohesion: 1.0
-Nodes (1): Parse and save a single Telegram message. Returns rows saved.
+Nodes (1): Parse MF+/MF- message. Returns list of row dicts.
 
 ### Community 87 - "Community 87"
 Cohesion: 1.0
-Nodes (1): Create eod_summary v4. Drops and recreates if base schema missing,     otherwis
+Nodes (1): Dedicated DB connection for scraper thread (separate from Flask).
 
 ### Community 88 - "Community 88"
 Cohesion: 1.0
-Nodes (1): Aggregate raw data for a date into eod_summary (flow fields only).      full_r
+Nodes (1): Insert SM/BM rows. Returns count of new rows inserted.
 
 ### Community 89 - "Community 89"
 Cohesion: 1.0
-Nodes (1): Fetch Yahoo close prices for all tickers on this date (always refreshes).
+Nodes (1): Insert MF+/MF- rows. Returns count of new rows inserted.
 
 ### Community 90 - "Community 90"
 Cohesion: 1.0
-Nodes (1): Fetch daily close prices between two dates using timestamps. Returns {DD-MM-YYYY
+Nodes (1): Return True if analytics for date_str should be recomputed now.
 
 ### Community 91 - "Community 91"
 Cohesion: 1.0
-Nodes (1): Bulk-fetch Yahoo close prices. One request per ticker covers entire date range.
+Nodes (1): Extract topic ID from a forum message.
 
 ### Community 92 - "Community 92"
 Cohesion: 1.0
-Nodes (1): One-time 200-day price_history backfill for MA200 computation.      Chunked in
+Nodes (1): Parse and save a single Telegram message. Returns rows saved.
 
 ### Community 93 - "Community 93"
 Cohesion: 1.0
-Nodes (1): Fetch gain% + price dari Yahoo untuk semua ticker di date_str.     Simpan ke eo
+Nodes (1): Create eod_summary v4. Drops and recreates if base schema missing,     otherwis
 
 ### Community 94 - "Community 94"
 Cohesion: 1.0
-Nodes (1): Create trade_journal table — live position tracker.
+Nodes (1): Aggregate raw data for a date into eod_summary (flow fields only).      full_r
 
 ### Community 95 - "Community 95"
 Cohesion: 1.0
-Nodes (1): Insert new open position ke trade_journal.
+Nodes (1): Fetch Yahoo close prices for all tickers on this date (always refreshes).
 
 ### Community 96 - "Community 96"
 Cohesion: 1.0
-Nodes (1): Tutup SEMUA open position untuk ticker ini.
+Nodes (1): Fetch daily close prices between two dates using timestamps. Returns {DD-MM-YYYY
 
 ### Community 97 - "Community 97"
 Cohesion: 1.0
-Nodes (1): Cek semua open position — close jika loss >= threshold vs harga close hari ini.
+Nodes (1): Bulk-fetch Yahoo close prices. One request per ticker covers entire date range.
 
 ### Community 98 - "Community 98"
 Cohesion: 1.0
-Nodes (1): Compute SRI/MES/VolxGap/RPR/Phase/Action/Watch for all tickers on date_str.
+Nodes (1): One-time 200-day price_history backfill for MA200 computation.      Chunked in
 
 ### Community 99 - "Community 99"
 Cohesion: 1.0
-Nodes (1): Rebuild eod_summary for ALL dates + analytics for recent 15 days.
+Nodes (1): Fetch gain% + price dari Yahoo untuk semua ticker di date_str.     Simpan ke eo
 
 ### Community 100 - "Community 100"
 Cohesion: 1.0
-Nodes (1): Scan all messages from today in all 4 topics, insert missing ones.
+Nodes (1): Create trade_journal table — live position tracker.
 
 ### Community 101 - "Community 101"
 Cohesion: 1.0
-Nodes (1): Called from HTTP thread to request a backfill. Non-blocking.
+Nodes (1): Insert new open position ke trade_journal.
 
 ### Community 102 - "Community 102"
 Cohesion: 1.0
-Nodes (1): Called from HTTP thread to request a full summary rebuild. Non-blocking.
+Nodes (1): Tutup SEMUA open position untuk ticker ini.
 
 ### Community 103 - "Community 103"
 Cohesion: 1.0
-Nodes (1): Called from HTTP thread to check backfill/rebuild/backtest progress.
+Nodes (1): Cek semua open position — close jika loss >= threshold vs harga close hari ini.
 
 ### Community 104 - "Community 104"
 Cohesion: 1.0
-Nodes (1): Main async loop: connect to Telegram, listen, and schedule backfill.
+Nodes (1): Compute SRI/MES/VolxGap/RPR/Phase/Action/Watch for all tickers on date_str.
 
 ### Community 105 - "Community 105"
 Cohesion: 1.0
-Nodes (1): Start scraper in a daemon thread with its own asyncio event loop.
+Nodes (1): Rebuild eod_summary for ALL dates + analytics for recent 15 days.
 
 ### Community 106 - "Community 106"
 Cohesion: 1.0
-Nodes (1): Read latest cached backtest result from DB.
+Nodes (1): Scan all messages from today in all 4 topics, insert missing ones.
 
 ### Community 107 - "Community 107"
 Cohesion: 1.0
-Nodes (1): Fetch daily OHLCV from Yahoo for a ticker. Returns {date: {o,h,l,c}}.
+Nodes (1): Called from HTTP thread to request a backfill. Non-blocking.
 
 ### Community 108 - "Community 108"
 Cohesion: 1.0
-Nodes (1): Compute phase+action for backtest engine. Uses centralised logic.py.
+Nodes (1): Called from HTTP thread to request a full summary rebuild. Non-blocking.
 
 ### Community 109 - "Community 109"
 Cohesion: 1.0
-Nodes (1): Pair-based backtest: BUY signal opens position, SELL signal closes it.     Entr
+Nodes (1): Called from HTTP thread to check backfill/rebuild/backtest progress.
 
 ### Community 110 - "Community 110"
 Cohesion: 1.0
-Nodes (1): scraper_weekly.py — Zenith Weekly Backfill ====================================
+Nodes (1): Main async loop: connect to Telegram, listen, and schedule backfill.
 
 ### Community 111 - "Community 111"
 Cohesion: 1.0
-Nodes (1): Scrape messages from the past N days. Skips duplicates via INSERT OR IGNORE.
+Nodes (1): Start scraper in a daemon thread with its own asyncio event loop.
 
 ### Community 112 - "Community 112"
 Cohesion: 1.0
-Nodes (1): Standalone CLI entry point.
+Nodes (1): Read latest cached backtest result from DB.
 
 ### Community 113 - "Community 113"
+Cohesion: 1.0
+Nodes (1): Fetch daily OHLCV from Yahoo for a ticker. Returns {date: {o,h,l,c}}.
+
+### Community 114 - "Community 114"
+Cohesion: 1.0
+Nodes (1): Compute phase+action for backtest engine. Uses centralised logic.py.
+
+### Community 115 - "Community 115"
+Cohesion: 1.0
+Nodes (1): Pair-based backtest: BUY signal opens position, SELL signal closes it.     Entr
+
+### Community 116 - "Community 116"
+Cohesion: 1.0
+Nodes (1): scraper_weekly.py — Zenith Weekly Backfill ====================================
+
+### Community 117 - "Community 117"
+Cohesion: 1.0
+Nodes (1): Scrape messages from the past N days. Skips duplicates via INSERT OR IGNORE.
+
+### Community 118 - "Community 118"
+Cohesion: 1.0
+Nodes (1): Standalone CLI entry point.
+
+### Community 119 - "Community 119"
 Cohesion: 1.0
 Nodes (1): Smart Money (SM)
 
 ## Knowledge Gaps
-- **246 isolated node(s):** `app.py — Zenith 2.0 Entry Point RULE: Flask init + register blueprints only. Ze`, `config.py — Zenith 2.0 Central Configuration Single source of truth for all con`, `poc_broker_idx.py — IDX Broker Data POC Tests IDX unofficial endpoints to unders`, `poc_broker_idx2.py — Investigate IDX statistical files`, `poc_broker_idx3.py — Cari per-stock per-broker endpoint IDX IDX website menampil` (+241 more)
+- **262 isolated node(s):** `app.py — Zenith 2.0 Entry Point RULE: Flask init + register blueprints only. Ze`, `config.py — Zenith 2.0 Central Configuration Single source of truth for all con`, `poc_broker_idx.py — IDX Broker Data POC Tests IDX unofficial endpoints to unders`, `poc_broker_idx2.py — Investigate IDX statistical files`, `poc_broker_idx3.py — Cari per-stock per-broker endpoint IDX IDX website menampil` (+257 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **Thin community `Community 20`** (4 nodes): `poc_broker_idx.py`, `fetch()`, `poc_broker_idx.py — IDX Broker Data POC Tests IDX unofficial endpoints to unders`, `show()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
@@ -582,179 +612,191 @@ Nodes (1): Smart Money (SM)
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 26`** (2 nodes): `poc_broker_pdf.py`, `poc_broker_pdf.py — Parse IDX Daily Statistics PDF Cek apakah PDF punya tabel br`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 35`** (1 nodes): `Create initial admin user from ADMIN_INIT_PASSWORD env var if no users exist.`
+- **Thin community `Community 35`** (1 nodes): `Reuse the BSJP backtest engine, size each trade at PF_BSJP_ALLOC.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 36`** (1 nodes): `Reuse the BSJP backtest engine, size each trade at PF_BSJP_ALLOC, and     build`
+- **Thin community `Community 36`** (1 nodes): `equity_basis — denominator for total_return_pct.                    Defaults to`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 37`** (1 nodes): `Full portfolio simulation across both algos over a shared date axis.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 38`** (1 nodes): `Distinct trading dates (DD-MM-YYYY) within range, oldest first.`
+- **Thin community `Community 38`** (1 nodes): `Slice a cached full-range result to [date_from, date_to] in-memory — no DB.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 39`** (1 nodes): `Non-blocking trigger from the HTTP thread (BSJP backtest is slow).`
+- **Thin community `Community 39`** (1 nodes): `Distinct trading dates (DD-MM-YYYY) within range, oldest first.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 40`** (1 nodes): `Fetch gains for all tickers in eod_summary for date_str and write to DB.     Ca`
+- **Thin community `Community 40`** (1 nodes): `Non-blocking trigger from the HTTP thread (BSJP backtest is slow).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 41`** (1 nodes): `Run BSJP scan for a specific date. Delegates to scraper's run_bsjp_scan.`
+- **Thin community `Community 41`** (1 nodes): `Create initial admin user from ADMIN_INIT_PASSWORD env var if no users exist.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 42`** (1 nodes): `Manual BSJP scan for a specific date (sync, uses historical eod_summary).`
+- **Thin community `Community 42`** (1 nodes): `Reuse the BSJP backtest engine, size each trade at PF_BSJP_ALLOC, and     build`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 43`** (1 nodes): `Historical BSJP backfill for a date range (background thread).`
+- **Thin community `Community 43`** (1 nodes): `Full portfolio simulation across both algos over a shared date axis.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 44`** (1 nodes): `Hitung % change harga saham dari date_from ke date_to.     Single day  → close`
+- **Thin community `Community 44`** (1 nodes): `Distinct trading dates (DD-MM-YYYY) within range, oldest first.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 45`** (1 nodes): `DD-MM-YYYY → datetime.date`
+- **Thin community `Community 45`** (1 nodes): `Non-blocking trigger from the HTTP thread (BSJP backtest is slow).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 46`** (1 nodes): `DD-MM-YYYY → YYYYMMDD integer for SQLite sorting.`
+- **Thin community `Community 46`** (1 nodes): `Fetch gains for all tickers in eod_summary for date_str and write to DB.     Ca`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 47`** (1 nodes): `Thread-local connection reuse with optimized PRAGMAs.`
+- **Thin community `Community 47`** (1 nodes): `Run BSJP scan for a specific date. Delegates to scraper's run_bsjp_scan.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 48`** (1 nodes): `Download zenith.db dari Dropbox shareable link → simpan ke Railway volume.`
+- **Thin community `Community 48`** (1 nodes): `Manual BSJP scan for a specific date (sync, uses historical eod_summary).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 49`** (1 nodes): `Queue a weekly backfill request — runs in scraper thread, not HTTP thread.`
+- **Thin community `Community 49`** (1 nodes): `Historical BSJP backfill for a date range (background thread).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 50`** (1 nodes): `Queue full scrape dari awal — fetch semua data dari Telegram.`
+- **Thin community `Community 50`** (1 nodes): `Hitung % change harga saham dari date_from ke date_to.     Single day  → close`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 51`** (1 nodes): `Queue summary rebuild — runs in scraper thread.`
+- **Thin community `Community 51`** (1 nodes): `DD-MM-YYYY → datetime.date`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 52`** (1 nodes): `Per-ticker backtest stats from cached results.`
+- **Thin community `Community 52`** (1 nodes): `DD-MM-YYYY → YYYYMMDD integer for SQLite sorting.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 53`** (1 nodes): `Bulk-fetch Yahoo close prices into eod_summary. 1 request per ticker.      Par`
+- **Thin community `Community 53`** (1 nodes): `Thread-local connection reuse with optimized PRAGMAs.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 54`** (1 nodes): `One-time 200-day price_history backfill for MA200 computation.      Fetches ~3`
+- **Thin community `Community 54`** (1 nodes): `Download zenith.db dari Dropbox shareable link → simpan ke Railway volume.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 55`** (1 nodes): `Recompute analytics (gain%, phase, action) for date range after price_close fill`
+- **Thin community `Community 55`** (1 nodes): `Queue a weekly backfill request — runs in scraper thread, not HTTP thread.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 56`** (1 nodes): `Check if current DB is valid/corrupt + diagnose file issues.`
+- **Thin community `Community 56`** (1 nodes): `Queue full scrape dari awal — fetch semua data dari Telegram.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 57`** (1 nodes): `Check price_close data status.`
+- **Thin community `Community 57`** (1 nodes): `Queue summary rebuild — runs in scraper thread.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 58`** (1 nodes): `Force-refresh price_close + recompute analytics for a specific date.     Usage:`
+- **Thin community `Community 58`** (1 nodes): `Per-ticker backtest stats from cached results.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 59`** (1 nodes): `Download zenith.db for local backup.`
+- **Thin community `Community 59`** (1 nodes): `Bulk-fetch Yahoo close prices into eod_summary. 1 request per ticker.      Par`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 60`** (1 nodes): `Track page views and active sessions for authenticated users.`
+- **Thin community `Community 60`** (1 nodes): `One-time 200-day price_history backfill for MA200 computation.      Fetches ~3`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 61`** (1 nodes): `Spawn run_weekly_backfill in its own thread with its own Telegram client.     B`
+- **Thin community `Community 61`** (1 nodes): `Recompute analytics (gain%, phase, action) for date range after price_close fill`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 62`** (1 nodes): `Manual override: buka posisi baru di trade_journal.`
+- **Thin community `Community 62`** (1 nodes): `Check if current DB is valid/corrupt + diagnose file issues.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 63`** (1 nodes): `Manual override: tutup semua posisi open untuk ticker tertentu.`
+- **Thin community `Community 63`** (1 nodes): `Check price_close data status.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 64`** (1 nodes): `Fetch gain% dari Yahoo untuk tanggal tertentu, simpan ke eod_summary.      Mod`
+- **Thin community `Community 64`** (1 nodes): `Force-refresh price_close + recompute analytics for a specific date.     Usage:`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 65`** (1 nodes): `Push zenith.db ke Dropbox sebagai timestamped backup. Tidak overwrite /zenith.db`
+- **Thin community `Community 65`** (1 nodes): `Download zenith.db for local backup.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 66`** (1 nodes): `Fetch Trade Detail narrative and metrics for a specific ticker on a date.`
+- **Thin community `Community 66`** (1 nodes): `Track page views and active sessions for authenticated users.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 67`** (1 nodes): `Export entire SQLite database to JSON and upload to Dropbox.     Used for SQLit`
+- **Thin community `Community 67`** (1 nodes): `Spawn run_weekly_backfill in its own thread with its own Telegram client.     B`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 68`** (1 nodes): `logic.py — Zenith Phase Classification Engine v3.1 ============================`
+- **Thin community `Community 68`** (1 nodes): `Manual override: buka posisi baru di trade_journal.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 69`** (1 nodes): `Classify Wyckoff phase using Zenith v3.1 logic.      Parameters     ---------`
+- **Thin community `Community 69`** (1 nodes): `Manual override: tutup semua posisi open untuk ticker tertentu.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 70`** (1 nodes): `Derive trading action from phase with 3 safety gates (v3.1).      Gate A — Sup`
+- **Thin community `Community 70`** (1 nodes): `Fetch gain% dari Yahoo untuk tanggal tertentu, simpan ke eod_summary.      Mod`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 71`** (1 nodes): `Return "ARB_SPRING" if SPRING occurs during extreme drop (>1.5× ATR).     Phase`
+- **Thin community `Community 71`** (1 nodes): `Push zenith.db ke Dropbox sebagai timestamped backup. Tidak overwrite /zenith.db`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 72`** (1 nodes): `Detect which (if any) Gate condition is active for Trade Detail display.`
+- **Thin community `Community 72`** (1 nodes): `Fetch Trade Detail narrative and metrics for a specific ticker on a date.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 73`** (1 nodes): `Simple Moving Average. closes = chronological list (oldest first).     Returns`
+- **Thin community `Community 73`** (1 nodes): `Export entire SQLite database to JSON and upload to Dropbox.     Used for SQLit`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 74`** (1 nodes): `Wilder RSI-14. closes = chronological (oldest first), needs ≥ 15 values.`
+- **Thin community `Community 74`** (1 nodes): `logic.py — Zenith Phase Classification Engine v3.1 ============================`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 75`** (1 nodes): `Consecutive Momentum: days close above (+N) or below (-N) MA5.     Returns None`
+- **Thin community `Community 75`** (1 nodes): `Classify Wyckoff phase using Zenith v3.1 logic.      Parameters     ---------`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 76`** (1 nodes): `Classify MA alignment into 8 structure types per Zenith v3.1 catalog.      gap`
+- **Thin community `Community 76`** (1 nodes): `Derive trading action from phase with 3 safety gates (v3.1).      Gate A — Sup`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 77`** (1 nodes): `Return Phase × MA Structure narrative, with optional Gate override.`
+- **Thin community `Community 77`** (1 nodes): `Return "ARB_SPRING" if SPRING occurs during extreme drop (>1.5× ATR).     Phase`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 78`** (1 nodes): `scraper.py — Zenith Unified Scraper ==================================== Runs`
+- **Thin community `Community 78`** (1 nodes): `Detect which (if any) Gate condition is active for Trade Detail display.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 79`** (1 nodes): `Parse SM/BM message. Returns list of row dicts.`
+- **Thin community `Community 79`** (1 nodes): `Simple Moving Average. closes = chronological list (oldest first).     Returns`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 80`** (1 nodes): `Parse MF+/MF- message. Returns list of row dicts.`
+- **Thin community `Community 80`** (1 nodes): `Wilder RSI-14. closes = chronological (oldest first), needs ≥ 15 values.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 81`** (1 nodes): `Dedicated DB connection for scraper thread (separate from Flask).`
+- **Thin community `Community 81`** (1 nodes): `Consecutive Momentum: days close above (+N) or below (-N) MA5.     Returns None`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 82`** (1 nodes): `Insert SM/BM rows. Returns count of new rows inserted.`
+- **Thin community `Community 82`** (1 nodes): `Classify MA alignment into 8 structure types per Zenith v3.1 catalog.      gap`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 83`** (1 nodes): `Insert MF+/MF- rows. Returns count of new rows inserted.`
+- **Thin community `Community 83`** (1 nodes): `Return Phase × MA Structure narrative, with optional Gate override.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 84`** (1 nodes): `Return True if analytics for date_str should be recomputed now.`
+- **Thin community `Community 84`** (1 nodes): `scraper.py — Zenith Unified Scraper ==================================== Runs`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 85`** (1 nodes): `Extract topic ID from a forum message.`
+- **Thin community `Community 85`** (1 nodes): `Parse SM/BM message. Returns list of row dicts.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 86`** (1 nodes): `Parse and save a single Telegram message. Returns rows saved.`
+- **Thin community `Community 86`** (1 nodes): `Parse MF+/MF- message. Returns list of row dicts.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 87`** (1 nodes): `Create eod_summary v4. Drops and recreates if base schema missing,     otherwis`
+- **Thin community `Community 87`** (1 nodes): `Dedicated DB connection for scraper thread (separate from Flask).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 88`** (1 nodes): `Aggregate raw data for a date into eod_summary (flow fields only).      full_r`
+- **Thin community `Community 88`** (1 nodes): `Insert SM/BM rows. Returns count of new rows inserted.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 89`** (1 nodes): `Fetch Yahoo close prices for all tickers on this date (always refreshes).`
+- **Thin community `Community 89`** (1 nodes): `Insert MF+/MF- rows. Returns count of new rows inserted.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 90`** (1 nodes): `Fetch daily close prices between two dates using timestamps. Returns {DD-MM-YYYY`
+- **Thin community `Community 90`** (1 nodes): `Return True if analytics for date_str should be recomputed now.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 91`** (1 nodes): `Bulk-fetch Yahoo close prices. One request per ticker covers entire date range.`
+- **Thin community `Community 91`** (1 nodes): `Extract topic ID from a forum message.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 92`** (1 nodes): `One-time 200-day price_history backfill for MA200 computation.      Chunked in`
+- **Thin community `Community 92`** (1 nodes): `Parse and save a single Telegram message. Returns rows saved.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 93`** (1 nodes): `Fetch gain% + price dari Yahoo untuk semua ticker di date_str.     Simpan ke eo`
+- **Thin community `Community 93`** (1 nodes): `Create eod_summary v4. Drops and recreates if base schema missing,     otherwis`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 94`** (1 nodes): `Create trade_journal table — live position tracker.`
+- **Thin community `Community 94`** (1 nodes): `Aggregate raw data for a date into eod_summary (flow fields only).      full_r`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 95`** (1 nodes): `Insert new open position ke trade_journal.`
+- **Thin community `Community 95`** (1 nodes): `Fetch Yahoo close prices for all tickers on this date (always refreshes).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 96`** (1 nodes): `Tutup SEMUA open position untuk ticker ini.`
+- **Thin community `Community 96`** (1 nodes): `Fetch daily close prices between two dates using timestamps. Returns {DD-MM-YYYY`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 97`** (1 nodes): `Cek semua open position — close jika loss >= threshold vs harga close hari ini.`
+- **Thin community `Community 97`** (1 nodes): `Bulk-fetch Yahoo close prices. One request per ticker covers entire date range.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 98`** (1 nodes): `Compute SRI/MES/VolxGap/RPR/Phase/Action/Watch for all tickers on date_str.`
+- **Thin community `Community 98`** (1 nodes): `One-time 200-day price_history backfill for MA200 computation.      Chunked in`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 99`** (1 nodes): `Rebuild eod_summary for ALL dates + analytics for recent 15 days.`
+- **Thin community `Community 99`** (1 nodes): `Fetch gain% + price dari Yahoo untuk semua ticker di date_str.     Simpan ke eo`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 100`** (1 nodes): `Scan all messages from today in all 4 topics, insert missing ones.`
+- **Thin community `Community 100`** (1 nodes): `Create trade_journal table — live position tracker.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 101`** (1 nodes): `Called from HTTP thread to request a backfill. Non-blocking.`
+- **Thin community `Community 101`** (1 nodes): `Insert new open position ke trade_journal.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 102`** (1 nodes): `Called from HTTP thread to request a full summary rebuild. Non-blocking.`
+- **Thin community `Community 102`** (1 nodes): `Tutup SEMUA open position untuk ticker ini.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 103`** (1 nodes): `Called from HTTP thread to check backfill/rebuild/backtest progress.`
+- **Thin community `Community 103`** (1 nodes): `Cek semua open position — close jika loss >= threshold vs harga close hari ini.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 104`** (1 nodes): `Main async loop: connect to Telegram, listen, and schedule backfill.`
+- **Thin community `Community 104`** (1 nodes): `Compute SRI/MES/VolxGap/RPR/Phase/Action/Watch for all tickers on date_str.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 105`** (1 nodes): `Start scraper in a daemon thread with its own asyncio event loop.`
+- **Thin community `Community 105`** (1 nodes): `Rebuild eod_summary for ALL dates + analytics for recent 15 days.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 106`** (1 nodes): `Read latest cached backtest result from DB.`
+- **Thin community `Community 106`** (1 nodes): `Scan all messages from today in all 4 topics, insert missing ones.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 107`** (1 nodes): `Fetch daily OHLCV from Yahoo for a ticker. Returns {date: {o,h,l,c}}.`
+- **Thin community `Community 107`** (1 nodes): `Called from HTTP thread to request a backfill. Non-blocking.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 108`** (1 nodes): `Compute phase+action for backtest engine. Uses centralised logic.py.`
+- **Thin community `Community 108`** (1 nodes): `Called from HTTP thread to request a full summary rebuild. Non-blocking.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 109`** (1 nodes): `Pair-based backtest: BUY signal opens position, SELL signal closes it.     Entr`
+- **Thin community `Community 109`** (1 nodes): `Called from HTTP thread to check backfill/rebuild/backtest progress.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 110`** (1 nodes): `scraper_weekly.py — Zenith Weekly Backfill ====================================`
+- **Thin community `Community 110`** (1 nodes): `Main async loop: connect to Telegram, listen, and schedule backfill.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 111`** (1 nodes): `Scrape messages from the past N days. Skips duplicates via INSERT OR IGNORE.`
+- **Thin community `Community 111`** (1 nodes): `Start scraper in a daemon thread with its own asyncio event loop.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 112`** (1 nodes): `Standalone CLI entry point.`
+- **Thin community `Community 112`** (1 nodes): `Read latest cached backtest result from DB.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 113`** (1 nodes): `Smart Money (SM)`
+- **Thin community `Community 113`** (1 nodes): `Fetch daily OHLCV from Yahoo for a ticker. Returns {date: {o,h,l,c}}.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 114`** (1 nodes): `Compute phase+action for backtest engine. Uses centralised logic.py.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 115`** (1 nodes): `Pair-based backtest: BUY signal opens position, SELL signal closes it.     Entr`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 116`** (1 nodes): `scraper_weekly.py — Zenith Weekly Backfill ====================================`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 117`** (1 nodes): `Scrape messages from the past N days. Skips duplicates via INSERT OR IGNORE.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 118`** (1 nodes): `Standalone CLI entry point.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 119`** (1 nodes): `Smart Money (SM)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `fetchall()` connect `Community 0` to `Community 1`, `Community 2`, `Community 3`, `Community 6`, `Community 7`?**
-  _High betweenness centrality (0.174) - this node is a cross-community bridge._
-- **Why does `flow()` connect `Community 6` to `Community 0`, `Community 1`, `Community 3`, `Community 5`?**
-  _High betweenness centrality (0.144) - this node is a cross-community bridge._
-- **Why does `_compute_one()` connect `Community 4` to `Community 0`, `Community 8`, `Community 5`, `Community 6`?**
-  _High betweenness centrality (0.126) - this node is a cross-community bridge._
+- **Why does `fetchall()` connect `Community 0` to `Community 1`, `Community 2`, `Community 4`, `Community 5`, `Community 6`, `Community 9`, `Community 10`, `Community 12`?**
+  _High betweenness centrality (0.192) - this node is a cross-community bridge._
+- **Why does `flow()` connect `Community 4` to `Community 0`, `Community 1`, `Community 5`, `Community 8`, `Community 10`, `Community 12`?**
+  _High betweenness centrality (0.136) - this node is a cross-community bridge._
+- **Why does `_compute_one()` connect `Community 4` to `Community 0`, `Community 3`, `Community 7`?**
+  _High betweenness centrality (0.119) - this node is a cross-community bridge._
 - **Are the 56 inferred relationships involving `is_authed()` (e.g. with `_require_admin()` and `admin_page()`) actually correct?**
   _`is_authed()` has 56 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 34 inferred relationships involving `fetchall()` (e.g. with `run_backtest()` and `run_bsjp_backtest()`) actually correct?**
-  _`fetchall()` has 34 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 25 inferred relationships involving `BSJPAlgo` (e.g. with `algo_backtest.py — Zenith 2.0 Backtest Engine Pair-based backtest: multi-entry B` and `Convert DD-MM-YYYY to YYYYMMDD for correct string comparison.`) actually correct?**
-  _`BSJPAlgo` has 25 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 20 inferred relationships involving `get_db()` (e.g. with `_seed_admin()` and `login()`) actually correct?**
-  _`get_db()` has 20 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 30 inferred relationships involving `BSJPAlgo` (e.g. with `algo_backtest.py — Zenith 2.0 Backtest Engine Pair-based backtest: multi-entry B` and `Convert DD-MM-YYYY to YYYYMMDD for correct string comparison.`) actually correct?**
+  _`BSJPAlgo` has 30 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 35 inferred relationships involving `fetchall()` (e.g. with `run_backtest()` and `run_bsjp_backtest()`) actually correct?**
+  _`fetchall()` has 35 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 21 inferred relationships involving `get_db()` (e.g. with `_seed_admin()` and `login()`) actually correct?**
+  _`get_db()` has 21 INFERRED edges - model-reasoned connections that need verification._
