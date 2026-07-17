@@ -249,7 +249,7 @@ def admin_backfill_prices():
     date_to   = request.args.get("date_to", "").strip() or None
 
     import threading
-    from data.price_fetch import backfill_prices, backfill_price_history_200d
+    from data.price_fetch import backfill_prices, backfill_price_history_ohlcv
     from algo.analytics_daily import compute_analytics_for_date
     from core.db import get_scraper_db, fetchall
     from datetime import datetime
@@ -270,9 +270,9 @@ def admin_backfill_prices():
             prices_updated = backfill_prices(conn, days=days, date_from=date_from, date_to=date_to)
             _prices_progress["prices_updated"] = prices_updated
 
-            # Phase 2: 200d history
-            _prices_progress["step"] = "200d"
-            backfill_price_history_200d(conn)
+            # Phase 2: price_history OHLCV, scoped to the same range as phase 1
+            _prices_progress["step"] = "price_history"
+            backfill_price_history_ohlcv(conn, date_from=date_from, date_to=date_to)
             conn.commit()
 
             # Phase 3: analytics
