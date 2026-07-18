@@ -265,6 +265,50 @@ body.sidebar-layout { overflow: hidden; }
         </div>
       </div>
 
+      <!-- Corporate Actions -->
+      <div class="a-section">
+        <div class="a-section-head">
+          <div class="a-section-title">Corporate Actions</div>
+          <div class="a-section-sub">Stock split / right issue — ticker di-flag di sini dikecualikan dari perhitungan Portfolio (sinyal tetap muncul dengan stamp CA)</div>
+        </div>
+        <div class="a-section-body">
+          <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px">Ticker</div>
+              <input class="a-input" id="caTicker" style="width:100px;text-transform:uppercase" maxlength="10" placeholder="RAJA">
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px">Tipe</div>
+              <select class="a-select" id="caType">
+                <option value="stock_split">Stock Split (SS)</option>
+                <option value="rights_issue">Right Issue (RI)</option>
+              </select>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px">Tanggal Efektif</div>
+              <input class="a-input" id="caDate" type="date" style="width:150px">
+            </div>
+            <div style="flex:1;min-width:160px">
+              <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px">Detail (opsional)</div>
+              <input class="a-input" id="caDetail" placeholder="mis. Ratio 1:5">
+            </div>
+            <button class="a-btn primary" onclick="caAdd()">+ Tambah</button>
+          </div>
+          <table class="cov-table">
+            <thead><tr>
+              <th class="cov-th" style="text-align:left">Ticker</th>
+              <th class="cov-th" style="text-align:left">Tipe</th>
+              <th class="cov-th">Tanggal</th>
+              <th class="cov-th" style="text-align:left">Detail</th>
+              <th class="cov-th"></th>
+            </tr></thead>
+            <tbody id="caTableBody">
+              <tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       </div><!-- /admin-main -->
 
     </div><!-- /tabData -->
@@ -951,6 +995,65 @@ window.closeRevealKeyModal = function() {
   document.getElementById('revealKeyModal').classList.remove('open');
   document.getElementById('revealKeyValue').textContent = '';
 };
+
+/* ── Corporate Actions ── */
+var CA_TYPE_LABEL = { stock_split: 'Stock Split (SS)', rights_issue: 'Right Issue (RI)' };
+function caLoad() {
+  fetch('/admin/corporate-events')
+    .then(function(r){ return r.json(); })
+    .then(function(rows) {
+      var body = document.getElementById('caTableBody');
+      if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Belum ada corporate action.</td></tr>';
+        return;
+      }
+      body.innerHTML = rows.map(function(r) {
+        return '<tr class="cov-tr">' +
+          '<td class="cov-td" style="text-align:left;font-weight:700;color:var(--ink)">' + r.ticker + '</td>' +
+          '<td class="cov-td" style="text-align:left">' + (CA_TYPE_LABEL[r.event_type] || r.event_type) + '</td>' +
+          '<td class="cov-td">' + r.event_date + '</td>' +
+          '<td class="cov-td" style="text-align:left">' + (r.detail || '—') + '</td>' +
+          '<td class="cov-td"><button class="a-btn small" onclick="caDelete(\'' + r.ticker + '\',\'' + r.event_type + '\',\'' + r.event_date + '\')">Hapus</button></td>' +
+        '</tr>';
+      }).join('');
+    }).catch(function() {
+      document.getElementById('caTableBody').innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--danger);font-size:13px">Gagal memuat.</td></tr>';
+    });
+}
+window.caAdd = function() {
+  var ticker = document.getElementById('caTicker').value.trim().toUpperCase();
+  var type   = document.getElementById('caType').value;
+  var dateIn = document.getElementById('caDate').value;
+  var detail = document.getElementById('caDetail').value.trim();
+  if (!ticker || !dateIn) { toast('Ticker dan tanggal wajib diisi', 'error'); return; }
+  var p = dateIn.split('-');
+  var eventDate = p[2] + '-' + p[1] + '-' + p[0];
+  fetch('/admin/corporate-events/add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticker: ticker, event_type: type, event_date: eventDate, detail: detail })
+  }).then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (d.ok) {
+        document.getElementById('caTicker').value = '';
+        document.getElementById('caDate').value = '';
+        document.getElementById('caDetail').value = '';
+        caLoad();
+        toast('Corporate action ditambahkan ✓', 'success');
+      } else {
+        toast('Gagal: ' + (d.error || '?'), 'error');
+      }
+    }).catch(function(e) { toast('Gagal: ' + e.message, 'error'); });
+};
+window.caDelete = function(ticker, eventType, eventDate) {
+  fetch('/admin/corporate-events/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticker: ticker, event_type: eventType, event_date: eventDate })
+  }).then(function(r){ return r.json(); })
+    .then(function(d) { if (d.ok) caLoad(); else toast('Gagal hapus: ' + (d.error||'?'), 'error'); })
+    .catch(function(e) { toast('Gagal: ' + e.message, 'error'); });
+};
 document.getElementById('revealKeyModal').addEventListener('click', function(e) {
   if (e.target === this) closeRevealKeyModal();
 });
@@ -1000,6 +1103,7 @@ document.getElementById('confirmModal').addEventListener('click', function(e) {
 
 /* Init */
 loadScraperStatus();
+caLoad();
 })();
 </script>
 

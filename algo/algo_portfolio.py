@@ -97,12 +97,21 @@ def _max_drawdown_rp(series: list) -> int:
     return round(worst)
 
 
+# ── Corporate actions (stock split / rights issue) — excluded from Portfolio ──
+def _ca_tickers(conn) -> set:
+    """Tickers flagged in corporate_events. Their signals still show on /bsjp,
+    but they're excluded here since a known split/rights-issue makes historical
+    price data for them unreliable — see incident_datasectors_15m_price_corruption."""
+    return {r["ticker"] for r in fetchall(conn, "SELECT DISTINCT ticker FROM corporate_events")}
+
+
 # ── Wyckoff simulation (multi-entry swing, MTM equity) ────────────────────────
 def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list,
                        wyckoff_alloc: int = None, wyckoff_basis: int = None):
     """Walk eod_summary day-by-day, deploying PF_WYCKOFF_ALLOC per BUY signal."""
     alloc = wyckoff_alloc or PF_WYCKOFF_ALLOC
     basis = wyckoff_basis or PF_WYCKOFF_INITIAL_EQUITY
+    ca_tickers = _ca_tickers(conn)
     all_rows = fetchall(conn, """
         SELECT ticker, date, price_close, phase, atr_pct,
                sri, sm_val, bm_val, bm_sma10, price_change_pct, watch
@@ -113,7 +122,7 @@ def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list,
     tc = _to_cmp(date_to)   if date_to   else None
     rows = []
     for r in all_rows:
-        if not r.get("price_close"):
+        if not r.get("price_close") or r["ticker"] in ca_tickers:
             continue
         c = _to_cmp(r["date"])
         if fc and c < fc:
@@ -278,12 +287,15 @@ def _simulate_bsjp(conn, date_from: str, date_to: str, axis_dates: list,
     from algo.algo_backtest import run_bsjp_backtest
 
     bt = run_bsjp_backtest(conn, date_from=date_from, date_to=date_to)
+    ca_tickers = _ca_tickers(conn)
 
     # flatten all per-setup trade details
     raw = []
     for setup_row in bt.get("leaderboard", []):
         setup = setup_row.get("setup")
         for d in setup_row.get("details", []):
+            if d.get("ticker") in ca_tickers:
+                continue
             raw.append({**d, "setup": setup})
 
     trades = []

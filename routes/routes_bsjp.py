@@ -22,9 +22,13 @@ def page_bsjp():
 @require_auth
 def api_bsjp_signals():
     date_str = request.args.get("date") or _today_dmy()
-    rows = fetchall(get_db(),
+    conn = get_db()
+    rows = fetchall(conn,
         "SELECT * FROM bsjp_signals WHERE date = %s ORDER BY day_rank ASC NULLS LAST",
         [date_str])
+    ca_tickers = {r["ticker"] for r in fetchall(conn, "SELECT DISTINCT ticker FROM corporate_events")}
+    for r in rows:
+        r["is_ca"] = r["ticker"] in ca_tickers
     return jsonify({"date": date_str, "count": len(rows), "signals": rows})
 
 

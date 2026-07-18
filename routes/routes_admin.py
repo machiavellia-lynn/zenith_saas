@@ -249,7 +249,7 @@ def admin_backfill_prices():
     date_to   = request.args.get("date_to", "").strip() or None
 
     import threading
-    from data.price_fetch import backfill_prices, backfill_price_history_ohlcv
+    from data.price_fetch import backfill_prices
     from algo.analytics_daily import compute_analytics_for_date
     from core.db import get_scraper_db, fetchall
     from datetime import datetime
@@ -265,17 +265,13 @@ def admin_backfill_prices():
     def _run():
         conn = get_scraper_db()
         try:
-            # Phase 1: prices
+            # Phase 1: prices (fetches price_history via DataSectors, then syncs
+            # into eod_summary.price_close — one DataSectors call per ticker, not two)
             _prices_progress["step"] = "prices"
             prices_updated = backfill_prices(conn, days=days, date_from=date_from, date_to=date_to)
             _prices_progress["prices_updated"] = prices_updated
 
-            # Phase 2: price_history OHLCV, scoped to the same range as phase 1
-            _prices_progress["step"] = "price_history"
-            backfill_price_history_ohlcv(conn, date_from=date_from, date_to=date_to)
-            conn.commit()
-
-            # Phase 3: analytics
+            # Phase 2: analytics
             analytics_recomputed = 0
             if date_from:
                 fmt = "%d-%m-%Y"
@@ -543,18 +539,17 @@ def admin_backfill_ohlcv_daily():
     if not date_from or not date_to:
         return jsonify({"ok": False, "error": "date_from dan date_to wajib (DD-MM-YYYY)"}), 400
 
-    import threading, time as _time
-    from datetime import datetime, timedelta
-    from data.price_fetch import _fetch_ohlcv_history
-    from core.db import get_scraper_db, fetchall, execute
-    from config import WIB
+    import threading
+    from datetime import datetime
+    from data.price_fetch import fetch_daily_datasectors
+    from core.db import get_scraper_db, fetchall
     import logging as _logging
     _log = _logging.getLogger("zenith.admin")
 
     fmt = "%d-%m-%Y"
     try:
-        dt_f = datetime.strptime(date_from, fmt).replace(tzinfo=WIB)
-        dt_t = datetime.strptime(date_to,   fmt).replace(tzinfo=WIB) + timedelta(days=1)
+        datetime.strptime(date_from, fmt)
+        datetime.strptime(date_to, fmt)
     except ValueError:
         return jsonify({"ok": False, "error": "Format tanggal salah, gunakan DD-MM-YYYY"}), 400
 
@@ -563,6 +558,12 @@ def admin_backfill_ohlcv_daily():
         "done": 0, "total": 0, "rows_total": 0,
         "error": None, "date_from": date_from, "date_to": date_to,
     })
+
+    def _progress_cb(done, total, current, inserted, failed):
+        _ohlcv_daily_all["done"]           = done
+        _ohlcv_daily_all["total"]          = total
+        _ohlcv_daily_all["current_ticker"] = current
+        _ohlcv_daily_all["rows_total"]     = inserted
 
     def _run():
         conn = get_scraper_db()
@@ -575,8 +576,6 @@ def admin_backfill_ohlcv_daily():
             _ohlcv_daily_all.update({"status": "error", "error": str(e)})
             conn.close()
             return
-        finally:
-            conn.close()
 
         _ohlcv_daily_all.update({
             "status": "running", "total": len(tickers),
@@ -584,36 +583,15 @@ def admin_backfill_ohlcv_daily():
         })
         _log.info("ohlcv_daily_all: %d tickers, %s → %s", len(tickers), date_from, date_to)
 
-        for i, ticker in enumerate(tickers):
-            _ohlcv_daily_all["current_ticker"] = ticker
-            conn = get_scraper_db()
-            try:
-                _, ohlcv_rows = _fetch_ohlcv_history(ticker, dt_f, dt_t)
-                inserted = 0
-                for r in ohlcv_rows:
-                    try:
-                        execute(conn, """
-                            INSERT INTO price_history (date, ticker, open, high, low, close, volume)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s)
-                            ON CONFLICT (date, ticker) DO UPDATE SET
-                                open = EXCLUDED.open, high = EXCLUDED.high,
-                                low  = EXCLUDED.low,  close = EXCLUDED.close,
-                                volume = EXCLUDED.volume
-                        """, [r["date"], ticker, r["open"], r["high"], r["low"], r["close"], r["volume"]])
-                        inserted += 1
-                    except Exception as e:
-                        _log.warning("ohlcv_daily insert fail ticker=%s date=%s: %s", ticker, r.get("date"), e)
-                conn.commit()
-                _ohlcv_daily_all["rows_total"] += inserted
-            except Exception as e:
-                conn.rollback()
-                _log.error("ohlcv_daily_all failed ticker=%s: %s", ticker, e)
-            finally:
-                conn.close()
-
-            _ohlcv_daily_all["done"] = i + 1
-            if i < len(tickers) - 1:
-                _time.sleep(0.5)
+        try:
+            fetch_daily_datasectors(conn, tickers, date_from, date_to, progress_cb=_progress_cb)
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            _log.error("ohlcv_daily_all failed: %s", e)
+            _ohlcv_daily_all["error"] = str(e)
+        finally:
+            conn.close()
 
         _ohlcv_daily_all.update({"status": "done", "current_ticker": None})
         _log.info("ohlcv_daily_all done: %d tickers, %d rows", len(tickers), _ohlcv_daily_all["rows_total"])
@@ -1190,3 +1168,51 @@ def admin_data_coverage():
         return jsonify({"ok": False, "error": str(e)}), 500
     finally:
         conn.close()
+
+
+# ── Corporate Actions (stock split / rights issue blacklist for Portfolio) ─────
+
+@bp_admin.route("/admin/corporate-events")
+def admin_corporate_events_list():
+    from core.db import get_db, fetchall
+    rows = fetchall(get_db(), """
+        SELECT ticker, event_type, event_date, detail FROM corporate_events
+        ORDER BY SUBSTRING(event_date,7,4)||SUBSTRING(event_date,4,2)||SUBSTRING(event_date,1,2) DESC
+    """)
+    return jsonify([dict(r) for r in rows])
+
+
+@bp_admin.route("/admin/corporate-events/add", methods=["POST"])
+def admin_corporate_events_add():
+    from core.db import get_db, execute
+    import time
+    data = request.get_json() or {}
+    ticker      = (data.get("ticker") or "").strip().upper()
+    event_type  = data.get("event_type") or ""
+    event_date  = (data.get("event_date") or "").strip()
+    detail      = (data.get("detail") or "").strip() or None
+    if not ticker or event_type not in ("stock_split", "rights_issue") or len(event_date) != 10:
+        return jsonify({"ok": False, "error": "ticker, event_type (stock_split/rights_issue), event_date (DD-MM-YYYY) wajib"}), 400
+    conn = get_db()
+    execute(conn, """
+        INSERT INTO corporate_events (ticker, event_type, event_date, detail, fetched_at)
+        VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (ticker, event_type, event_date) DO UPDATE SET detail = EXCLUDED.detail
+    """, [ticker, event_type, event_date, detail, int(time.time())])
+    conn.commit()
+    return jsonify({"ok": True})
+
+
+@bp_admin.route("/admin/corporate-events/delete", methods=["POST"])
+def admin_corporate_events_delete():
+    from core.db import get_db, execute
+    data = request.get_json() or {}
+    ticker     = data.get("ticker") or ""
+    event_type = data.get("event_type") or ""
+    event_date = data.get("event_date") or ""
+    conn = get_db()
+    execute(conn, """
+        DELETE FROM corporate_events WHERE ticker=%s AND event_type=%s AND event_date=%s
+    """, [ticker, event_type, event_date])
+    conn.commit()
+    return jsonify({"ok": True})
