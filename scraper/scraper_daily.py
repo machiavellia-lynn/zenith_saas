@@ -425,7 +425,6 @@ def pre_filter_bsjp_candidates(conn, date_dmy: str) -> list:
         WHERE date = %s
           AND phase NOT IN ('UPTHRUST', 'DISTRI')
           AND sri >= 1.2
-          AND mf_ratio >= 50.0
           AND price_close > 0
           AND sm_val IS NOT NULL
           AND bm_val IS NOT NULL

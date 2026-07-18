@@ -76,7 +76,6 @@ def _compute_score(row: dict, setup: str) -> float:
 class BSJPAlgo:
     name = "BSJP"
     MIN_SRI      = 1.2
-    MIN_MF_RATIO = 50.0
     MIN_RSM      = 60.0
     POWER_BREAK_MIN_VALUE = 5_000_000_000
 
@@ -132,8 +131,6 @@ class BSJPAlgo:
         if row.get("phase") in {"UPTHRUST", "DISTRI"}:
             return False
         if _f(row.get("sri"), 0) < self.MIN_SRI:
-            return False
-        if _f(row.get("mf_ratio"), 0) < self.MIN_MF_RATIO:
             return False
         sm  = _f(row.get("sm_val"), 0)
         bm  = abs(_f(row.get("bm_val"), 0))
