@@ -15,6 +15,13 @@ EXPORT_SECRET = os.environ.get("PORTFOLIO_EXPORT_SECRET", "")
 
 
 def _fetch_ihsg_history(range_: str = "2y") -> dict:
+    """Raw {dates: [epoch], closes: [float]} for the external portfolio site.
+
+    Deliberately NOT price_cache.get_ihsg_history(), which returns
+    {DD-MM-YYYY: close} for the /portfolio benchmark line. Same upstream, two
+    different shapes: this one is a published contract consumed by the live
+    portfolio site, so collapsing the two would break it.
+    """
     try:
         resp = requests.get(
             "https://query1.finance.yahoo.com/v8/finance/chart/%5EJKSE",

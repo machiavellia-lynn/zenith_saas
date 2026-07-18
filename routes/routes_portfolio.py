@@ -8,6 +8,36 @@ from core.auth import is_authed
 bp_portfolio = Blueprint("portfolio", __name__)
 
 
+def _with_ihsg(result: dict) -> dict:
+    """Attach IHSG daily closes aligned 1:1 with the result's date axis.
+
+    Benchmark overlay only — decorative, so a Yahoo failure degrades to nulls
+    rather than breaking the response. Returns a shallow copy: the plain path
+    hands back the cached simulation object itself, which must not be mutated.
+    """
+    from data.price_cache import get_ihsg_history
+
+    axis = result.get("axis_dates") or []
+    if not axis:
+        return result
+
+    hist = get_ihsg_history()
+    series, last = [], None
+    for d in axis:
+        v = hist.get(d)
+        if v is None:
+            # Carry the previous close across days IDX has no bar for (the axis
+            # unions price_history, which can hold dates Yahoo doesn't return).
+            v = last
+        else:
+            last = v
+        series.append(v)
+
+    out = dict(result)
+    out["ihsg"] = series
+    return out
+
+
 @bp_portfolio.route("/portfolio")
 def portfolio_page():
     if not is_authed():
@@ -36,7 +66,7 @@ def api_portfolio():
 
         cached = get_portfolio_result()
         if cached:
-            return jsonify(filter_result(cached, date_from, date_to))
+            return jsonify(_with_ihsg(filter_result(cached, date_from, date_to)))
 
         triggered = request_portfolio_sim()
         return jsonify({"triggered": triggered})
@@ -50,4 +80,4 @@ def api_portfolio():
     if not result:
         request_portfolio_sim()  # no-op if already running
         return jsonify(get_portfolio_status())
-    return jsonify(result)
+    return jsonify(_with_ihsg(result))

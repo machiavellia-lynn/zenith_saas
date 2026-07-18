@@ -12,6 +12,7 @@ import requests
 from datetime import datetime
 
 from config import WIB, YF_HEADERS, SECTORS
+from core.cache import TTLCache
 
 log = logging.getLogger("zenith.price_cache")
 
@@ -80,6 +81,46 @@ def _refresh_ihsg():
 def get_cached_ihsg() -> dict:
     with _ihsg_lock:
         return dict(_ihsg_cache)
+
+
+_ihsg_hist = TTLCache()
+
+
+def get_ihsg_history(range_: str = "2y") -> dict:
+    """Daily IHSG closes as {DD-MM-YYYY: close}, for the /portfolio benchmark line.
+
+    Cached for 1 h: this is EOD data that changes once a day, while /portfolio
+    re-requests it on every date-range change. Returns {} on failure — the
+    benchmark line is decorative, so it must never break the portfolio response.
+    """
+    cached = _ihsg_hist.get(range_)
+    if cached is not None:
+        return cached
+
+    out = {}
+    try:
+        resp = requests.get(
+            "https://query1.finance.yahoo.com/v8/finance/chart/%5EJKSE",
+            headers=YF_HEADERS,
+            params={"interval": "1d", "range": range_},
+            timeout=8,
+        )
+        result = resp.json().get("chart", {}).get("result", [None])[0] or {}
+        stamps = result.get("timestamp") or []
+        closes = result.get("indicators", {}).get("quote", [{}])[0].get("close") or []
+        for ts, c in zip(stamps, closes):
+            if not c:
+                continue
+            # Yahoo stamps each daily bar at the exchange session open; render it
+            # in WIB so the calendar date matches eod_summary's DD-MM-YYYY keys.
+            out[datetime.fromtimestamp(ts, WIB).strftime("%d-%m-%Y")] = round(float(c), 2)
+    except Exception as e:
+        log.warning("IHSG history fetch failed: %s", e)
+
+    # Cache even an empty result, briefly, so a Yahoo outage can't turn every
+    # portfolio request into an 8 s timeout.
+    _ihsg_hist.set(range_, out, 3600 if out else 120)
+    return out
 
 
 # ── Stocks ─────────────────────────────────────────────────────────────────────

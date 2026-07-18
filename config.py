@@ -80,7 +80,14 @@ INTERVAL_MAP = {
 # ── Portfolio Simulation ───────────────────────────────────────────────────────
 # Fixed simulation parameters — NOT user-configurable in the UI.
 # Owner controls these here; the only user control on /portfolio is the date range.
-PF_WYCKOFF_INITIAL_EQUITY = 2_500_000_000  # Rp — Wyckoff starting equity (basis for return % + available balance)
+# Wyckoff budget. Unlike BSJP (T+1, so capital genuinely recycles and 150jt caps
+# concurrency at 10 slots), the Wyckoff sim opens concurrent positions WITHOUT a
+# capital check — so this value does not constrain trade selection, it only sets
+# the denominator for return % and available balance. Keep it at the real budget
+# you'd allocate, otherwise the reported return is silently scaled by an arbitrary
+# number. Measured peak capital deployed over the full history is ~884jt, so 1B is
+# both realistic and sufficient headroom. Was 2.5B, which understated return ~2.8x.
+PF_WYCKOFF_INITIAL_EQUITY = 1_000_000_000  # Rp — Wyckoff budget (basis for return % + available balance)
 PF_INITIAL_EQUITY         = 50_000_000    # Rp — kept for backward compat; no longer used as Wyckoff basis
 PF_BSJP_INITIAL_EQUITY    = 150_000_000   # Rp — BSJP starting capital pool (T+1 recycled daily)
 PF_WYCKOFF_ALLOC       = 5_000_000    # Rp — capital deployed per Wyckoff BUY signal

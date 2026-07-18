@@ -221,6 +221,7 @@ var S = {
   bsSort: { col:'gain', asc:false },
   wyPage: 1, bsPage: 1,   // how many PAGE_SIZE chunks to show
   viewMode: 'flat',       // 'flat' | 'month'
+  showIhsg: true,         // dashed benchmark overlay on the equity chart
   expMonths: {}, expDates: {},
   dateFrom: '', dateTo: '',
   loading: false,
@@ -237,11 +238,14 @@ var S = {
    deploy, which is the point. */
 var SRV_DEFAULTS = {
   bsjp_capital: 150000000, bsjp_alloc: 15000000,
-  wyckoff_alloc: 5000000,  wyckoff_basis: 2500000000,
+  wyckoff_alloc: 5000000,  wyckoff_basis: 1000000000,
 };
 
 /* ── Preferences ──────────────────────────────────────────────────────────── */
-var PREFS_KEY = 'zenith_pf_prefs';
+// Key is versioned: v1 persisted wyckoff_basis 2500000000, and a stored pref
+// overrides PREFS_DEF — so without a new key an existing browser would keep
+// dividing by the old basis and still show the understated Wyckoff return.
+var PREFS_KEY = 'zenith_pf_prefs_v2';
 // Budget defaults are derived from SRV_DEFAULTS (not re-typed) so "Reset" always
 // lands exactly on the server-side simulation basis and the two can never drift.
 var PREFS_DEF = Object.assign({}, SRV_DEFAULTS, {
@@ -297,6 +301,8 @@ function viewData(){
     },
     wyckoff: { stats: scaleStats(raw.wyckoff.stats, rWy, p.wyckoff_basis), trades: scaleTrades(raw.wyckoff.trades, rWy) },
     bsjp:    { stats: scaleStats(raw.bsjp.stats,    rBs, p.bsjp_capital),  trades: scaleTrades(raw.bsjp.trades,    rBs) },
+    // IHSG is an index level, not money — never scaled by the budget what-if.
+    ihsg: raw.ihsg || null,
     axis_dates: raw.axis_dates, date_range: raw.date_range, computed_at: raw.computed_at,
   };
 }
@@ -361,6 +367,7 @@ var sdp = new window.StockbitDatePicker('pfDatePicker', {
     + '<div class="pfg-section">Modal &amp; Alokasi</div>'
     + '<div class="pfg-row"><span class="pfg-label">Modal BSJP</span><input class="pfg-input" id="pfgBsjpCap" type="text" inputmode="numeric"></div>'
     + '<div class="pfg-row"><span class="pfg-label">Per sinyal BSJP</span><input class="pfg-input" id="pfgBsjpAlloc" type="text" inputmode="numeric"></div>'
+    + '<div class="pfg-row"><span class="pfg-label">Modal Wyckoff</span><input class="pfg-input" id="pfgWyckoffCap" type="text" inputmode="numeric"></div>'
     + '<div class="pfg-row"><span class="pfg-label">Per sinyal Wyckoff</span><input class="pfg-input" id="pfgWyckoffAlloc" type="text" inputmode="numeric"></div>'
     + '<div class="pfg-section" style="margin-top:14px">Biaya Transaksi</div>'
     + '<div class="pfg-row"><span class="pfg-label"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none">'
@@ -383,6 +390,7 @@ var sdp = new window.StockbitDatePicker('pfDatePicker', {
     var p = S.prefs;
     document.getElementById('pfgBsjpCap').value      = fmtBgt(p.bsjp_capital);
     document.getElementById('pfgBsjpAlloc').value    = fmtBgt(p.bsjp_alloc);
+    document.getElementById('pfgWyckoffCap').value   = fmtBgt(p.wyckoff_basis);
     document.getElementById('pfgWyckoffAlloc').value = fmtBgt(p.wyckoff_alloc);
     document.getElementById('pfgFeesOn').checked     = p.fees_enabled;
     document.getElementById('pfgFeeBuy').value       = p.fee_buy;
@@ -415,7 +423,7 @@ var sdp = new window.StockbitDatePicker('pfDatePicker', {
     document.getElementById('pfgFeeRows').style.display = this.checked ? '' : 'none';
   });
 
-  ['pfgBsjpCap','pfgBsjpAlloc','pfgWyckoffAlloc'].forEach(function(id){
+  ['pfgBsjpCap','pfgBsjpAlloc','pfgWyckoffCap','pfgWyckoffAlloc'].forEach(function(id){
     var el = document.getElementById(id);
     el.addEventListener('focus', function(){ var v=parseBgt(this.value); this.value = v>0 ? v : ''; });
     el.addEventListener('blur',  function(){ var v=parseBgt(this.value); if(v>0) this.value=fmtBgt(v); });
@@ -437,7 +445,7 @@ var sdp = new window.StockbitDatePicker('pfDatePicker', {
       bsjp_capital:  parseBgt(document.getElementById('pfgBsjpCap').value)      || PREFS_DEF.bsjp_capital,
       bsjp_alloc:    parseBgt(document.getElementById('pfgBsjpAlloc').value)    || PREFS_DEF.bsjp_alloc,
       wyckoff_alloc: parseBgt(document.getElementById('pfgWyckoffAlloc').value) || PREFS_DEF.wyckoff_alloc,
-      wyckoff_basis: S.prefs.wyckoff_basis || PREFS_DEF.wyckoff_basis,
+      wyckoff_basis: parseBgt(document.getElementById('pfgWyckoffCap').value)   || PREFS_DEF.wyckoff_basis,
       fees_enabled:  document.getElementById('pfgFeesOn').checked,
       fee_buy:  flt('pfgFeeBuy',  PREFS_DEF.fee_buy),
       fee_sell: flt('pfgFeeSell', PREFS_DEF.fee_sell),
@@ -474,9 +482,25 @@ function renderChart(){
   if (!ds.length){ inner.innerHTML = ''; return; }
 
   var eq = S.view.equity, labels = eq.labels;
-  var W=CHART.W, H=CHART.H, PL=CHART.PL, PR=CHART.PR, PT=CHART.PT, PB=CHART.PB;
-  var cw = W-PL-PR, ch = H-PT-PB;
   var n = labels.length;
+
+  /* IHSG benchmark — rebased to 0% at the window start so an index around 7.000
+     can share a plot area with a P&L curve in rupiah. Own right-hand % axis;
+     never mixed into the equity min/max. Nulls = days Yahoo returned no bar. */
+  var ihsgRaw = (S.showIhsg && S.view.ihsg && S.view.ihsg.length === n) ? S.view.ihsg : null;
+  var ihsgPct = null, ihsgBase = null;
+  if (ihsgRaw){
+    for (var bi = 0; bi < n; bi++){ if (ihsgRaw[bi] > 0){ ihsgBase = ihsgRaw[bi]; break; } }
+    if (ihsgBase){
+      ihsgPct = ihsgRaw.map(function(v){ return v > 0 ? (v - ihsgBase) / ihsgBase * 100 : null; });
+      if (ihsgPct.filter(function(v){ return v != null; }).length < 2) ihsgPct = null;
+    }
+  }
+  var drawIhsg = !!ihsgPct;
+
+  var W=CHART.W, H=CHART.H, PL=CHART.PL, PT=CHART.PT, PB=CHART.PB;
+  var PR = drawIhsg ? 46 : CHART.PR;   // room for the right-hand % axis
+  var cw = W-PL-PR, ch = H-PT-PB;
 
   // Resolve theme colors to literal hex — var() is unreliable in SVG presentation attrs.
   var cs = getComputedStyle(document.documentElement);
@@ -493,6 +517,27 @@ function renderChart(){
 
   function xPos(i){ return PL + (n<=1 ? 0 : (i/(n-1))*cw); }
   function yPos(v){ return PT + ch - ((v-minV)/(maxV-minV))*ch; }
+
+  // Secondary scale for the benchmark, independent of the rupiah axis.
+  var iMin=0, iMax=0, yPos2 = function(){ return 0; };
+  if (drawIhsg){
+    var iVals = ihsgPct.filter(function(v){ return v != null; });
+    iMin = Math.min.apply(null, iVals);
+    iMax = Math.max.apply(null, iVals);
+    var iPad = (iMax - iMin) * 0.05 || 1;
+    iMin -= iPad; iMax += iPad;
+    yPos2 = function(v){ return PT + ch - ((v-iMin)/(iMax-iMin))*ch; };
+  }
+  // Break the dashed line into runs so gaps (nulls) aren't bridged by a fake segment.
+  function ihsgSegments(){
+    var segs = [], cur = [];
+    for (var i=0;i<n;i++){
+      if (ihsgPct[i] == null){ if (cur.length>1) segs.push(cur); cur = []; continue; }
+      cur.push(xPos(i).toFixed(1)+','+yPos2(ihsgPct[i]).toFixed(1));
+    }
+    if (cur.length>1) segs.push(cur);
+    return segs;
+  }
 
   function polyline(data){ return data.map(function(v,i){ return xPos(i).toFixed(1)+','+yPos(v).toFixed(1); }).join(' '); }
   function areaPath(data){
@@ -518,6 +563,13 @@ function renderChart(){
   });
   // areas + lines
   ds.forEach(function(d){ svg += '<path d="'+areaPath(d.data)+'" fill="url(#pfg-'+d.id+')"/>'; });
+  // IHSG benchmark — drawn under the equity lines so it reads as background reference
+  if (drawIhsg){
+    ihsgSegments().forEach(function(seg){
+      svg += '<polyline points="'+seg.join(' ')+'" fill="none" stroke="'+b2Col+'" stroke-width="1.5" '
+          +  'stroke-dasharray="5 4" stroke-linecap="round" stroke-linejoin="round"/>';
+    });
+  }
   ds.forEach(function(d){
     svg += '<polyline points="'+polyline(d.data)+'" fill="none" stroke="'+d.color+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
   });
@@ -532,6 +584,14 @@ function renderChart(){
   yTicks.forEach(function(v){
     svg += '<text x="'+(PL-6)+'" y="'+(yPos(v)+4).toFixed(1)+'" text-anchor="end" font-size="9.5" font-family="Geist Mono, monospace" fill="'+muteCol+'">'+(v/1e6).toFixed(0)+'M</text>';
   });
+  // Right-hand IHSG % axis (benchmark scale — separate from the rupiah axis)
+  if (drawIhsg){
+    for (var it=0; it<5; it++){
+      var iv = iMin + (iMax-iMin)*(it/4);
+      svg += '<text x="'+(W-PR+6)+'" y="'+(yPos2(iv)+4).toFixed(1)+'" text-anchor="start" font-size="9.5" '
+          +  'font-family="Geist Mono, monospace" fill="'+muteCol+'">'+(iv>=0?'+':'')+iv.toFixed(1)+'%</text>';
+    }
+  }
   // X labels
   xIdx.forEach(function(i){
     svg += '<text x="'+xPos(i).toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle" font-size="9.5" font-family="Geist Mono, monospace" fill="'+muteCol+'">'+labels[i]+'</text>';
@@ -563,6 +623,17 @@ function renderChart(){
         + '<span style="font-size:11.5px;color:var(--text-dim)">'+d.label+'</span></span>'
         + '<span style="font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--ink)">Rp '+fmtM(d.data[i])+'</span></div>';
     }).join('');
+    if (drawIhsg && ihsgPct[i] != null){
+      rows += '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;'
+        + 'margin-top:4px;padding-top:4px;border-top:1px dashed var(--border)">'
+        + '<span style="display:flex;align-items:center;gap:5px">'
+        +   '<span style="width:8px;height:0;border-top:2px dashed '+b2Col+'"></span>'
+        +   '<span style="font-size:11.5px;color:var(--text-dim)">IHSG</span></span>'
+        + '<span style="font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--text-dim)">'
+        +   Math.round(ihsgRaw[i]).toLocaleString('id-ID')
+        +   ' <span style="color:'+(ihsgPct[i]>=0?'var(--up)':'var(--down)')+'">'+fmtPctS(ihsgPct[i])+'</span>'
+        + '</span></div>';
+    }
     tip.innerHTML = '<div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-bottom:5px">'+labels[i]+'</div>'+rows;
     tip.style.left = Math.min(x/W*100, 72) + '%';
     tip.style.display = '';
@@ -595,7 +666,19 @@ function renderChips(){
       + '<span class="pf-chip-ret" style="'+(on?'color:var(--up)':'')+'">'+(ret[a.id]!=null?fmtPctS(ret[a.id]):'')+'</span>'
       + '</div>';
   }).join('');
-  el.querySelectorAll('.pf-chip').forEach(function(c){
+  // Benchmark toggle — only offered when the server actually returned IHSG data
+  if (S.view && S.view.ihsg && S.view.ihsg.some(function(v){ return v > 0; })){
+    var on = S.showIhsg;
+    el.innerHTML += '<div class="pf-chip" id="pfIhsgChip" style="'+(on?'border-color:var(--border2)':'')+'">'
+      + '<span style="width:12px;height:0;border-top:2px dashed '+(on?'var(--muted)':'var(--border2)')+'"></span>'
+      + '<span class="pf-chip-label" style="'+(on?'font-weight:600;color:var(--text-dim)':'')+'">IHSG</span>'
+      + '</div>';
+    var chip = document.getElementById('pfIhsgChip');
+    if (chip) chip.addEventListener('click', function(){
+      S.showIhsg = !S.showIhsg; renderChips(); renderChart();
+    });
+  }
+  el.querySelectorAll('.pf-chip[data-algo]').forEach(function(c){
     c.addEventListener('click', function(){ toggleAlgo(c.dataset.algo); });
   });
 }
