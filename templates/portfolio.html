@@ -212,7 +212,8 @@ function setupCol(k){ return SETUP_COL[setupName(k)] || 'var(--muted)'; }
 /* ── State ───────────────────────────────────────────────────────────────── */
 var PAGE_SIZE = 30;
 var S = {
-  data: null,
+  data: null,   // raw server response — always simulated at the server-side default budget
+  view: null,   // S.data rescaled to S.prefs' budget — what actually gets rendered
   active: { wyckoff:true, bsjp:true },
   tab: 'wyckoff',
   statusFilter: 'all',
@@ -227,15 +228,78 @@ var S = {
   wyStatTab: 'closed',
 };
 
-/* ── Preferences ──────────────────────────────────────────────────────────── */
-var PREFS_KEY = 'zenith_pf_prefs';
-var PREFS_DEF = {
+/* ── Server-side defaults (mirrors config.py — dev/code-only, never sent to the API) ──
+   The server ALWAYS simulates at exactly these values; nothing in the browser can
+   change what it computes or fetches. Two roles here:
+     1. denominator for the client-side what-if scale ratio (viewData below), and
+     2. the target the gear panel's "Reset" restores to.
+   Keep in sync with config.py's PF_* constants — changing them there is a code
+   deploy, which is the point. */
+var SRV_DEFAULTS = {
   bsjp_capital: 150000000, bsjp_alloc: 15000000,
   wyckoff_alloc: 5000000,  wyckoff_basis: 2500000000,
+};
+
+/* ── Preferences ──────────────────────────────────────────────────────────── */
+var PREFS_KEY = 'zenith_pf_prefs';
+// Budget defaults are derived from SRV_DEFAULTS (not re-typed) so "Reset" always
+// lands exactly on the server-side simulation basis and the two can never drift.
+var PREFS_DEF = Object.assign({}, SRV_DEFAULTS, {
   fees_enabled: true,
   fee_buy: 0.15, fee_sell: 0.25, fee_pph: 0.10,
-};
+});
 S.prefs = Object.assign({}, PREFS_DEF, JSON.parse(localStorage.getItem(PREFS_KEY) || 'null') || {});
+
+/* ── Client-side what-if rescale ─────────────────────────────────────────────
+   S.data (server response, always at SRV_DEFAULTS budget) → S.view (rescaled to
+   S.prefs). Pure arithmetic on top of already-fetched trades/equity — no network
+   call, can't touch the API key. Win rate / profit factor / avg hold / trade
+   counts are scale-invariant (ratios of same-scaled quantities) and pass through
+   unchanged; money fields (lots, P&L, txn value, equity curve, drawdown, equity
+   basis) scale by alloc-ratio; % return and absolute equity are re-derived
+   against the user's chosen capital. */
+function scaleEquitySeries(arr, ratio){
+  return (arr || []).map(function(v){ return Math.round(v * ratio); });
+}
+function scaleTrades(trades, ratio){
+  return (trades || []).map(function(t){
+    var lots = Math.max(1, Math.round((t.lots || 0) * ratio));
+    return Object.assign({}, t, {
+      lots: lots,
+      pnl_rp: Math.round((t.pnl_rp || 0) * ratio),
+      txn_value: Math.round((t.txn_value || 0) * ratio),
+    });
+  });
+}
+function scaleStats(st, ratio, customBasis){
+  var finalPnl    = (st.final_equity || 0) * ratio;
+  var availDelta  = ((st.available_balance || 0) - (st.initial_equity || 0)) * ratio;
+  return Object.assign({}, st, {
+    initial_equity:    customBasis,
+    final_equity:      Math.round(finalPnl),
+    total_return_pct:  customBasis ? Math.round(finalPnl / customBasis * 10000) / 100 : 0,
+    max_drawdown_rp:   st.max_drawdown_rp != null ? Math.round(st.max_drawdown_rp * ratio) : null,
+    total_txn_value:   Math.round((st.total_txn_value || 0) * ratio),
+    available_balance: Math.round(customBasis + availDelta),
+    total_equity:      Math.round(customBasis + finalPnl),
+  });
+}
+function viewData(){
+  if (!S.data) return null;
+  var raw = S.data, p = S.prefs;
+  var rBs = p.bsjp_alloc    / SRV_DEFAULTS.bsjp_alloc;
+  var rWy = p.wyckoff_alloc / SRV_DEFAULTS.wyckoff_alloc;
+  return {
+    equity: {
+      labels:  raw.equity.labels,
+      wyckoff: scaleEquitySeries(raw.equity.wyckoff, rWy),
+      bsjp:    scaleEquitySeries(raw.equity.bsjp,    rBs),
+    },
+    wyckoff: { stats: scaleStats(raw.wyckoff.stats, rWy, p.wyckoff_basis), trades: scaleTrades(raw.wyckoff.trades, rWy) },
+    bsjp:    { stats: scaleStats(raw.bsjp.stats,    rBs, p.bsjp_capital),  trades: scaleTrades(raw.bsjp.trades,    rBs) },
+    axis_dates: raw.axis_dates, date_range: raw.date_range, computed_at: raw.computed_at,
+  };
+}
 
 /* ── Formatters ──────────────────────────────────────────────────────────── */
 function fmtRp(v){ return v==null ? '—' : 'Rp ' + Math.round(v).toLocaleString('id-ID'); }
@@ -357,9 +421,14 @@ var sdp = new window.StockbitDatePicker('pfDatePicker', {
     el.addEventListener('blur',  function(){ var v=parseBgt(this.value); if(v>0) this.value=fmtBgt(v); });
   });
 
+  // Reset → back to the server-side simulation basis (SRV_DEFAULTS / config.py).
+  // Applied and persisted immediately, so the panel can't be left showing default
+  // values while S.prefs / localStorage / the rendered cards still hold the old ones.
   document.getElementById('pfgResetBtn').addEventListener('click', function(){
     S.prefs = Object.assign({}, PREFS_DEF);
+    localStorage.setItem(PREFS_KEY, JSON.stringify(S.prefs));
     populate();
+    renderAll();
   });
 
   document.getElementById('pfgSaveBtn').addEventListener('click', function(){
@@ -376,7 +445,10 @@ var sdp = new window.StockbitDatePicker('pfDatePicker', {
     };
     localStorage.setItem(PREFS_KEY, JSON.stringify(S.prefs));
     panel.style.display='none'; open=false;
-    runSim();
+    // Pure client-side what-if: rescales the already-fetched server data (which is
+    // always simulated at the fixed SRV_DEFAULTS budget) — no network round trip,
+    // no server-side recompute.
+    renderAll();
   });
 })();
 
@@ -386,8 +458,8 @@ var sdp = new window.StockbitDatePicker('pfDatePicker', {
 var CHART = { W:1100, H:300, PL:54, PR:16, PT:12, PB:32 };
 
 function activeDatasets(){
-  if (!S.data || !S.data.equity) return [];
-  var eq = S.data.equity;
+  if (!S.view || !S.view.equity) return [];
+  var eq = S.view.equity;
   var out = [];
   PF_ALGOS.forEach(function(a){
     if (S.active[a.id] && eq[a.id] && eq[a.id].length)
@@ -401,7 +473,7 @@ function renderChart(){
   var ds = activeDatasets();
   if (!ds.length){ inner.innerHTML = ''; return; }
 
-  var eq = S.data.equity, labels = eq.labels;
+  var eq = S.view.equity, labels = eq.labels;
   var W=CHART.W, H=CHART.H, PL=CHART.PL, PR=CHART.PR, PT=CHART.PT, PB=CHART.PB;
   var cw = W-PL-PR, ch = H-PT-PB;
   var n = labels.length;
@@ -512,7 +584,7 @@ function renderChart(){
 function renderChips(){
   var el = document.getElementById('pfChips');
   var ret = { wyckoff: null, bsjp: null };
-  if (S.data){ ret.wyckoff = S.data.wyckoff.stats.total_return_pct; ret.bsjp = S.data.bsjp.stats.total_return_pct; }
+  if (S.view){ ret.wyckoff = S.view.wyckoff.stats.total_return_pct; ret.bsjp = S.view.bsjp.stats.total_return_pct; }
   el.innerHTML = PF_ALGOS.map(function(a){
     var on = S.active[a.id];
     var style = on ? 'background:'+a.color+'18;border-color:'+a.color : '';
@@ -529,6 +601,11 @@ function renderChips(){
 }
 var _firstSig = {};
 function cacheFirstSigs(){
+  // Compute once, from the first result we see — that's the full unfiltered range,
+  // so these stay the GLOBAL first signals. Recomputing off a later date-filtered
+  // response would narrow them to "first signal in the current window" and drag the
+  // picker's reset target along with every range change.
+  if (Object.keys(_firstSig).length) return;
   PF_ALGOS.forEach(function(a){
     var ad = S.data && S.data[a.id];
     if (!ad || !ad.trades) return;
@@ -652,12 +729,12 @@ function animateStatVal(el, finalText, delay){
 
 function renderStats(){
   var wrap = document.getElementById('pfStats');
-  if (!S.data){ wrap.style.display='none'; return; }
+  if (!S.view){ wrap.style.display='none'; return; }
   var cols = PF_ALGOS.filter(function(a){ return S.active[a.id]; });
   wrap.style.display = '';
   wrap.innerHTML = cols.map(function(a){
-    var st = S.data[a.id].stats;
-    var trades = S.data[a.id].trades;
+    var st = S.view[a.id].stats;
+    var trades = S.view[a.id].trades;
     var allocM = a.id === 'bsjp' ? S.prefs.bsjp_alloc : S.prefs.wyckoff_alloc;
     var allocFmt = allocM >= 1e6 ? (allocM/1e6).toFixed(0)+'jt' : allocM.toLocaleString('id-ID');
 
@@ -712,9 +789,9 @@ function renderStats(){
    TRADE LOG
    ════════════════════════════════════════════════════════════════════════ */
 function renderTradeLog(){
-  if (!S.data){ document.getElementById('pfTradeCard').style.display='none'; return; }
+  if (!S.view){ document.getElementById('pfTradeCard').style.display='none'; return; }
   document.getElementById('pfTradeCard').style.display = '';
-  var wy = S.data.wyckoff.trades, bs = S.data.bsjp.trades;
+  var wy = S.view.wyckoff.trades, bs = S.view.bsjp.trades;
 
   document.getElementById('pfAllocFoot').textContent =
     'Lot size IDX = 100 saham · Alokasi Wyckoff ' + fmtRp(S.prefs.wyckoff_alloc)
@@ -747,7 +824,7 @@ function renderTradeLog(){
   // info text
   var info = document.getElementById('pfTabInfo');
   if (S.tab === 'wyckoff'){
-    var oc = S.data.wyckoff.stats.open_count, cc = S.data.wyckoff.stats.closed_count;
+    var oc = S.view.wyckoff.stats.open_count, cc = S.view.wyckoff.stats.closed_count;
     info.textContent = oc + ' open · ' + cc + ' closed';
   } else info.textContent = 'semua resolved T+1';
 
@@ -1065,6 +1142,8 @@ function renderBsTable(rows){
    RENDER ALL + DATA FLOW
    ════════════════════════════════════════════════════════════════════════ */
 function renderAll(){
+  if (!S.data) return;   // gear panel can call this before the first fetch resolves
+  S.view = viewData();
   document.getElementById('pfStatus').style.display = 'none';
   document.getElementById('pfComputed').textContent = S.data.computed_at ? 'Computed: ' + S.data.computed_at : '';
   renderChips(); renderChart(); renderStats(); renderTradeLog();
@@ -1081,22 +1160,23 @@ function runSim(){
   S.loading = true;
   if (!S.data) setStatus('<span class="pf-spinner"></span> &nbsp;Menghitung simulasi portfolio…');
   var from = window.isoToDD_MM_YYYY(S.dateFrom), to = window.isoToDD_MM_YYYY(S.dateTo);
-  var p = S.prefs;
-  var url = '/api/portfolio?run=1&date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to)
-    + '&bsjp_capital='+p.bsjp_capital+'&bsjp_alloc='+p.bsjp_alloc
-    + '&wyckoff_alloc='+p.wyckoff_alloc;
+  // Only the date range is ever sent — capital/alloc are fixed server-side (config.py)
+  // and never travel over the wire. "What-if my own budget" is applied client-side
+  // in viewData(), on top of whatever the server returns here.
+  var url = '/api/portfolio?run=1&date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to);
   fetch(url)
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (d && d.equity) {
         // Cache hit: server filtered in-memory, no polling needed
         S.loading = false;
-        S.data = d; syncPickerToRange(d); renderAll();
+        S.data = d;
+        cacheFirstSigs();   // no-op once populated; fallback for the cold-boot path
+        syncPickerToRange(d); renderAll();
       } else {
-        // Params changed → full re-sim triggered (runs over ALL history so future
-        // date-range changes stay cache-filterable). Once done, re-issue THIS same
-        // filtered request instead of grabbing the raw unfiltered result — otherwise
-        // the card would show the whole-history basis/date-range, not what was picked.
+        // No cached full-history sim yet (cold boot only — settings changes never
+        // land here anymore). Once the background sim finishes, re-issue THIS same
+        // date-filtered request instead of grabbing the raw unfiltered result.
         poll(function(){ S.loading = false; runSim(); });
       }
     })
@@ -1129,10 +1209,15 @@ function syncPickerToRange(d){
   var f = window.DD_MM_YYYYtoISO(parts[0]);
   var t = window.DD_MM_YYYYtoISO(parts[1]);
   if (!pickerSynced){
-    sdp.setDefault(f, t); // reset target fixed to full axis range from first full result
     var sigs = [];
     PF_ALGOS.forEach(function(a){ if(S.active[a.id]){ var s=firstSignalISO(a.id); if(s) sigs.push(s); } });
+    // Fall back to the raw axis start only when no signal exists at all.
     var start = sigs.length ? sigs.sort()[0] : f;
+    // Reset target = first signal, NOT the raw axis start. _axis_dates() unions
+    // price_history, which carries the 200-day MA200 backfill, so the axis begins
+    // long before any signal — resetting to `f` would drop the user on a stretch
+    // of empty pre-signal history they never picked.
+    sdp.setDefault(start, t);
     S.dateFrom = start; S.dateTo = t;
     sdp.setDates(start, t);
     pickerSynced = true;

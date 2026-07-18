@@ -20,37 +20,25 @@ def api_portfolio():
     if not is_authed():
         return redirect("/")
     from algo.algo_portfolio import (
-        get_portfolio_result, get_portfolio_status, request_portfolio_sim,
+        get_portfolio_result, get_portfolio_status, request_portfolio_sim, filter_result,
     )
 
-    # Date-range change: filter cached result in-memory (fast path, no DB re-run)
+    # Capital/allocation are NOT client-configurable — they're fixed in config.py
+    # (PF_BSJP_INITIAL_EQUITY, PF_BSJP_ALLOC, ...) and only change via a code deploy,
+    # since the underlying simulation is what actually calls the paid DataSectors API.
+    # The only request-driven knob here is the date range, which is a free in-memory
+    # slice of the one dev-configured cached result — never a new simulation.
+    # Any "what-if my own budget" recalculation happens client-side in the browser,
+    # scaling the returned trades/equity — see templates/portfolio.html's viewData().
     if request.args.get("run") == "1":
         date_from = request.args.get("date_from") or None
         date_to   = request.args.get("date_to") or None
 
-        def _int(key):
-            v = request.args.get(key)
-            try: return int(v) if v else None
-            except (ValueError, TypeError): return None
-
-        req_params = {k: v for k, v in {
-            "bsjp_capital":  _int("bsjp_capital"),
-            "bsjp_alloc":    _int("bsjp_alloc"),
-            "wyckoff_alloc": _int("wyckoff_alloc"),
-            "wyckoff_basis": _int("wyckoff_basis"),
-        }.items() if v is not None}
-
-        from algo.algo_portfolio import filter_result
         cached = get_portfolio_result()
-        cached_params = (cached or {}).get("user_params") or {}
-
-        # Use cache when budget params match (or user sent none)
-        params_match = (not req_params) or (
-            req_params == {k: cached_params.get(k) for k in req_params})
-        if cached and params_match:
+        if cached:
             return jsonify(filter_result(cached, date_from, date_to))
 
-        triggered = request_portfolio_sim(user_params=req_params or None)
+        triggered = request_portfolio_sim()
         return jsonify({"triggered": triggered})
 
     # Status polling while running
