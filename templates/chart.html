@@ -471,46 +471,67 @@ function syncAllToRange(range, src) {
   _tsSyncing = false;
 }
 
+/* ── Theme colours ──────────────────────────────────────────────────────────
+   Read straight off the CSS tokens so the canvas never drifts from the page.
+   Same idiom as portfolio.html — lightweight-charts can't resolve var(). */
+function isDark() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
+function themeCols() {
+  var cs = getComputedStyle(document.documentElement);
+  function v(name, fb) { return cs.getPropertyValue(name).trim() || fb; }
+  return {
+    bg:     v('--bg',       isDark() ? '#0b0d10' : '#fafaf7'),
+    text:   v('--text-dim', isDark() ? '#9aa0aa' : '#6e6c63'),
+    border: v('--border',   isDark() ? 'rgba(255,255,255,.08)' : '#e7e5dc'),
+    grid:   isDark() ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)',
+    up:     v('--up',   '#3a6b58'),
+    down:   v('--down', '#c8633a'),
+  };
+}
+/* 6-digit hex + alpha byte; leaves non-hex colours untouched. */
+function withAlpha(col, hexAlpha) {
+  return /^#[0-9a-f]{6}$/i.test(col) ? col + hexAlpha : col;
+}
+
 /* ── Sub-pane chart options ─────────────────────────────────────────────── */
-function makeSubPaneOpts(dark) {
+function makeSubPaneOpts() {
+  var c = themeCols();
   return {
     autoSize: true,
     layout: {
-      background: { type:'solid', color: dark ? '#0e1318' : '#fafaf7' },
-      textColor:  dark ? '#6a8090' : '#7a7060',
+      background: { type:'solid', color: c.bg },
+      textColor:  c.text,
       fontFamily: "'Geist Mono', monospace",
     },
     grid: {
-      vertLines: { color: dark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)' },
-      horzLines: { color: dark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)' },
+      vertLines: { color: c.grid },
+      horzLines: { color: c.grid },
     },
-    rightPriceScale: { borderColor: dark ? '#1a2230' : '#e5e0d8' },
-    timeScale: { borderColor: dark ? '#1a2230' : '#e5e0d8', visible: false },
+    rightPriceScale: { borderColor: c.border },
+    timeScale: { borderColor: c.border, visible: false },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
     handleScroll: true, handleScale: true,
   };
 }
 
 /* ── Chart init ─────────────────────────────────────────────────────────── */
-function isDark() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
 function initChart() {
   var container = document.getElementById('chartArea');
-  var dark = isDark();
+  var c = themeCols();
   chart = LightweightCharts.createChart(container, {
     autoSize: true,
     layout: {
-      background: { type: 'solid', color: dark ? '#0e1318' : '#fafaf7' },
-      textColor: dark ? '#6a8090' : '#7a7060',
+      background: { type: 'solid', color: c.bg },
+      textColor: c.text,
       fontFamily: "'Geist Mono', monospace",
     },
     grid: {
-      vertLines: { color: dark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)' },
-      horzLines: { color: dark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)' },
+      vertLines: { color: c.grid },
+      horzLines: { color: c.grid },
     },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-    rightPriceScale: { borderColor: dark ? '#1a2230' : '#e5e0d8' },
+    rightPriceScale: { borderColor: c.border },
     timeScale: {
-      borderColor: dark ? '#1a2230' : '#e5e0d8',
+      borderColor: c.border,
       timeVisible: true,
       rightOffset: 8,
       tickMarkFormatter: function(t) {
@@ -525,11 +546,11 @@ function initChart() {
   });
 
   candleSeries = chart.addCandlestickSeries({
-    upColor: '#3a6b58', downColor: '#c8633a',
-    borderUpColor: '#3a6b58', borderDownColor: '#c8633a',
-    wickUpColor: '#3a6b58', wickDownColor: '#c8633a',
+    upColor: c.up, downColor: c.down,
+    borderUpColor: c.up, borderDownColor: c.down,
+    wickUpColor: c.up, wickDownColor: c.down,
   });
-  volumeSeries = chart.addHistogramSeries({ color: '#1a2230', priceFormat:{type:'volume'}, priceScaleId:'volume', scaleMargins:{top:0.85,bottom:0} });
+  volumeSeries = chart.addHistogramSeries({ color: c.border, priceFormat:{type:'volume'}, priceScaleId:'volume', scaleMargins:{top:0.85,bottom:0} });
   chart.priceScale('volume').applyOptions({ scaleMargins:{top:0.85,bottom:0} });
   chart.priceScale('overlay').applyOptions({ scaleMargins:{top:0.05,bottom:0.2}, visible:false, autoScale:true });
   ovlSeriesCM = chart.addLineSeries({ color:'#3a6b58', lineWidth:2, priceScaleId:'overlay', lastValueVisible:false, priceLineVisible:false });
@@ -593,8 +614,7 @@ function initSubPanes() {
 function initRSIPane() {
   var wrap = document.getElementById('rsiPaneWrap');
   wrap.style.display = 'block';
-  var dark = isDark();
-  rsiChart = LightweightCharts.createChart(document.getElementById('rsiArea'), makeSubPaneOpts(dark));
+  rsiChart = LightweightCharts.createChart(document.getElementById('rsiArea'), makeSubPaneOpts());
   rsiChart.priceScale('right').applyOptions({scaleMargins:{top:0.1,bottom:0.1}});
   rsiSeries = rsiChart.addLineSeries({color:'#9c27b0', lineWidth:1.5, lastValueVisible:true, priceLineVisible:false, crosshairMarkerVisible:false});
   rsiSeries.createPriceLine({price:70, color:'rgba(200,99,58,.5)', lineWidth:1, lineStyle:1, axisLabelVisible:true, title:'70'});
@@ -614,8 +634,7 @@ function initRSIPane() {
 function initMACDPane() {
   var wrap = document.getElementById('macdPaneWrap');
   wrap.style.display = 'block';
-  var dark = isDark();
-  macdChart = LightweightCharts.createChart(document.getElementById('macdArea'), makeSubPaneOpts(dark));
+  macdChart = LightweightCharts.createChart(document.getElementById('macdArea'), makeSubPaneOpts());
   macdChart.priceScale('right').applyOptions({scaleMargins:{top:0.1,bottom:0.1}});
   macdHistSeries   = macdChart.addHistogramSeries({color:'rgba(58,107,88,.6)', priceScaleId:'right', priceLineVisible:false, crosshairMarkerVisible:false});
   macdLineSeries   = macdChart.addLineSeries({color:'#2196f3', lineWidth:1.5, priceScaleId:'right', lastValueVisible:true, priceLineVisible:false, crosshairMarkerVisible:false});
@@ -987,7 +1006,9 @@ async function doLoad() {
     prevCloseMap = {};
     for (var i=0; i<candles.length; i++) prevCloseMap[candles[i].time] = i>0 ? candles[i-1].close : candles[i].open;
     candleSeries.setData(candles);
-    volumeSeries.setData(candles.map(function(c){ return {time:c.time, value:c.volume||0, color:(c.close>=c.open)?'rgba(58,107,88,.25)':'rgba(200,99,58,.25)'}; }));
+    var volCols = themeCols();
+    var volUp = withAlpha(volCols.up, '40'), volDn = withAlpha(volCols.down, '40');
+    volumeSeries.setData(candles.map(function(c){ return {time:c.time, value:c.volume||0, color:(c.close>=c.open)?volUp:volDn}; }));
     renderIndicators(candles);
     requestAnimationFrame(function(){ requestAnimationFrame(function(){
       if (candles.length > INIT_CANDLES) chart.timeScale().setVisibleLogicalRange({from:candles.length-INIT_CANDLES,to:candles.length-1});
@@ -1158,22 +1179,35 @@ document.getElementById('ovlBtnBM').addEventListener('click', function(){ toggle
 new MutationObserver(function(mutations) {
   mutations.forEach(function(m) {
     if (m.attributeName !== 'data-theme') return;
-    var dark = isDark();
+    var c = themeCols();
     var themeOpts = {
       layout: {
-        background: { type: 'solid', color: dark ? '#0e1318' : '#fafaf7' },
-        textColor:  dark ? '#6a8090' : '#7a7060',
+        background: { type: 'solid', color: c.bg },
+        textColor:  c.text,
       },
       grid: {
-        vertLines: { color: dark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)' },
-        horzLines: { color: dark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)' },
+        vertLines: { color: c.grid },
+        horzLines: { color: c.grid },
       },
-      rightPriceScale: { borderColor: dark ? '#1a2230' : '#e5e0d8' },
-      timeScale:       { borderColor: dark ? '#1a2230' : '#e5e0d8' },
+      rightPriceScale: { borderColor: c.border },
+      timeScale:       { borderColor: c.border },
     };
     if (chart) chart.applyOptions(themeOpts);
     if (rsiChart) rsiChart.applyOptions(themeOpts);
     if (macdChart) macdChart.applyOptions(themeOpts);
+
+    // Candles and volume carry the up/down tokens, which flip with the theme.
+    if (candleSeries) candleSeries.applyOptions({
+      upColor: c.up, downColor: c.down,
+      borderUpColor: c.up, borderDownColor: c.down,
+      wickUpColor: c.up, wickDownColor: c.down,
+    });
+    if (volumeSeries && lastCandles.length) {
+      var vUp = withAlpha(c.up, '40'), vDn = withAlpha(c.down, '40');
+      volumeSeries.setData(lastCandles.map(function(k){
+        return { time:k.time, value:k.volume||0, color:(k.close>=k.open)?vUp:vDn };
+      }));
+    }
   });
 }).observe(document.documentElement, { attributes: true });
 

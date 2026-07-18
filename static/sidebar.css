@@ -163,7 +163,7 @@ body.sidebar-layout {
   color: var(--accent);
 }
 [data-theme="dark"] .s-item.active .s-item-icon {
-  background: rgba(0,232,162,.15);
+  background: rgba(180,163,232,.16);
 }
 .s-item:hover:not(.active) .s-item-icon {
   background: var(--surface2);
@@ -232,7 +232,7 @@ body.sidebar-layout {
   width: 36px; height: 36px;
   border-radius: 99px;
   background: var(--accent);
-  color: #fff;
+  color: var(--fill-ink);
   display: flex; align-items: center; justify-content: center;
   font-weight: 700; font-size: 14px;
   flex-shrink: 0;
@@ -348,13 +348,13 @@ body.sidebar-layout {
 }
 [data-theme="dark"] .s-popup-btn.accent {
   background: var(--accent-soft);
-  border-color: rgba(0,232,162,.2);
+  border-color: rgba(180,163,232,.22);
 }
 .s-popup-btn.accent:hover {
   background: rgba(200,99,58,.15);
 }
 [data-theme="dark"] .s-popup-btn.accent:hover {
-  background: rgba(0,232,162,.15);
+  background: rgba(180,163,232,.18);
 }
 
 /* Account trigger row */
@@ -372,7 +372,7 @@ body.sidebar-layout {
   width: 28px; height: 28px;
   border-radius: 99px;
   background: var(--accent);
-  color: #fff;
+  color: var(--fill-ink);
   display: flex; align-items: center; justify-content: center;
   font-weight: 700; font-size: 12px;
   flex-shrink: 0;
