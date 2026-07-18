@@ -10,7 +10,13 @@
       "Bash(powershell *)",
       "PowerShell(New-Item *)",
       "PowerShell(Move-Item *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "mcp__visualize__read_me",
+      "Bash(python -m py_compile scraper/scraper_daily.py)",
+      "Bash(ls -la \"D:\\\\my_project\\\\zenith_data\" 2>&1 | head -100)",
+      "Bash(python -m py_compile algo/algo_portfolio.py routes/routes_portfolio.py)"
     ]
   },
   "enableAllProjectMcpServers": true,

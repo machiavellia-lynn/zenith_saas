@@ -71,6 +71,33 @@ def transaction(conn):
         raise
 
 
+def teardown_db(exc=None):
+    """End-of-request cleanup — roll back any transaction left open.
+
+    get_db() reuses one connection per thread with autocommit=False, so
+    psycopg2 opens a transaction on the first statement — including a plain
+    SELECT — and holds it until commit/rollback. The read helpers below do
+    neither, so without this hook the connection sits 'idle in transaction'
+    between requests, holding AccessShareLock on every table it touched and
+    blocking DDL (ensure_schema's ALTER TABLE) behind it indefinitely.
+
+    Rolling back rather than closing keeps the connection-reuse benefit
+    get_db() is built around. Writes commit explicitly via transaction() or
+    conn.commit(), so nothing worth keeping is ever discarded here.
+    """
+    conn = getattr(_local, "conn", None)
+    if conn is None or conn.closed:
+        return
+    try:
+        conn.rollback()
+    except Exception:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        _local.conn = None
+
+
 def close_db():
     """Close thread-local connection (call on app teardown or thread exit)."""
     conn = getattr(_local, "conn", None)

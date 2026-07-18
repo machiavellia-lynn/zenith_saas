@@ -169,7 +169,7 @@ html, body { height: 100%; }
       </div>
       <div id="pfTableWrap" style="overflow-x:auto"></div>
       <div style="padding:10px 18px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);flex-wrap:wrap;gap:8px">
-        <span>Lot size IDX = 100 saham · Alokasi Wyckoff Rp 5.000.000 · BSJP Rp 10.000.000 per signal</span>
+        <span id="pfAllocFoot">Lot size IDX = 100 saham</span>
         <span style="font-family:var(--font-mono);font-size:11px">Klik header untuk sort</span>
       </div>
     </div>
@@ -716,6 +716,10 @@ function renderTradeLog(){
   document.getElementById('pfTradeCard').style.display = '';
   var wy = S.data.wyckoff.trades, bs = S.data.bsjp.trades;
 
+  document.getElementById('pfAllocFoot').textContent =
+    'Lot size IDX = 100 saham · Alokasi Wyckoff ' + fmtRp(S.prefs.wyckoff_alloc)
+    + ' · BSJP ' + fmtRp(S.prefs.bsjp_alloc) + ' per signal';
+
   // tabs
   document.getElementById('pfTabs').innerHTML = [
     {id:'wyckoff',label:'Wyckoff',count:wy.length},
@@ -1089,18 +1093,21 @@ function runSim(){
         S.loading = false;
         S.data = d; syncPickerToRange(d); renderAll();
       } else {
-        // Full sim triggered (first load, no cache yet)
-        poll();
+        // Params changed → full re-sim triggered (runs over ALL history so future
+        // date-range changes stay cache-filterable). Once done, re-issue THIS same
+        // filtered request instead of grabbing the raw unfiltered result — otherwise
+        // the card would show the whole-history basis/date-range, not what was picked.
+        poll(function(){ S.loading = false; runSim(); });
       }
     })
     .catch(function(){ S.loading=false; if(S.data) renderAll(); setStatus('<span style="color:var(--down)">⚠ Gagal menjalankan simulasi.</span>'); });
 }
 
-function poll(){
+function poll(onDone){
   clearInterval(pollTimer);
   pollTimer = setInterval(function(){
     fetch('/api/portfolio?status=1').then(function(r){ return r.json(); }).then(function(d){
-      if (d.status !== 'running'){ clearInterval(pollTimer); fetchResult(); }
+      if (d.status !== 'running'){ clearInterval(pollTimer); (onDone || fetchResult)(); }
     }).catch(function(){ clearInterval(pollTimer); S.loading=false; setStatus('<span style="color:var(--down)">⚠ Gagal.</span>'); });
   }, 1300);
 }

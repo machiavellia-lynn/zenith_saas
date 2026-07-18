@@ -309,6 +309,21 @@ def _create_corporate_events(conn):
             PRIMARY KEY (ticker, event_type, event_date)
         )
     """)
+    # Review workflow — added incrementally via ALTER TABLE.
+    # 'confirmed' = excluded from Portfolio/BSJP/trade history;
+    # 'suspected' = auto-detected, shown in admin for review but NOT excluded;
+    # 'rejected'  = reviewed and dismissed — kept as a tombstone so the
+    #               auto-detector does not re-flag the ticker every night.
+    for col, typedef in [
+        ("status",      "TEXT DEFAULT 'confirmed'"),
+        ("detected_at", "BIGINT"),
+    ]:
+        conn.cursor().execute(
+            f"ALTER TABLE corporate_events ADD COLUMN IF NOT EXISTS {col} {typedef}"
+        )
+    conn.cursor().execute(
+        "UPDATE corporate_events SET status = 'confirmed' WHERE status IS NULL"
+    )
 
 
 def _create_inst_flow_cache(conn):

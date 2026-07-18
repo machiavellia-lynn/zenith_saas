@@ -26,6 +26,7 @@ from datetime import datetime
 from config import WIB, PF_INITIAL_EQUITY, PF_WYCKOFF_INITIAL_EQUITY, PF_BSJP_INITIAL_EQUITY, PF_WYCKOFF_ALLOC, PF_BSJP_ALLOC, PF_LOT_SIZE
 from core.db import fetchall
 from algo.algo_wyckoff import get_action
+from algo.corporate_actions import ca_tickers
 
 log = logging.getLogger("zenith.portfolio")
 
@@ -97,21 +98,13 @@ def _max_drawdown_rp(series: list) -> int:
     return round(worst)
 
 
-# ── Corporate actions (stock split / rights issue) — excluded from Portfolio ──
-def _ca_tickers(conn) -> set:
-    """Tickers flagged in corporate_events. Their signals still show on /bsjp,
-    but they're excluded here since a known split/rights-issue makes historical
-    price data for them unreliable — see incident_datasectors_15m_price_corruption."""
-    return {r["ticker"] for r in fetchall(conn, "SELECT DISTINCT ticker FROM corporate_events")}
-
-
 # ── Wyckoff simulation (multi-entry swing, MTM equity) ────────────────────────
 def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list,
                        wyckoff_alloc: int = None, wyckoff_basis: int = None):
     """Walk eod_summary day-by-day, deploying PF_WYCKOFF_ALLOC per BUY signal."""
     alloc = wyckoff_alloc or PF_WYCKOFF_ALLOC
     basis = wyckoff_basis or PF_WYCKOFF_INITIAL_EQUITY
-    ca_tickers = _ca_tickers(conn)
+    ca_set = ca_tickers(conn)
     all_rows = fetchall(conn, """
         SELECT ticker, date, price_close, phase, atr_pct,
                sri, sm_val, bm_val, bm_sma10, price_change_pct, watch
@@ -122,7 +115,7 @@ def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list,
     tc = _to_cmp(date_to)   if date_to   else None
     rows = []
     for r in all_rows:
-        if not r.get("price_close") or r["ticker"] in ca_tickers:
+        if not r.get("price_close") or r["ticker"] in ca_set:
             continue
         c = _to_cmp(r["date"])
         if fc and c < fc:
@@ -287,14 +280,17 @@ def _simulate_bsjp(conn, date_from: str, date_to: str, axis_dates: list,
     from algo.algo_backtest import run_bsjp_backtest
 
     bt = run_bsjp_backtest(conn, date_from=date_from, date_to=date_to)
-    ca_tickers = _ca_tickers(conn)
+    ca_set = ca_tickers(conn)
 
     # flatten all per-setup trade details
     raw = []
     for setup_row in bt.get("leaderboard", []):
         setup = setup_row.get("setup")
         for d in setup_row.get("details", []):
-            if d.get("ticker") in ca_tickers:
+            # Defence-in-depth: run_bsjp_backtest now filters CA tickers at source,
+            # but get_bsjp_result() can serve a cached _bsjp_result computed before
+            # a CA row was confirmed. Do not delete.
+            if d.get("ticker") in ca_set:
                 continue
             raw.append({**d, "setup": setup})
 
@@ -439,6 +435,13 @@ def filter_result(full: dict, date_from: str, date_to: str) -> dict:
     if not axis_dates:
         return full
 
+    # Use the capital/basis the cached full-range sim actually ran with — not the
+    # global config defaults — so a custom modal/alokasi survives a date-range-only
+    # re-filter (params_match fast path skips a full re-simulate).
+    up = full.get("user_params") or {}
+    wyckoff_basis = up.get("wyckoff_basis") or PF_WYCKOFF_INITIAL_EQUITY
+    bsjp_initial  = up.get("bsjp_capital")  or PF_BSJP_INITIAL_EQUITY
+
     fc = _to_cmp(date_from) if date_from else None
     tc = _to_cmp(date_to)   if date_to   else None
 
@@ -468,7 +471,7 @@ def filter_result(full: dict, date_from: str, date_to: str) -> dict:
     wy_closed = [t for t in wy_trades if t.get("status") != "OPEN"]
     wy_open   = [t for t in wy_trades if t.get("status") == "OPEN"]
     wy_stats  = _build_stats(sub_wy, wy_closed, avg_hold_days=True, is_pnl_curve=True,
-                             equity_basis=PF_WYCKOFF_INITIAL_EQUITY)
+                             equity_basis=wyckoff_basis)
     wy_stats.update({
         "open_count":      len(wy_open),
         "closed_count":    len(wy_closed),
@@ -478,20 +481,20 @@ def filter_result(full: dict, date_from: str, date_to: str) -> dict:
     # Absolute equity: wy_base = P&L already accumulated before this sub-period
     wy_deployed = sum(t.get("lots", 0) * PF_LOT_SIZE * t.get("entry_price", 0) for t in wy_open)
     wy_realized = sum(t.get("pnl_rp", 0) for t in wy_closed)
-    wy_stats["initial_equity"]    = PF_WYCKOFF_INITIAL_EQUITY
-    wy_stats["available_balance"] = round(PF_WYCKOFF_INITIAL_EQUITY + wy_base + wy_realized - wy_deployed)
-    wy_stats["total_equity"]      = round(PF_WYCKOFF_INITIAL_EQUITY + wy_base + (sub_wy[-1] if sub_wy else 0))
+    wy_stats["initial_equity"]    = wyckoff_basis
+    wy_stats["available_balance"] = round(wyckoff_basis + wy_base + wy_realized - wy_deployed)
+    wy_stats["total_equity"]      = round(wyckoff_basis + wy_base + (sub_wy[-1] if sub_wy else 0))
 
     bs_stats = _build_stats(sub_bs, bs_trades, avg_hold_days=False, is_pnl_curve=True,
-                            equity_basis=PF_BSJP_INITIAL_EQUITY)
+                            equity_basis=bsjp_initial)
     bs_stats.update({
         "open_count":      0,
         "closed_count":    len(bs_trades),
         "total_trades":    len(bs_trades),
         "total_txn_value": sum(t.get("txn_value", 0) for t in bs_trades),
     })
-    bs_total = round(PF_BSJP_INITIAL_EQUITY + bs_base + (sub_bs[-1] if sub_bs else 0))
-    bs_stats["initial_equity"]    = PF_BSJP_INITIAL_EQUITY
+    bs_total = round(bsjp_initial + bs_base + (sub_bs[-1] if sub_bs else 0))
+    bs_stats["initial_equity"]    = bsjp_initial
     bs_stats["available_balance"] = bs_total
     bs_stats["total_equity"]      = bs_total
 
@@ -549,6 +552,8 @@ def request_portfolio_sim(date_from: str = None, date_to: str = None,
             log.error("Portfolio sim error: %s", e)
             _pf_error = str(e)
         finally:
+            from core.db import close_db
+            close_db()
             _pf_running = False
 
     with _pf_lock:

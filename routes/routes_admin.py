@@ -1170,13 +1170,16 @@ def admin_data_coverage():
         conn.close()
 
 
-# ── Corporate Actions (stock split / rights issue blacklist for Portfolio) ─────
+# ── Corporate Actions (stock split / rights issue) ────────────────────────────
+# status='confirmed' → excluded from Portfolio, BSJP signals and trade history.
+# status='suspected' → auto-detected, shown for review, excludes nothing.
+# status='rejected'  → tombstone so the detector stops re-flagging the ticker.
 
 @bp_admin.route("/admin/corporate-events")
 def admin_corporate_events_list():
     from core.db import get_db, fetchall
     rows = fetchall(get_db(), """
-        SELECT ticker, event_type, event_date, detail FROM corporate_events
+        SELECT ticker, event_type, event_date, detail, status, detected_at FROM corporate_events
         ORDER BY SUBSTRING(event_date,7,4)||SUBSTRING(event_date,4,2)||SUBSTRING(event_date,1,2) DESC
     """)
     return jsonify([dict(r) for r in rows])
@@ -1214,5 +1217,45 @@ def admin_corporate_events_delete():
     execute(conn, """
         DELETE FROM corporate_events WHERE ticker=%s AND event_type=%s AND event_date=%s
     """, [ticker, event_type, event_date])
+    conn.commit()
+    return jsonify({"ok": True})
+
+
+@bp_admin.route("/admin/corporate-events/approve", methods=["POST"])
+def admin_corporate_events_approve():
+    """Confirm a suspected CA. Retypes the row to a real event_type — an
+    approved CA should carry its true type, not 'auto_detected'."""
+    from core.db import get_db, execute
+    data       = request.get_json() or {}
+    ticker     = (data.get("ticker") or "").strip().upper()
+    event_type = data.get("event_type") or ""
+    event_date = (data.get("event_date") or "").strip()
+    new_type   = data.get("new_type") or "stock_split"
+    if not ticker or new_type not in ("stock_split", "rights_issue"):
+        return jsonify({"ok": False, "error": "ticker + new_type (stock_split/rights_issue) wajib"}), 400
+    conn = get_db()
+    try:
+        execute(conn, """
+            UPDATE corporate_events SET status = 'confirmed', event_type = %s
+            WHERE ticker = %s AND event_type = %s AND event_date = %s
+        """, [new_type, ticker, event_type, event_date])
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"ok": False, "error": str(e)}), 400
+    return jsonify({"ok": True})
+
+
+@bp_admin.route("/admin/corporate-events/reject", methods=["POST"])
+def admin_corporate_events_reject():
+    """Dismiss a suspected CA. Keeps the row as a tombstone — deleting it would
+    make the detector re-flag the same ticker every night."""
+    from core.db import get_db, execute
+    data = request.get_json() or {}
+    conn = get_db()
+    execute(conn, """
+        UPDATE corporate_events SET status = 'rejected'
+        WHERE ticker=%s AND event_type=%s AND event_date=%s
+    """, [data.get("ticker") or "", data.get("event_type") or "", data.get("event_date") or ""])
     conn.commit()
     return jsonify({"ok": True})

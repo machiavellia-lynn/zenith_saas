@@ -30,7 +30,8 @@ from algo.summary_rebuild import rebuild_summary_for_date, rebuild_all_summaries
 from algo.analytics_daily import compute_analytics_for_date
 from data.price_fetch import enrich_daily_ohlcv, backfill_price_history_ohlcv, sync_eod_prices_from_history
 from algo.analytics_bsjp import compute_bsjp_for_date
-from algo.algo_backtest import run_backtest
+from algo.algo_backtest import run_backtest, request_bsjp_backtest
+from algo.algo_portfolio import request_portfolio_sim
 
 # ── Shared handler on parent "zenith" so all zenith.* loggers emit to console ──
 _zenith_root = logging.getLogger("zenith")
@@ -53,6 +54,11 @@ def _ensure_conn(conn):
     """
     try:
         conn.cursor().execute("SELECT 1")
+        # The probe itself opens a transaction (autocommit=False). Left open it
+        # pins the xmin horizon and blocks VACUUM DB-wide. Safe to end here:
+        # this runs at the top of each loop iteration, before any transaction()
+        # block, so there is never pending work to discard.
+        conn.rollback()
         return conn
     except (psycopg2.OperationalError, psycopg2.InterfaceError, Exception):
         log.warning("🔌 DB connection lost — reconnecting")
@@ -300,7 +306,8 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
     Indicators from eod_summary directly; days_since_near_bb_mid from price_history.
     15:45 candle used for condition check only; entry = eod_summary.price_close.
     """
-    from algo.algo_bsjp import BSJPAlgo, BLACKLIST, _is_ara, _compute_score, _to_tick
+    from algo.algo_bsjp import BSJPAlgo, _is_ara, _compute_score, _to_tick
+    from algo.corporate_actions import excluded_tickers
 
     WIB_TZ  = timezone(timedelta(hours=7))
     today   = date_dmy or datetime.now(WIB_TZ).strftime("%d-%m-%Y")
@@ -355,10 +362,15 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
             elif str(r["datetime"]).endswith("09:00") and r["open"]:
                 prices_open[r["ticker"]] = float(r["open"])
 
+    # Resolved once — a CA ticker surviving to `scored` would consume one of the
+    # TOP_N slots and displace a legitimate signal, so it must be dropped here
+    # at the producer rather than filtered downstream.
+    excluded = excluded_tickers(conn)
+
     scored = []
     for row in eod_rows:
         ticker = row.get("ticker", "")
-        if ticker in BLACKLIST:
+        if ticker in excluded:
             continue
 
         eod_price_close = float(row.get("price_close") or 0)
@@ -418,7 +430,8 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
 def pre_filter_bsjp_candidates(conn, date_dmy: str) -> list:
     """Return tickers that pass the BSJP SM gate from eod_summary.
     date_dmy in DD-MM-YYYY. Used to minimize DataSectors API calls at 15:46."""
-    from algo.algo_bsjp import BLACKLIST
+    from algo.corporate_actions import excluded_tickers
+    excluded = excluded_tickers(conn)
     rows = fetchall(conn, """
         SELECT ticker
         FROM eod_summary
@@ -432,7 +445,7 @@ def pre_filter_bsjp_candidates(conn, date_dmy: str) -> list:
           AND (sm_val + ABS(bm_val)) > 0
           AND sm_val * 100.0 / (sm_val + ABS(bm_val)) >= 60
     """, [date_dmy])
-    return [r["ticker"] for r in rows if r["ticker"] not in BLACKLIST]
+    return [r["ticker"] for r in rows if r["ticker"] not in excluded]
 
 
 # ── Main async loop ────────────────────────────────────────────────────────────
@@ -479,7 +492,7 @@ async def scraper_main():
         log.info(f"👂 Listening | midday {MIDDAY_HOUR:02d}:{MIDDAY_MINUTE:02d} / backfill {BACKFILL_HOUR:02d}:{BACKFILL_MINUTE:02d} / recompute {RECOMPUTE_HOUR:02d}:{RECOMPUTE_MINUTE:02d} WIB")
 
         midday_pass_done = first_pass_done = second_pass_done = backtest_done_today = False
-        bsjp_prefetch_done = bsjp_15m_done = bsjp_scan_done = False
+        bsjp_prefetch_done = bsjp_15m_done = bsjp_scan_done = corp_action_done_today = False
         last_check_date = None
         last_weekly_yw  = None  # (iso_year, iso_week) of last weekly maintenance run
 
@@ -492,7 +505,7 @@ async def scraper_main():
 
             if today_str != last_check_date:
                 midday_pass_done = first_pass_done = second_pass_done = backtest_done_today = False
-                bsjp_prefetch_done = bsjp_15m_done = bsjp_scan_done = False
+                bsjp_prefetch_done = bsjp_15m_done = bsjp_scan_done = corp_action_done_today = False
                 last_check_date = today_str
 
             if not midday_pass_done and (now_wib.hour > MIDDAY_HOUR or (now_wib.hour == MIDDAY_HOUR and now_wib.minute >= MIDDAY_MINUTE)):
@@ -567,11 +580,42 @@ async def scraper_main():
                 finally:
                     bsjp_scan_done = True
 
+            # Corporate-action detector — runs once the day's OHLCV is settled,
+            # and strictly before the portfolio sim below so an approval made
+            # today takes effect on tonight's numbers.
+            if second_pass_done and not corp_action_done_today:
+                try:
+                    from algo.corporate_actions import detect_back_adjustments
+                    flagged = detect_back_adjustments(conn)
+                    conn.commit()
+                    if flagged:
+                        log.info("🔎 CA auto-detect: %s → review di /admin", ", ".join(flagged))
+                except Exception as e:
+                    # Must roll back: this connection is shared with the backtest
+                    # block below, and an aborted transaction would make its very
+                    # first query fail — which `finally` would then record as
+                    # "done", silently skipping the nightly backtest all day.
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
+                    log.error(f"❌ CA auto-detect: {e}")
+                finally:
+                    corp_action_done_today = True
+
             if second_pass_done and not backtest_done_today:
                 try:
                     run_backtest(conn, days=0)
                 except Exception as e:
                     log.error(f"❌ Nightly backtest: {e}")
+                try:
+                    request_bsjp_backtest()
+                except Exception as e:
+                    log.error(f"❌ Nightly BSJP backtest: {e}")
+                try:
+                    request_portfolio_sim()
+                except Exception as e:
+                    log.error(f"❌ Nightly portfolio sim: {e}")
                 finally:
                     backtest_done_today = True
 

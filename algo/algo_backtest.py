@@ -269,6 +269,11 @@ def request_backtest(days: int = 30, date_from: str = None, date_to: str = None)
             log.error("Backtest error: %s", e)
             _backtest_error = str(e)
         finally:
+            # Worker threads get their own thread-local connection and never
+            # pass through Flask's teardown, so they must close it themselves —
+            # otherwise the thread dies leaving it 'idle in transaction'.
+            from core.db import close_db
+            close_db()
             _backtest_running = False
 
     with _backtest_lock:
@@ -311,7 +316,8 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
     date_from, date_to: DD-MM-YYYY
     """
     global _bsjp_result
-    from algo.algo_bsjp import BSJPAlgo, BLACKLIST, _is_ara, _compute_score, _to_tick, eval_exit_15m
+    from algo.algo_bsjp import BSJPAlgo, _is_ara, _compute_score, _to_tick, eval_exit_15m
+    from algo.corporate_actions import excluded_tickers
     from collections import defaultdict as _dd
 
     algo  = BSJPAlgo()
@@ -426,6 +432,9 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
     # ── Pass 1: PRE signals only — ticker wajib punya 15:45 dan 09:00 candle ──────
     day_results: list = []
     ph15_needed: set  = set()
+    # Resolved once, outside the loop — same displacement reasoning as the live
+    # scan: a CA ticker reaching pre_pool would eat a TOP_N slot.
+    excluded = excluded_tickers(conn)
 
     for date_str in signal_dates:
         next_date = date_to_next.get(date_str)
@@ -437,7 +446,7 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
 
         pre_pool = []
         for ticker, row in all_days[date_str].items():
-            if ticker in BLACKLIST:
+            if ticker in excluded:
                 continue
             close_1545 = pre_1545.get((date_ymd, ticker))
             open_0900  = pre_0900.get((date_ymd, ticker))
@@ -582,6 +591,8 @@ def request_bsjp_backtest(date_from: str = None, date_to: str = None):
             log.error("BSJP backtest error: %s", e)
             _bsjp_error = str(e)
         finally:
+            from core.db import close_db
+            close_db()
             _bsjp_running = False
 
     with _bsjp_lock:

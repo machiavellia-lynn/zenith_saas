@@ -2,6 +2,7 @@
 from flask import Blueprint, jsonify, request, render_template
 from core.db import get_db, fetchall
 from core.auth import require_auth
+from algo.corporate_actions import ca_tickers, suspected_tickers
 from datetime import datetime, timezone, timedelta
 
 bp_bsjp = Blueprint("bsjp", __name__)
@@ -26,9 +27,13 @@ def api_bsjp_signals():
     rows = fetchall(conn,
         "SELECT * FROM bsjp_signals WHERE date = %s ORDER BY day_rank ASC NULLS LAST",
         [date_str])
-    ca_tickers = {r["ticker"] for r in fetchall(conn, "SELECT DISTINCT ticker FROM corporate_events")}
+    # Backstop: run_bsjp_scan now filters CA tickers before insert, but rows
+    # written before that landed still carry them — drop them on read.
+    ca_set   = ca_tickers(conn)
+    susp_set = suspected_tickers(conn)
+    rows = [r for r in rows if r["ticker"] not in ca_set]
     for r in rows:
-        r["is_ca"] = r["ticker"] in ca_tickers
+        r["is_ca_suspected"] = r["ticker"] in susp_set
     return jsonify({"date": date_str, "count": len(rows), "signals": rows})
 
 

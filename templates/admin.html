@@ -269,7 +269,7 @@ body.sidebar-layout { overflow: hidden; }
       <div class="a-section">
         <div class="a-section-head">
           <div class="a-section-title">Corporate Actions</div>
-          <div class="a-section-sub">Stock split / right issue — ticker di-flag di sini dikecualikan dari perhitungan Portfolio (sinyal tetap muncul dengan stamp CA)</div>
+          <div class="a-section-sub">Stock split / right issue — ticker <b>confirmed</b> dikecualikan dari Portfolio, BSJP signal, dan trade history. <b>Suspected</b> = terdeteksi otomatis tiap sore, belum dikecualikan sampai kamu approve.</div>
         </div>
         <div class="a-section-body">
           <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">
@@ -293,6 +293,18 @@ body.sidebar-layout { overflow: hidden; }
               <input class="a-input" id="caDetail" placeholder="mis. Ratio 1:5">
             </div>
             <button class="a-btn primary" onclick="caAdd()">+ Tambah</button>
+          </div>
+          <div id="caPendingWrap" style="margin-bottom:14px;display:none">
+            <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:6px">⚠ Perlu Review — terdeteksi otomatis</div>
+            <table class="cov-table">
+              <thead><tr>
+                <th class="cov-th" style="text-align:left">Ticker</th>
+                <th class="cov-th">Tanggal</th>
+                <th class="cov-th" style="text-align:left">Detail</th>
+                <th class="cov-th"></th>
+              </tr></thead>
+              <tbody id="caPendingBody"></tbody>
+            </table>
           </div>
           <table class="cov-table">
             <thead><tr>
@@ -1002,14 +1014,38 @@ function caLoad() {
   fetch('/admin/corporate-events')
     .then(function(r){ return r.json(); })
     .then(function(rows) {
-      var body = document.getElementById('caTableBody');
-      if (!rows.length) {
+      var body    = document.getElementById('caTableBody');
+      var pending = rows.filter(function(r){ return r.status === 'suspected'; });
+      var settled = rows.filter(function(r){ return r.status !== 'suspected'; });
+
+      var pBody = document.getElementById('caPendingBody');
+      document.getElementById('caPendingWrap').style.display = pending.length ? '' : 'none';
+      pBody.innerHTML = pending.map(function(r) {
+        var args = '\'' + r.ticker + '\',\'' + r.event_type + '\',\'' + r.event_date + '\'';
+        return '<tr class="cov-tr">' +
+          '<td class="cov-td" style="text-align:left;font-weight:700;color:var(--ink)">' + r.ticker + '</td>' +
+          '<td class="cov-td">' + r.event_date + '</td>' +
+          '<td class="cov-td" style="text-align:left;font-size:11px;color:var(--muted)">' + (r.detail || '—') + '</td>' +
+          '<td class="cov-td" style="white-space:nowrap">' +
+            '<select class="a-select" id="caNewType_' + r.ticker + '" style="width:110px;margin-right:6px">' +
+              '<option value="stock_split">Stock Split</option>' +
+              '<option value="rights_issue">Right Issue</option>' +
+            '</select>' +
+            '<button class="a-btn small primary" onclick="caApprove(' + args + ')">Approve</button> ' +
+            '<button class="a-btn small" onclick="caReject(' + args + ')">Reject</button>' +
+          '</td>' +
+        '</tr>';
+      }).join('');
+
+      if (!settled.length) {
         body.innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Belum ada corporate action.</td></tr>';
         return;
       }
-      body.innerHTML = rows.map(function(r) {
-        return '<tr class="cov-tr">' +
-          '<td class="cov-td" style="text-align:left;font-weight:700;color:var(--ink)">' + r.ticker + '</td>' +
+      body.innerHTML = settled.map(function(r) {
+        var rejected = r.status === 'rejected';
+        return '<tr class="cov-tr"' + (rejected ? ' style="opacity:.5"' : '') + '>' +
+          '<td class="cov-td" style="text-align:left;font-weight:700;color:var(--ink)">' + r.ticker +
+            (rejected ? ' <span style="font-weight:600;font-size:9px;color:var(--muted)">REJECTED</span>' : '') + '</td>' +
           '<td class="cov-td" style="text-align:left">' + (CA_TYPE_LABEL[r.event_type] || r.event_type) + '</td>' +
           '<td class="cov-td">' + r.event_date + '</td>' +
           '<td class="cov-td" style="text-align:left">' + (r.detail || '—') + '</td>' +
@@ -1043,6 +1079,30 @@ window.caAdd = function() {
       } else {
         toast('Gagal: ' + (d.error || '?'), 'error');
       }
+    }).catch(function(e) { toast('Gagal: ' + e.message, 'error'); });
+};
+window.caApprove = function(ticker, eventType, eventDate) {
+  var sel = document.getElementById('caNewType_' + ticker);
+  fetch('/admin/corporate-events/approve', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticker: ticker, event_type: eventType, event_date: eventDate,
+                           new_type: sel ? sel.value : 'stock_split' })
+  }).then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (d.ok) { caLoad(); toast(ticker + ' di-confirm — dikecualikan dari Portfolio & BSJP ✓', 'success'); }
+      else { toast('Gagal: ' + (d.error || '?'), 'error'); }
+    }).catch(function(e) { toast('Gagal: ' + e.message, 'error'); });
+};
+window.caReject = function(ticker, eventType, eventDate) {
+  fetch('/admin/corporate-events/reject', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticker: ticker, event_type: eventType, event_date: eventDate })
+  }).then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (d.ok) { caLoad(); toast(ticker + ' ditolak — tidak akan di-flag lagi', 'success'); }
+      else { toast('Gagal: ' + (d.error || '?'), 'error'); }
     }).catch(function(e) { toast('Gagal: ' + e.message, 'error'); });
 };
 window.caDelete = function(ticker, eventType, eventDate) {

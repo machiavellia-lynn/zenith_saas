@@ -14,6 +14,7 @@ from flask import Flask, jsonify
 from werkzeug.exceptions import HTTPException
 
 import config
+from core.db import teardown_db
 from routes.routes_main import bp_main
 from routes.routes_flow import bp_flow
 from routes.routes_sector import bp_sector
@@ -49,6 +50,11 @@ app.register_blueprint(bp_public)
 app.register_blueprint(bp_api)
 
 _log = logging.getLogger("zenith.app")
+
+# Bounds every request's DB transaction to that request. Without it the
+# thread-local connection stays 'idle in transaction' forever and its locks
+# block schema migrations — see core.db.teardown_db.
+app.teardown_appcontext(teardown_db)
 
 
 @app.errorhandler(Exception)

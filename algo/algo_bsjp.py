@@ -23,6 +23,10 @@ def _i(val, default=0):
     except (ValueError, TypeError): return default
 
 
+# Static quality blacklist — permanent, manual. NOT for corporate actions:
+# CA tickers are dated and data-driven, and live in the corporate_events table.
+# Consumers should call algo.corporate_actions.excluded_tickers(conn), which
+# merges this set with confirmed CA tickers.
 BLACKLIST = {"HATM", "JAST", "CYBR", "AYLS", "VAST", "VTNY"}
 
 
