@@ -16,6 +16,11 @@ html, body { height: 100%; }
 
 .pf-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
 
+/* IHSG benchmark line — matches the Zenith card on the public portfolio site
+   (mybiolink /projects) so the two read as the same chart language. Single
+   mid-grey that holds up on both light and dark surfaces. */
+:root { --pf-bench: #9aa2ac; }
+
 /* Algo toggle chips */
 .pf-chip {
   display: flex; align-items: center; gap: 7px;
@@ -507,6 +512,7 @@ function renderChart(){
   var gridCol = (cs.getPropertyValue('--border').trim()  || '#e7e5dc');
   var muteCol = (cs.getPropertyValue('--muted').trim()   || '#a3a097');
   var b2Col   = (cs.getPropertyValue('--border2').trim() || '#d4d2c7');
+  var benchCol= (cs.getPropertyValue('--pf-bench').trim()|| '#9aa2ac');
 
   var all = [];
   ds.forEach(function(d){ all = all.concat(d.data); });
@@ -566,8 +572,8 @@ function renderChart(){
   // IHSG benchmark — drawn under the equity lines so it reads as background reference
   if (drawIhsg){
     ihsgSegments().forEach(function(seg){
-      svg += '<polyline points="'+seg.join(' ')+'" fill="none" stroke="'+b2Col+'" stroke-width="1.5" '
-          +  'stroke-dasharray="5 4" stroke-linecap="round" stroke-linejoin="round"/>';
+      svg += '<polyline points="'+seg.join(' ')+'" fill="none" stroke="'+benchCol+'" stroke-width="2" '
+          +  'stroke-dasharray="5 5" opacity="0.85" stroke-linecap="round" stroke-linejoin="round"/>';
     });
   }
   ds.forEach(function(d){
@@ -589,7 +595,7 @@ function renderChart(){
     for (var it=0; it<5; it++){
       var iv = iMin + (iMax-iMin)*(it/4);
       svg += '<text x="'+(W-PR+6)+'" y="'+(yPos2(iv)+4).toFixed(1)+'" text-anchor="start" font-size="9.5" '
-          +  'font-family="Geist Mono, monospace" fill="'+muteCol+'">'+(iv>=0?'+':'')+iv.toFixed(1)+'%</text>';
+          +  'font-family="Geist Mono, monospace" fill="'+benchCol+'" opacity="0.85">'+(iv>=0?'+':'')+iv.toFixed(1)+'%</text>';
     }
   }
   // X labels
@@ -627,7 +633,7 @@ function renderChart(){
       rows += '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;'
         + 'margin-top:4px;padding-top:4px;border-top:1px dashed var(--border)">'
         + '<span style="display:flex;align-items:center;gap:5px">'
-        +   '<span style="width:8px;height:0;border-top:2px dashed '+b2Col+'"></span>'
+        +   '<span style="width:8px;height:0;border-top:2px dashed '+benchCol+'"></span>'
         +   '<span style="font-size:11.5px;color:var(--text-dim)">IHSG</span></span>'
         + '<span style="font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--text-dim)">'
         +   Math.round(ihsgRaw[i]).toLocaleString('id-ID')
@@ -669,8 +675,8 @@ function renderChips(){
   // Benchmark toggle — only offered when the server actually returned IHSG data
   if (S.view && S.view.ihsg && S.view.ihsg.some(function(v){ return v > 0; })){
     var on = S.showIhsg;
-    el.innerHTML += '<div class="pf-chip" id="pfIhsgChip" style="'+(on?'border-color:var(--border2)':'')+'">'
-      + '<span style="width:12px;height:0;border-top:2px dashed '+(on?'var(--muted)':'var(--border2)')+'"></span>'
+    el.innerHTML += '<div class="pf-chip" id="pfIhsgChip" style="'+(on?'border-color:var(--pf-bench)':'')+'">'
+      + '<span style="width:12px;height:0;border-top:2px dashed '+(on?'var(--pf-bench)':'var(--border2)')+';opacity:.85"></span>'
       + '<span class="pf-chip-label" style="'+(on?'font-weight:600;color:var(--text-dim)':'')+'">IHSG</span>'
       + '</div>';
     var chip = document.getElementById('pfIhsgChip');
