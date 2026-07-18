@@ -216,6 +216,10 @@ def eval_exit_15m(entry: int, tp1: int, tp2: int, sl: int, candles: list) -> dic
             continue
 
         if i == 0:
+            # Gap check first — the realistic fill if price already jumped past
+            # a level at the open. If it didn't gap, fall through to the same
+            # intra-candle high/low check every later candle gets below —
+            # a stop or target can still be hit within candle 0's own range.
             if o <= sl:
                 return _exit_res("Gagal", "SL[gap]", o, t, entry)
             if tp2 and o >= tp2:
@@ -224,18 +228,18 @@ def eval_exit_15m(entry: int, tp1: int, tp2: int, sl: int, candles: list) -> dic
                 if h and tp2 and h >= tp2:
                     return _exit_res("Berhasil", "TP2", tp2, t, entry)
                 return _exit_res("Berhasil", "TP1[gap]", o, t, entry)
-        else:
-            if l is not None and l <= sl:
-                mid = (sl + tp1) / 2 if tp1 else sl
-                if h and tp2 and h >= tp2:
-                    return _exit_res("Gagal", "SL", sl, t, entry) if o <= mid else _exit_res("Berhasil", "TP2", tp2, t, entry)
-                if h and tp1 and h >= tp1:
-                    return _exit_res("Gagal", "SL", sl, t, entry) if o <= mid else _exit_res("Berhasil", "TP1", tp1, t, entry)
-                return _exit_res("Gagal", "SL", sl, t, entry)
+
+        if l is not None and l <= sl:
+            mid = (sl + tp1) / 2 if tp1 else sl
             if h and tp2 and h >= tp2:
-                return _exit_res("Berhasil", "TP2", tp2, t, entry)
+                return _exit_res("Gagal", "SL", sl, t, entry) if o <= mid else _exit_res("Berhasil", "TP2", tp2, t, entry)
             if h and tp1 and h >= tp1:
-                return _exit_res("Berhasil", "TP1", tp1, t, entry)
+                return _exit_res("Gagal", "SL", sl, t, entry) if o <= mid else _exit_res("Berhasil", "TP1", tp1, t, entry)
+            return _exit_res("Gagal", "SL", sl, t, entry)
+        if h and tp2 and h >= tp2:
+            return _exit_res("Berhasil", "TP2", tp2, t, entry)
+        if h and tp1 and h >= tp1:
+            return _exit_res("Berhasil", "TP1", tp1, t, entry)
 
     last = candles[-1]
     lc = _f(last.get("close")) or entry

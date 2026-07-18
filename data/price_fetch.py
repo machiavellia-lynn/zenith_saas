@@ -790,6 +790,19 @@ def fetch_intraday_15m_datasectors(conn, tickers: list, date_from: str, date_to:
     headers       = {"Authorization": f"Bearer {DS_API_KEY}"}
     inserted      = 0
     failed        = []
+    skipped_bad   = 0
+
+    # Reference daily closes to sanity-check 15m candles against — DataSectors'
+    # intraday endpoint has been seen returning wildly mis-scaled prices for a
+    # handful of tickers (e.g. 25x too high) while the daily endpoint stayed
+    # correct. No reference for a given ticker/day = nothing to compare, so we
+    # just trust the candle (e.g. today's live intraday before EOD close exists).
+    daily_ref = {}
+    for r in fetchall(conn, """
+        SELECT ticker, date, close FROM price_history
+        WHERE ticker = ANY(%s) AND date BETWEEN %s AND %s AND close > 0
+    """, [tickers, date_ymd_from, date_ymd_to]):
+        daily_ref[(r["ticker"], r["date"])] = float(r["close"])
 
     for i, ticker in enumerate(tickers):
         if i > 0:
@@ -833,6 +846,14 @@ def fetch_intraday_15m_datasectors(conn, tickers: list, date_from: str, date_to:
                     # Store without seconds — all queries use RIGHT(datetime,5)='15:45' pattern
                     dt_wib = dt_utc.astimezone(WIB).strftime("%Y-%m-%d %H:%M")
                     vol    = int(c.get("volume") or 0)
+
+                    ref = daily_ref.get((ticker, dt_wib[:10]))
+                    if ref and (float(c["close"]) > ref * 1.5 or float(c["close"]) < ref * 0.67):
+                        log.warning("DS 15m %s %s: candle close %.0f vs daily ref %.0f — skipping bad candle",
+                                    ticker, dt_wib, float(c["close"]), ref)
+                        skipped_bad += 1
+                        continue
+
                     execute(conn, """
                         INSERT INTO price_history_15m (datetime, ticker, open, high, low, close, volume)
                         VALUES (%s, %s, %s, %s, %s, %s, %s)
@@ -859,14 +880,15 @@ def fetch_intraday_15m_datasectors(conn, tickers: list, date_from: str, date_to:
             except Exception:
                 pass
 
-    log.info("fetch_intraday_15m_datasectors %s→%s: %d rows, %d tickers, %d failed",
-             date_from, date_to or date_from, inserted, len(tickers), len(failed))
+    log.info("fetch_intraday_15m_datasectors %s→%s: %d rows, %d tickers, %d failed, %d bad candles skipped",
+             date_from, date_to or date_from, inserted, len(tickers), len(failed), skipped_bad)
     return {
         "ok":            True,
         "tickers":       len(tickers),
         "rows_inserted": inserted,
         "failed_count":  len(failed),
         "failed":        failed[:20],
+        "skipped_bad":   skipped_bad,
     }
 
 

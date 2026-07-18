@@ -495,13 +495,23 @@ def filter_result(full: dict, date_from: str, date_to: str) -> dict:
 
 
 def _axis_dates(conn, date_from: str, date_to: str) -> list:
-    """Distinct trading dates (DD-MM-YYYY) within range, oldest first."""
-    rows = fetchall(conn, "SELECT DISTINCT date FROM eod_summary")
+    """Distinct trading dates (DD-MM-YYYY) within range, oldest first.
+    Union of eod_summary and price_history calendars: BSJP exit dates are
+    computed off price_history's trading calendar (see run_bsjp_backtest),
+    and must always land on this axis — otherwise a trade whose exit date has
+    no eod_summary row (e.g. a day Telegram scraping was down) has its P&L
+    silently dropped from the cumulative equity curve while still being
+    counted in the trade log."""
+    dates_dmy = {r["date"] for r in fetchall(conn, "SELECT DISTINCT date FROM eod_summary")}
+    for r in fetchall(conn, "SELECT DISTINCT date FROM price_history"):
+        d = r["date"]  # YYYY-MM-DD
+        if d and len(d) == 10:
+            dates_dmy.add(f"{d[8:10]}-{d[5:7]}-{d[:4]}")
+
     fc = _to_cmp(date_from) if date_from else None
     tc = _to_cmp(date_to)   if date_to   else None
     dates = []
-    for r in rows:
-        d = r["date"]
+    for d in dates_dmy:
         c = _to_cmp(d)
         if fc and c < fc:
             continue
