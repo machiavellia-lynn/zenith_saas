@@ -47,11 +47,10 @@
     <div class="s-divider"></div>
 
     <!-- Algo group -->
-    <div class="s-group{% if request.path in ['/wyckoff', '/bsjp'] %} open{% endif %}" id="group-algo">
-      <button class="s-group-toggle" onclick="sidebarToggleGroup('group-algo')" type="button">
+    <div class="s-group open" id="group-algo">
+      <div class="s-group-toggle" style="cursor:default">
         <span class="s-group-toggle-label">Algo</span>
-        <span class="s-group-chevron">▾</span>
-      </button>
+      </div>
       <div class="s-group-items">
         <div class="s-group-items-inner">
           <a href="/wyckoff" class="s-item{% if request.path == '/wyckoff' %} active{% endif %}">
@@ -79,11 +78,10 @@
     <div class="s-divider"></div>
 
     <!-- Analysis group -->
-    <div class="s-group{% if request.path in ['/sector', '/portfolio'] %} open{% endif %}" id="group-analysis">
-      <button class="s-group-toggle" onclick="sidebarToggleGroup('group-analysis')" type="button">
+    <div class="s-group open" id="group-analysis">
+      <div class="s-group-toggle" style="cursor:default">
         <span class="s-group-toggle-label">Analysis</span>
-        <span class="s-group-chevron">▾</span>
-      </button>
+      </div>
       <div class="s-group-items">
         <div class="s-group-items-inner">
           <a href="/portfolio" class="s-item{% if request.path == '/portfolio' %} active{% endif %}">

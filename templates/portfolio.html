@@ -50,6 +50,22 @@ html, body { height: 100%; }
   background: var(--surface); color: var(--text-dim); border: 1px solid var(--border); font-weight: 400; }
 .pf-filt.active { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 500; }
 
+.pf-viewmode-btn { display: flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 7px; font-size: 12px; cursor: pointer;
+  background: var(--surface); color: var(--text-dim); border: 1px solid var(--border); font-weight: 400; transition: all .15s; }
+.pf-viewmode-btn.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); font-weight: 600; }
+
+.pf-month-row, .pf-date-row { display: flex; align-items: center; gap: 10px; padding: 11px 18px; cursor: pointer; border-top: 1px solid var(--border); transition: background .1s; }
+.pf-month-row:hover, .pf-date-row:hover { background: var(--surface2); }
+.pf-date-row { padding-left: 36px; background: var(--surface2); }
+.pf-date-row:hover { background: var(--surface3); }
+.pf-grp-chevron { width: 14px; height: 14px; flex-shrink: 0; color: var(--muted); transition: transform .15s; display: flex; align-items: center; justify-content: center; }
+.pf-grp-chevron.open { transform: rotate(90deg); }
+.pf-grp-label { font-size: 13px; font-weight: 600; color: var(--ink); flex: 1; }
+.pf-date-row .pf-grp-label { font-size: 12.5px; font-weight: 500; }
+.pf-grp-count { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); background: var(--surface); padding: 2px 7px; border-radius: 99px; border: 1px solid var(--border); }
+.pf-grp-pnl { font-family: var(--font-mono); font-size: 12.5px; font-weight: 700; min-width: 76px; text-align: right; }
+.pf-date-body { border-top: 1px solid var(--border); }
+
 .pf-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .pf-th { padding: 10px 12px; text-align: right; font-weight: 600; font-size: 11px; color: var(--text-dim);
   background: var(--surface2); border-bottom: 1px solid var(--border); letter-spacing: .04em;
@@ -144,6 +160,10 @@ html, body { height: 100%; }
       <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <div class="pf-segwrap" id="pfTabs"></div>
         <div id="pfStatusFilter" style="display:flex;gap:4px"></div>
+        <div class="pf-viewmode-btn" id="pfViewModeBtn">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1.5" width="10" height="2.5" rx="1"/><rect x="1" y="5" width="10" height="2.5" rx="1"/><rect x="1" y="8.5" width="6" height="2.5" rx="1"/></svg>
+          <span id="pfViewModeLbl">Kelompokkan per bulan</span>
+        </div>
         <div style="flex:1"></div>
         <span id="pfTabInfo" style="font-family:var(--font-mono);font-size:11px;color:var(--muted)"></span>
       </div>
@@ -199,6 +219,8 @@ var S = {
   wySort: { col:'gain', asc:false },
   bsSort: { col:'gain', asc:false },
   wyPage: 1, bsPage: 1,   // how many PAGE_SIZE chunks to show
+  viewMode: 'flat',       // 'flat' | 'month'
+  expMonths: {}, expDates: {},
   dateFrom: '', dateTo: '',
   loading: false,
   prefs: null,
@@ -725,8 +747,21 @@ function renderTradeLog(){
     info.textContent = oc + ' open · ' + cc + ' closed';
   } else info.textContent = 'semua resolved T+1';
 
+  // view mode toggle
+  var vmBtn = document.getElementById('pfViewModeBtn');
+  vmBtn.classList.toggle('active', S.viewMode==='month');
+  document.getElementById('pfViewModeLbl').textContent = S.viewMode==='month' ? 'Tampilan flat' : 'Kelompokkan per bulan';
+  vmBtn.onclick = function(){ S.viewMode = S.viewMode==='month' ? 'flat' : 'month'; renderTradeLog(); };
+
   // table
-  if (S.tab === 'wyckoff') renderWyTable(wy); else renderBsTable(bs);
+  if (S.tab === 'wyckoff') {
+    var wyF = wy;
+    if (S.statusFilter==='open')   wyF = wyF.filter(function(x){ return x.status==='OPEN'; });
+    if (S.statusFilter==='closed') wyF = wyF.filter(function(x){ return x.status!=='OPEN'; });
+    if (S.viewMode==='month') renderGroupedByMonth(wyF, 'wyckoff', 'entry_date'); else renderWyTable(wy);
+  } else {
+    if (S.viewMode==='month') renderGroupedByMonth(bs, 'bsjp', 'date'); else renderBsTable(bs);
+  }
 }
 
 function sortRows(rows, sort){
@@ -774,6 +809,140 @@ function bindPagination(wrap){
     btn.addEventListener('click', function(){
       var pg = parseInt(btn.dataset.page, 10);
       if (btn.dataset.algo==='wyckoff') S.wyPage=pg; else S.bsPage=pg;
+      renderTradeLog();
+    });
+  });
+}
+
+/* ── Grouped-by-month view ────────────────────────────────────────────── */
+var MON_FULL = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+function ymd(d){ var p=d.split('-'); return p[2]+p[1]+p[0]; }
+function monthOf(d){ var p=d.split('-'); return { key:p[2]+'-'+p[1], label:MON_FULL[parseInt(p[1],10)-1]+' '+p[2] }; }
+
+function groupByMonth(rows, dateField){
+  var months = {};
+  rows.forEach(function(t){
+    var d = t[dateField];
+    if (!d) return;
+    var mi = monthOf(d);
+    if (!months[mi.key]) months[mi.key] = { key:mi.key, label:mi.label, rows:[], dates:{} };
+    months[mi.key].rows.push(t);
+    if (!months[mi.key].dates[d]) months[mi.key].dates[d] = { key:d, label:dmyToDayMon(d), rows:[] };
+    months[mi.key].dates[d].rows.push(t);
+  });
+  var out = Object.keys(months).map(function(k){ return months[k]; });
+  out.sort(function(a,b){ return b.key.localeCompare(a.key); });
+  out.forEach(function(m){
+    m.dateList = Object.keys(m.dates).map(function(k){ return m.dates[k]; });
+    m.dateList.sort(function(a,b){ return ymd(b.key).localeCompare(ymd(a.key)); });
+  });
+  return out;
+}
+function sumPnl(rows){ return rows.reduce(function(s,t){ return s+(t.pnl_rp||0); }, 0); }
+
+function wyRowHtml(t){
+  var muted = t.status==='OPEN';
+  var pnlCol = (t.pnl_rp||0) >= 0 ? 'var(--up)' : 'var(--down)';
+  return '<tr class="pf-row">'
+    + '<td class="pf-td" style="font-size:13px;font-weight:700;color:var(--ink)">'+t.ticker+'</td>'
+    + '<td class="pf-td" style="font-size:11.5px;color:var(--text-dim)">'+dmyToDayMon(t.entry_date)+'</td>'
+    + '<td class="pf-td" style="text-align:right;font-size:12.5px;color:var(--text)">'+Math.round(t.entry_price).toLocaleString('id-ID')+'</td>'
+    + '<td class="pf-td" style="font-size:11.5px;color:'+(muted?'var(--muted)':'var(--text-dim)')+'">'+dmyToDayMon(t.exit_date)+'</td>'
+    + '<td class="pf-td" style="text-align:right;font-size:12.5px;color:'+(muted?'var(--muted)':'var(--text)')+'">'+Math.round(t.exit_price).toLocaleString('id-ID')+'</td>'
+    + '<td class="pf-td" style="text-align:right;font-size:13px;font-weight:700;color:'+(t.gain>=0?'var(--up)':'var(--down)')+'">'+fmtPctS(t.gain)+'</td>'
+    + '<td class="pf-td" style="text-align:right;font-size:11.5px;color:var(--text-dim)">'+fmtTxn(t.txn_value)+'</td>'
+    + '<td class="pf-td" style="text-align:right;font-size:12px;font-weight:600;color:'+pnlCol+'">'+fmtCpt(t.pnl_rp)+'</td>'
+    + '<td class="pf-td" style="text-align:right;font-size:11.5px;color:var(--text-dim)">'+t.hold_days+'d</td>'
+    + '<td class="pf-td" style="text-align:center">'+wyStatusBadge(t.status)+'</td>'
+    + '</tr>';
+}
+function bsRowHtml(t){
+  var nm = setupName(t.setup), col = setupCol(t.setup);
+  var pnlCol = (t.pnl_rp||0) >= 0 ? 'var(--up)' : 'var(--down)';
+  return '<tr class="pf-row">'
+    + '<td class="pf-td" style="font-size:13px;font-weight:700;color:var(--ink)">'+t.ticker+'</td>'
+    + '<td class="pf-td" style="font-size:11.5px;color:var(--text-dim)">'+dmyToDayMon(t.date)+'</td>'
+    + '<td class="pf-td"><span class="pf-setup-badge" style="background:'+col+'1a"><span style="width:6px;height:6px;border-radius:99px;background:'+col+';flex-shrink:0"></span>'
+    +   '<span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:'+col+'">'+nm+'</span></span></td>'
+    + '<td class="pf-td" style="text-align:right;font-size:12.5px;color:var(--text)">'+Math.round(t.entry_price).toLocaleString('id-ID')+'</td>'
+    + '<td class="pf-td" style="text-align:right;font-size:12.5px;color:var(--text)">'+Math.round(t.exit_price).toLocaleString('id-ID')+'</td>'
+    + '<td class="pf-td" style="text-align:right;font-size:13px;font-weight:700;color:'+(t.gain>=0?'var(--up)':'var(--down)')+'">'+fmtPctS(t.gain)+'</td>'
+    + '<td class="pf-td" style="text-align:right;font-size:11.5px;color:var(--text-dim)">'+fmtTxn(t.txn_value)+'</td>'
+    + '<td class="pf-td" style="text-align:right;font-size:12px;font-weight:600;color:'+pnlCol+'">'+fmtCpt(t.pnl_rp)+'</td>'
+    + '<td class="pf-td" style="text-align:right;font-size:12px;color:var(--text-dim)">'+t.lots+'</td>'
+    + '</tr>';
+}
+function wyMiniTable(rows){
+  return '<table class="pf-table"><colgroup>'
+    + '<col style="width:76px"/><col style="width:80px"/><col style="width:88px"/><col style="width:80px"/>'
+    + '<col style="width:88px"/><col style="width:80px"/><col style="width:74px"/><col style="width:80px"/>'
+    + '<col style="width:58px"/><col style="width:70px"/></colgroup>'
+    + '<thead><tr><th class="pf-th left">Ticker</th><th class="pf-th left">Entry</th><th class="pf-th">Price</th>'
+    + '<th class="pf-th left">Exit</th><th class="pf-th">Price</th><th class="pf-th">Gain%</th><th class="pf-th">Nilai</th>'
+    + '<th class="pf-th">P&L Rp</th><th class="pf-th">Hold</th><th class="pf-th center">Status</th></tr></thead>'
+    + '<tbody>'+rows.map(wyRowHtml).join('')+'</tbody></table>';
+}
+function bsMiniTable(rows){
+  return '<table class="pf-table"><colgroup>'
+    + '<col style="width:76px"/><col style="width:72px"/><col style="width:170px"/>'
+    + '<col style="width:88px"/><col style="width:88px"/><col style="width:78px"/>'
+    + '<col style="width:70px"/><col style="width:78px"/><col style="width:52px"/></colgroup>'
+    + '<thead><tr><th class="pf-th left">Ticker</th><th class="pf-th left">Tgl</th><th class="pf-th left">Setup</th>'
+    + '<th class="pf-th">Price</th><th class="pf-th">Price</th><th class="pf-th">PnL%</th><th class="pf-th">Nilai</th>'
+    + '<th class="pf-th">P&L Rp</th><th class="pf-th">Lot</th></tr></thead>'
+    + '<tbody>'+rows.map(bsRowHtml).join('')+'</tbody></table>';
+}
+
+function renderGroupedByMonth(rows, tab, dateField){
+  var months = groupByMonth(rows, dateField);
+  var wrap = document.getElementById('pfTableWrap');
+  if (!months.length){
+    wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:12px">Tidak ada trade.</div>';
+    return;
+  }
+  wrap.innerHTML = months.map(function(m){
+    var mKey = tab+':'+m.key;
+    var mOpen = !!S.expMonths[mKey];
+    var mPnl = sumPnl(m.rows);
+    var datesHtml = '';
+    if (mOpen){
+      datesHtml = m.dateList.map(function(dd){
+        var dKey = tab+':'+dd.key;
+        var dOpen = !!S.expDates[dKey];
+        var dPnl = sumPnl(dd.rows);
+        var body = dOpen ? ('<div class="pf-date-body" style="overflow-x:auto">'+(tab==='wyckoff'?wyMiniTable(dd.rows):bsMiniTable(dd.rows))+'</div>') : '';
+        return '<div>'
+          + '<div class="pf-date-row" data-datekey="'+dKey+'">'
+          +   '<div class="pf-grp-chevron'+(dOpen?' open':'')+'"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 1.5L7 5L3 8.5"/></svg></div>'
+          +   '<div class="pf-grp-label">'+dd.label+'</div>'
+          +   '<div class="pf-grp-count">'+dd.rows.length+' trade</div>'
+          +   '<div class="pf-grp-pnl" style="color:'+(dPnl>=0?'var(--up)':'var(--down)')+'">'+fmtCpt(dPnl)+'</div>'
+          + '</div>'
+          + body
+        + '</div>';
+      }).join('');
+    }
+    return '<div>'
+      + '<div class="pf-month-row" data-monthkey="'+mKey+'">'
+      +   '<div class="pf-grp-chevron'+(mOpen?' open':'')+'"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 1.5L7 5L3 8.5"/></svg></div>'
+      +   '<div class="pf-grp-label">'+m.label+'</div>'
+      +   '<div class="pf-grp-count">'+m.rows.length+' trade</div>'
+      +   '<div class="pf-grp-pnl" style="color:'+(mPnl>=0?'var(--up)':'var(--down)')+'">'+fmtCpt(mPnl)+'</div>'
+      + '</div>'
+      + datesHtml
+    + '</div>';
+  }).join('');
+  wrap.querySelectorAll('.pf-month-row').forEach(function(row){
+    row.addEventListener('click', function(){
+      var k = row.dataset.monthkey;
+      S.expMonths[k] = !S.expMonths[k];
+      renderTradeLog();
+    });
+  });
+  wrap.querySelectorAll('.pf-date-row').forEach(function(row){
+    row.addEventListener('click', function(){
+      var k = row.dataset.datekey;
+      S.expDates[k] = !S.expDates[k];
       renderTradeLog();
     });
   });
