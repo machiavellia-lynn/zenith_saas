@@ -65,6 +65,32 @@ def trim_memory():
         pass
 
 
+_syariah_cache: frozenset | None = None
+
+
+def load_syariah_reference(syariah_file: str) -> frozenset:
+    """Load sharia-compliant tickers (OJK Daftar Efek Syariah) from .md file.
+
+    Same numbered-list format as kompas100.md. Cached after first read — the
+    list is static between OJK's twice-yearly revisions (May & November), so
+    re-reading it on every request would be wasted I/O.
+    """
+    global _syariah_cache
+    if _syariah_cache is not None:
+        return _syariah_cache
+    tickers = set()
+    try:
+        with open(syariah_file, "r", encoding="utf-8") as f:
+            for raw in f:
+                match = re.match(r"^\d+\.\s*([A-Z]{4})\s*$", raw.strip())
+                if match:
+                    tickers.add(match.group(1))
+    except FileNotFoundError:
+        pass
+    _syariah_cache = frozenset(tickers)
+    return _syariah_cache
+
+
 def load_kompas100_reference(kompas100_file: str):
     """Load Kompas100 tickers list from .md file."""
     tickers = []
