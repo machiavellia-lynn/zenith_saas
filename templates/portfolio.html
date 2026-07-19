@@ -263,50 +263,132 @@ S.prefs = Object.assign({}, PREFS_DEF, JSON.parse(localStorage.getItem(PREFS_KEY
 /* ── Client-side what-if rescale ─────────────────────────────────────────────
    S.data (server response, always at SRV_DEFAULTS budget) → S.view (rescaled to
    S.prefs). Pure arithmetic on top of already-fetched trades/equity — no network
-   call, can't touch the API key. Win rate / profit factor / avg hold / trade
-   counts are scale-invariant (ratios of same-scaled quantities) and pass through
-   unchanged; money fields (lots, P&L, txn value, equity curve, drawdown, equity
-   basis) scale by alloc-ratio; % return and absolute equity are re-derived
-   against the user's chosen capital. */
-function scaleEquitySeries(arr, ratio){
-  return (arr || []).map(function(v){ return Math.round(v * ratio); });
+   call, can't touch the API key.
+
+   Every money figure here is derived from the SAME per-trade recompute
+   (scaleTrades), not scaled independently — that's what guarantees lots ×
+   entry price always equals the displayed Nilai, and the stats panel always
+   equals the sum of the visible trade log. Previously lots was `round(server
+   lots × ratio)` while Nilai/P&L were separately `round(server value × ratio)`
+   — two different roundings of two different quantities, so they could (and
+   did — see KKGI: 278 × 36 lot × 100 should be Rp 1.000.800, card showed
+   999rb) disagree.
+
+   The one figure that genuinely can't be derived this way is the equity
+   curve's shape: reconstructing it exactly needs the full day-by-day walk
+   (Wyckoff's mark-to-market in particular), which the client doesn't have.
+   curveScale anchors the curve to the exact recomputed gross total instead of
+   the raw alloc ratio, so the chart's rightmost point still matches
+   final_equity exactly — only the path between window-start and window-end is
+   an approximation. */
+var PF_LOT_SIZE = 100;   // IDX lot size — mirrors config.py PF_LOT_SIZE
+
+function tradeFeeRp(t){
+  // Fees apply once a trade is CLOSED — an open position hasn't paid the sell
+  // leg or PPh final yet, so its unrealized P&L stays fee-free until exit.
+  if (!S.prefs.fees_enabled || t.status === 'OPEN') return 0;
+  var p = S.prefs;
+  var bv = (t.lots||0) * PF_LOT_SIZE * (t.entry_price||0);
+  var sv = (t.lots||0) * PF_LOT_SIZE * (t.exit_price||0);
+  var fee = bv * (p.fee_buy/100) + sv * ((p.fee_sell + p.fee_pph)/100);
+  if (bv > 10000000) fee += 10000;   // bea meterai, buy leg
+  if (sv > 10000000) fee += 10000;   // bea meterai, sell leg
+  return Math.round(fee);
 }
-function scaleTrades(trades, ratio){
+
+function scaleTrades(trades, allocRp){
   return (trades || []).map(function(t){
-    var lots = Math.max(1, Math.round((t.lots || 0) * ratio));
-    return Object.assign({}, t, {
-      lots: lots,
-      pnl_rp: Math.round((t.pnl_rp || 0) * ratio),
-      txn_value: Math.round((t.txn_value || 0) * ratio),
-    });
+    var entry = t.entry_price || 0;
+    var exit  = t.exit_price != null ? t.exit_price : entry;
+    // Re-lot EXACTLY at the custom budget — same floor(alloc/(price*lotSize))
+    // the server uses — instead of scaling the server's already-floored lot
+    // count by a ratio and separately re-rounding the money fields.
+    var lots = entry > 0 ? Math.max(1, Math.floor(allocRp / (entry * PF_LOT_SIZE))) : (t.lots || 1);
+    var txnValue = Math.round(lots * PF_LOT_SIZE * entry);
+    var grossPnl = lots * PF_LOT_SIZE * (exit - entry);
+    var scaled = Object.assign({}, t, { lots: lots, txn_value: txnValue, gross_pnl_rp: Math.round(grossPnl) });
+    var fee = tradeFeeRp(scaled);
+    scaled.fee_rp = fee;
+    scaled.pnl_rp = Math.round(grossPnl - fee);
+    return scaled;
   });
 }
-function scaleStats(st, ratio, customBasis){
-  var finalPnl    = (st.final_equity || 0) * ratio;
-  var availDelta  = ((st.available_balance || 0) - (st.initial_equity || 0)) * ratio;
-  return Object.assign({}, st, {
+
+function scaleStats(rawSt, trades, ratio, customBasis){
+  var closed = trades.filter(function(t){ return t.status !== 'OPEN'; });
+  var open   = trades.filter(function(t){ return t.status === 'OPEN'; });
+  var wins   = closed.filter(function(t){ return (t.gain||0) > 0; });
+  var losses = closed.filter(function(t){ return (t.gain||0) <= 0; });
+
+  var finalPnl   = trades.reduce(function(s,t){ return s+(t.pnl_rp||0); }, 0);
+  var grossFinal = trades.reduce(function(s,t){ return s+(t.gross_pnl_rp||0); }, 0);
+  var realized   = closed.reduce(function(s,t){ return s+(t.pnl_rp||0); }, 0);
+  var deployed   = open.reduce(function(s,t){ return s+(t.lots||0)*PF_LOT_SIZE*(t.entry_price||0); }, 0);
+  var totalFees  = trades.reduce(function(s,t){ return s+(t.fee_rp||0); }, 0);
+  var totalTxn   = trades.reduce(function(s,t){ return s+(t.txn_value||0); }, 0);
+
+  // Profit factor is intentionally GROSS (fee-free) — a measure of the
+  // strategy's raw edge, independent of whatever fee assumptions are dialled in.
+  function grossOf(t){ return t.lots * PF_LOT_SIZE * (t.exit_price - t.entry_price); }
+  var grossW = wins.reduce(function(s,t){ return s+grossOf(t); }, 0);
+  var grossL = Math.abs(losses.reduce(function(s,t){ return s+grossOf(t); }, 0));
+
+  var holdSrc = closed.filter(function(t){ return t.hold_days != null; });
+  var avgHold = holdSrc.length
+    ? Math.round(holdSrc.reduce(function(s,t){ return s+t.hold_days; },0)/holdSrc.length*10)/10
+    : null;
+
+  var curveScale = Math.abs(rawSt.final_equity||0) >= 1 ? grossFinal/rawSt.final_equity : ratio;
+  var maxDdRp = rawSt.max_drawdown_rp != null ? Math.round(rawSt.max_drawdown_rp * curveScale) : null;
+
+  return {
     initial_equity:    customBasis,
     final_equity:      Math.round(finalPnl),
-    total_return_pct:  customBasis ? Math.round(finalPnl / customBasis * 10000) / 100 : 0,
-    max_drawdown_rp:   st.max_drawdown_rp != null ? Math.round(st.max_drawdown_rp * ratio) : null,
-    total_txn_value:   Math.round((st.total_txn_value || 0) * ratio),
-    available_balance: Math.round(customBasis + availDelta),
+    total_return_pct:  customBasis ? Math.round(finalPnl/customBasis*10000)/100 : 0,
+    win_rate:          closed.length ? Math.round(wins.length/closed.length*1000)/10 : null,
+    avg_hold:          avgHold,
+    profit_factor:     grossL > 0 ? Math.round(grossW/grossL*100)/100 : null,
+    max_drawdown_pct:  null,
+    max_drawdown_rp:   maxDdRp,
+    total_txn_value:   Math.round(totalTxn),
+    total_fees:        totalFees,
+    open_count:        open.length,
+    closed_count:      closed.length,
+    total_trades:      trades.length,
+    available_balance: Math.round(customBasis + realized - deployed),
     total_equity:      Math.round(customBasis + finalPnl),
+    _curveScale:       curveScale,
+    _totalFees:        totalFees,
+  };
+}
+
+function scaleEquityCurve(rawCurve, curveScale, totalFees){
+  var n = rawCurve.length;
+  return rawCurve.map(function(v, i){
+    var feeDrag = n > 1 ? totalFees * (i/(n-1)) : totalFees;
+    return Math.round(v*curveScale - feeDrag);
   });
 }
+
 function viewData(){
   if (!S.data) return null;
   var raw = S.data, p = S.prefs;
   var rBs = p.bsjp_alloc    / SRV_DEFAULTS.bsjp_alloc;
   var rWy = p.wyckoff_alloc / SRV_DEFAULTS.wyckoff_alloc;
+
+  var wyTrades = scaleTrades(raw.wyckoff.trades, p.wyckoff_alloc);
+  var bsTrades = scaleTrades(raw.bsjp.trades,    p.bsjp_alloc);
+  var wyStats  = scaleStats(raw.wyckoff.stats, wyTrades, rWy, p.wyckoff_basis);
+  var bsStats  = scaleStats(raw.bsjp.stats,    bsTrades, rBs, p.bsjp_capital);
+
   return {
     equity: {
       labels:  raw.equity.labels,
-      wyckoff: scaleEquitySeries(raw.equity.wyckoff, rWy),
-      bsjp:    scaleEquitySeries(raw.equity.bsjp,    rBs),
+      wyckoff: scaleEquityCurve(raw.equity.wyckoff, wyStats._curveScale, wyStats._totalFees),
+      bsjp:    scaleEquityCurve(raw.equity.bsjp,    bsStats._curveScale, bsStats._totalFees),
     },
-    wyckoff: { stats: scaleStats(raw.wyckoff.stats, rWy, p.wyckoff_basis), trades: scaleTrades(raw.wyckoff.trades, rWy) },
-    bsjp:    { stats: scaleStats(raw.bsjp.stats,    rBs, p.bsjp_capital),  trades: scaleTrades(raw.bsjp.trades,    rBs) },
+    wyckoff: { stats: wyStats, trades: wyTrades },
+    bsjp:    { stats: bsStats, trades: bsTrades },
     // IHSG is an index level, not money — never scaled by the budget what-if.
     ihsg: raw.ihsg || null,
     axis_dates: raw.axis_dates, date_range: raw.date_range, computed_at: raw.computed_at,
@@ -729,21 +811,6 @@ function toggleAlgo(id){
 /* ════════════════════════════════════════════════════════════════════════
    STATS PANEL
    ════════════════════════════════════════════════════════════════════════ */
-function calcFees(trades){
-  if (!S.prefs.fees_enabled || !trades || !trades.length) return 0;
-  var p = S.prefs, total = 0;
-  trades.forEach(function(t){
-    if (t.status === 'OPEN') return;
-    var bv = (t.lots||0) * 100 * (t.entry_price||0);
-    var sv = (t.lots||0) * 100 * (t.exit_price||0);
-    total += bv * (p.fee_buy / 100);
-    total += sv * ((p.fee_sell + p.fee_pph) / 100);
-    if (bv > 10000000) total += 10000;
-    if (sv > 10000000) total += 10000;
-  });
-  return Math.round(total);
-}
-
 function openStatRows(trades){
   var open = (trades||[]).filter(function(t){ return t.status==='OPEN'; });
   if (!open.length) return [{ label:'Open Posisi', val:'0', c:'ink' }];
@@ -771,6 +838,9 @@ function statRows(algoId, st, trades){
     { label:'Profit Factor',   val:(st.profit_factor!=null?st.profit_factor+'×':'—'), c: (st.profit_factor!=null&&st.profit_factor>=1)?'up':'down' },
     { label:'Total Transaksi', val:(st.total_txn_value!=null?fmtRp(st.total_txn_value):'—'), c:'ink' },
   ];
+  if (S.prefs.fees_enabled){
+    rows.push({ label:'Biaya Transaksi (Fee)', val:fmtRp(st.total_fees||0), c:'down' });
+  }
   return rows;
 }
 function colorVar(c){ return c==='up'?'var(--up)':c==='down'?'var(--down)':'var(--ink)'; }
