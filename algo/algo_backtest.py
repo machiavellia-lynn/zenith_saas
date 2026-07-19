@@ -497,7 +497,15 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None,
         # the 'full' trades afterwards would instead leave those slots empty and
         # understate the sharia strategy — measured: cutting 30% of the universe
         # costs only ~6% of trades precisely because of this promotion.
-        for universe, pool in (
+        #
+        # `u` here — NOT `universe` — on purpose: this function also takes a
+        # `universe` parameter, and Python for-loops don't scope their target
+        # variable. Reusing the name silently clobbered the parameter on every
+        # date with a non-empty pool, so `return results.get(universe)` always
+        # read back "syariah" regardless of what the caller asked for — every
+        # 'full' backtest/portfolio caller was silently getting syariah-only
+        # results. Do not rename this back to `universe`.
+        for u, pool in (
             ("full",    pre_pool),
             ("syariah", [c for c in pre_pool if c[1] in syr]),
         ):
@@ -506,7 +514,7 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None,
                 continue
             for ticker, _ in day_trades:
                 ph15_needed.add((next_ymd, ticker))
-            day_results[universe].append((date_str, next_date, next_ymd, day_trades))
+            day_results[u].append((date_str, next_date, next_ymd, day_trades))
 
     # ── Pass 2: batch-fetch 15m candles untuk exit ───────────────────────────────
     candles_map: dict = _dd(list)
