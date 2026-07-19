@@ -225,6 +225,41 @@ def api_bsjp_results():
     return _envelope(rows, limit, offset)
 
 
+# ── portfolio performance ────────────────────────────────────────────────────
+def _algo_slice(result: dict, name: str) -> dict:
+    stats = result[name]["stats"]
+    return {
+        "profit_factor":    stats.get("profit_factor"),
+        "total_trades":     stats.get("total_trades"),
+        "win_rate":         stats.get("win_rate"),
+        "total_return_pct": stats.get("total_return_pct"),
+        "total_equity":     stats.get("total_equity"),
+    }
+
+
+@bp_api.route("/portfolio-performance")
+def api_portfolio_performance():
+    """profit_factor / total_trades / win_rate / total_return_pct for both
+    algos — the summary /api/v1/bsjp-results and /api/v1/backtest-cache don't
+    actually carry (both tables are currently unpopulated; this reads the same
+    in-memory cached simulation /api/portfolio and /api/public/performance do).
+    Machine/site integration (API-key auth, no user session) — always the
+    general/full universe, same reasoning as /api/v1/bsjp-signals.
+    """
+    from algo.algo_portfolio import get_portfolio_result
+
+    result = get_portfolio_result("full")
+    if not result:
+        return jsonify({"error": "no cached portfolio result yet — visit /portfolio once to trigger it"}), 503
+
+    return jsonify({
+        "date_range":  result.get("date_range"),
+        "computed_at": result.get("computed_at"),
+        "bsjp":        _algo_slice(result, "bsjp"),
+        "wyckoff":     _algo_slice(result, "wyckoff"),
+    })
+
+
 # ── backtest_cache ───────────────────────────────────────────────────────────
 @bp_api.route("/backtest-cache")
 def api_backtest_cache():
@@ -316,6 +351,11 @@ _TABLES = [
     {"path": "/api/v1/bsjp-results", "table": "bsjp_results",
      "description": "BSJP trade outcomes.",
      "filters": ["ticker", "date_from", "date_to", "limit", "offset"]},
+    {"path": "/api/v1/portfolio-performance", "table": None,
+     "description": "Summary stats (profit_factor, total_trades, win_rate, total_return_pct, "
+                     "total_equity) for BSJP and Wyckoff — not a raw table, reads the cached "
+                     "portfolio simulation.",
+     "filters": []},
     {"path": "/api/v1/backtest-cache", "table": "backtest_cache",
      "description": "Cached backtest run results.",
      "filters": ["run_id", "limit", "offset"]},
