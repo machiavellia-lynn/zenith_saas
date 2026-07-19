@@ -3,7 +3,7 @@ routes_backtest.py — Blueprint: /api/backtest, /api/backtest/bsjp, /api/ticker
 RULE: Routing only. All backtest computation in algo_backtest.py.
 """
 from flask import Blueprint, jsonify, request, redirect
-from core.auth import is_authed
+from core.auth import is_authed, current_universe
 
 bp_backtest = Blueprint("backtest", __name__)
 
@@ -48,7 +48,9 @@ def api_backtest_bsjp():
     if request.args.get("status") == "1":
         return jsonify(get_bsjp_status())
 
-    result = get_bsjp_result()
+    # One run computes both universes, so a sharia account reads its slice from
+    # the same cache rather than kicking off a second backtest.
+    result = get_bsjp_result(current_universe())
     if not result:
         request_bsjp_backtest()  # auto-trigger with all available data; no-op if already running
         return jsonify(get_bsjp_status())

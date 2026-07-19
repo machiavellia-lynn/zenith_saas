@@ -300,27 +300,21 @@ def get_backfill_status() -> dict:
 
 # ── BSJP scan ────────────────────────────────────────────────────────────────
 
-def run_bsjp_scan(conn, date_dmy: str | None = None):
-    """
-    15:48 pass — generate BSJP signals.
-    Indicators from eod_summary directly; days_since_near_bb_mid from price_history.
-    15:45 candle used for condition check only; entry = eod_summary.price_close.
+def _score_bsjp_pool(conn, today: str, today_ymd: str) -> list:
+    """Fetch candidates for one date and return the full scored pool, unsorted
+    by universe — just (score, ticker, sig, row, lot), sorted by score desc.
+
+    Shared by run_bsjp_scan (writes 'full' + 'syariah') and
+    backfill_syariah_signals (writes 'syariah' only, for dates already scanned
+    before the universe column existed). Keeping this as the single scoring
+    path means a backfilled date's 'syariah' rows are scored identically to
+    the day it would have been scanned live.
     """
     from algo.algo_bsjp import BSJPAlgo, _is_ara, _compute_score, _to_tick
     from algo.corporate_actions import excluded_tickers
 
-    WIB_TZ  = timezone(timedelta(hours=7))
-    today   = date_dmy or datetime.now(WIB_TZ).strftime("%d-%m-%Y")
-    try:
-        d, m, y = today.split("-")
-        today_ymd = f"{y}-{m}-{d}"
-    except Exception:
-        today_ymd = datetime.now(WIB_TZ).strftime("%Y-%m-%d")
-
     algo = BSJPAlgo()
 
-    # SM/BM/Wyckoff from eod_summary; BSJP indicators from price_history (same day).
-    # Use today_ymd (YYYY-MM-DD) as direct parameter so PostgreSQL can use idx_ph_ticker.
     with conn.cursor() as cur:
         cur.execute("""
             SELECT
@@ -346,10 +340,8 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
         eod_rows = [dict(r) for r in cur.fetchall()]
 
     if not eod_rows:
-        log.info(f"[BSJP] {today}: eod_summary kosong, tidak ada kandidat.")
-        return 0
+        return []
 
-    # Fetch 15:45 and 09:00 candles in one query
     with conn.cursor() as cur:
         cur.execute("""
             SELECT ticker, datetime, open, close FROM price_history_15m
@@ -403,26 +395,170 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
         scored.append((score, ticker, sig, row_scan, lot))
 
     scored.sort(key=lambda x: -x[0])
-    top = scored[:TOP_N_BSJP]
+    return scored
+
+
+def run_bsjp_scan(conn, date_dmy: str | None = None):
+    """
+    15:48 pass — generate BSJP signals.
+    Indicators from eod_summary directly; days_since_near_bb_mid from price_history.
+    15:45 candle used for condition check only; entry = eod_summary.price_close.
+    """
+    from core.utils import syariah_tickers
+
+    WIB_TZ  = timezone(timedelta(hours=7))
+    today   = date_dmy or datetime.now(WIB_TZ).strftime("%d-%m-%Y")
+    try:
+        d, m, y = today.split("-")
+        today_ymd = f"{y}-{m}-{d}"
+    except Exception:
+        today_ymd = datetime.now(WIB_TZ).strftime("%Y-%m-%d")
+
+    scored = _score_bsjp_pool(conn, today, today_ymd)
+    if not scored:
+        log.info(f"[BSJP] {today}: eod_summary kosong, tidak ada kandidat.")
+        return 0
+
+    # One scored pool, two TOP_N slices. The sharia slice re-ranks from the
+    # sharia-only candidates so lower-ranked sharia signals are promoted into
+    # the slots non-sharia tickers would otherwise have taken — the same
+    # displacement reasoning as the CA exclusion above. Filtering the 'full'
+    # rows downstream instead would leave a syariah user with those slots
+    # simply missing rather than refilled.
+    syr    = syariah_tickers()
+    slices = {
+        "full":    scored[:TOP_N_BSJP],
+        "syariah": [c for c in scored if c[1] in syr][:TOP_N_BSJP],
+    }
+
+    rows = [
+        (today, ticker, sig["setup"], sig["entry"],
+         sig["tp1"], sig["tp2"], sig["sl"], sig["sl_type"],
+         score, rank, lot, universe)
+        for universe, top in slices.items()
+        for rank, (score, ticker, sig, row, lot) in enumerate(top, 1)
+    ]
 
     with conn.cursor() as cur:
         cur.execute("DELETE FROM bsjp_signals WHERE date = %s", (today,))
-        if top:
+        if rows:
             cur.executemany("""
                 INSERT INTO bsjp_signals
                     (date, ticker, setup, entry, tp1, tp2, sl, sl_type,
-                     score, day_rank, lot_size)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            """, [
-                (today, ticker, sig["setup"], sig["entry"],
-                 sig["tp1"], sig["tp2"], sig["sl"], sig["sl_type"],
-                 score, rank, lot)
-                for rank, (score, ticker, sig, row, lot) in enumerate(top, 1)
-            ])
+                     score, day_rank, lot_size, universe)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            """, rows)
     conn.commit()
 
-    log.info(f"[BSJP] {today}: {len(top)} sinyal (dari {len(scored)} kandidat). 15m: {len(prices_1545)} ticker.")
-    return len(top)
+    n_full, n_syr = len(slices["full"]), len(slices["syariah"])
+    log.info(f"[BSJP] {today}: {n_full} sinyal full / {n_syr} syariah "
+             f"(dari {len(scored)} kandidat).")
+    return n_full
+
+
+# ── Syariah backfill (additive — never touches existing 'full' rows) ─────────
+
+_syr_backfill_lock    = threading.Lock()
+_syr_backfill_running = False
+_syr_backfill_progress = {"done": 0, "total": 0, "error": None}
+
+
+def backfill_syariah_signals(date_from_dmy: str | None = None,
+                              date_to_dmy: str | None = None) -> bool:
+    """Add universe='syariah' rows for dates that already have 'full' rows but
+    predate the universe column — non-blocking, runs in its own thread.
+
+    Deliberately INSERT-only: it never issues DELETE and only ever targets
+    universe='syariah', so it cannot alter a single existing 'full' row or the
+    historical BSJP numbers already shown anywhere. Re-running it is safe —
+    ON CONFLICT DO NOTHING skips dates already backfilled.
+    """
+    global _syr_backfill_running
+    with _syr_backfill_lock:
+        if _syr_backfill_running:
+            return False
+        _syr_backfill_running = True
+        _syr_backfill_progress["done"]  = 0
+        _syr_backfill_progress["total"] = 0
+        _syr_backfill_progress["error"] = None
+
+    def _run():
+        global _syr_backfill_running
+        try:
+            from core.db import get_db
+            from core.utils import syariah_tickers
+            conn = get_db()
+            syr  = syariah_tickers()
+
+            where_range = ""
+            params: list = []
+            if date_from_dmy and date_to_dmy:
+                from_cmp = date_from_dmy[6:10] + date_from_dmy[3:5] + date_from_dmy[:2]
+                to_cmp   = date_to_dmy[6:10]   + date_to_dmy[3:5]   + date_to_dmy[:2]
+                where_range = ("AND SUBSTRING(f.date,7,4)||SUBSTRING(f.date,4,2)||SUBSTRING(f.date,1,2) "
+                               "BETWEEN %s AND %s")
+                params = [from_cmp, to_cmp]
+
+            # Dates with 'full' rows but no 'syariah' rows yet — i.e. scanned
+            # before this feature existed, or backfilled without a sharia pass.
+            dates = fetchall(conn, f"""
+                SELECT DISTINCT f.date FROM bsjp_signals f
+                WHERE f.universe = 'full' {where_range}
+                  AND NOT EXISTS (
+                      SELECT 1 FROM bsjp_signals s
+                      WHERE s.date = f.date AND s.universe = 'syariah'
+                  )
+            """, params)
+            dates = sorted(dates, key=lambda r: r["date"][6:10] + r["date"][3:5] + r["date"][:2])
+
+            _syr_backfill_progress["total"] = len(dates)
+            for i, row in enumerate(dates):
+                today = row["date"]
+                d, m, y = today.split("-")
+                today_ymd = f"{y}-{m}-{d}"
+
+                scored = _score_bsjp_pool(conn, today, today_ymd)
+                top    = [c for c in scored if c[1] in syr][:TOP_N_BSJP]
+
+                if top:
+                    with conn.cursor() as cur:
+                        cur.executemany("""
+                            INSERT INTO bsjp_signals
+                                (date, ticker, setup, entry, tp1, tp2, sl, sl_type,
+                                 score, day_rank, lot_size, universe)
+                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'syariah')
+                            ON CONFLICT (date, ticker, universe) DO NOTHING
+                        """, [
+                            (today, ticker, sig["setup"], sig["entry"],
+                             sig["tp1"], sig["tp2"], sig["sl"], sig["sl_type"],
+                             score, rank, lot)
+                            for rank, (score, ticker, sig, r, lot) in enumerate(top, 1)
+                        ])
+                    conn.commit()
+
+                _syr_backfill_progress["done"] = i + 1
+
+            log.info("syariah backfill done: %d dates processed", len(dates))
+        except Exception as e:
+            log.error("syariah backfill error: %s", e)
+            _syr_backfill_progress["error"] = str(e)
+        finally:
+            from core.db import close_db
+            close_db()
+            with _syr_backfill_lock:
+                _syr_backfill_running = False
+
+    threading.Thread(target=_run, daemon=True, name="bsjp-syariah-backfill").start()
+    return True
+
+
+def get_syariah_backfill_status() -> dict:
+    with _syr_backfill_lock:
+        if _syr_backfill_running:
+            return {"status": "running", **_syr_backfill_progress}
+        if _syr_backfill_progress.get("error"):
+            return {"status": "error", "error": _syr_backfill_progress["error"]}
+        return {"status": "done", **_syr_backfill_progress}
 
 
 # ── BSJP pre-filter ───────────────────────────────────────────────────────────

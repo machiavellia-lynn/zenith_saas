@@ -738,6 +738,30 @@ def admin_bsjp_backfill():
     return jsonify({"ok": True, "message": f"BSJP backfill dimulai ({date_from} → {date_to}). Cek status."})
 
 
+@bp_admin.route("/admin/bsjp-syariah-backfill")
+def admin_bsjp_syariah_backfill():
+    """Insert-only: adds universe='syariah' rows for dates that already have
+    'full' rows but predate the universe column. Never touches 'full' rows —
+    see scraper_daily.backfill_syariah_signals."""
+    if not is_authed():
+        return redirect("/")
+    from scraper.scraper_daily import backfill_syariah_signals
+    date_from = request.args.get("date_from", "").strip() or None
+    date_to   = request.args.get("date_to",   "").strip() or None
+    triggered = backfill_syariah_signals(date_from, date_to)
+    if not triggered:
+        return jsonify({"ok": False, "error": "Sudah berjalan, tunggu selesai dulu."})
+    return jsonify({"ok": True})
+
+
+@bp_admin.route("/admin/bsjp-syariah-backfill-status")
+def admin_bsjp_syariah_backfill_status():
+    if not is_authed():
+        return jsonify({"error": "unauthorized"}), 401
+    from scraper.scraper_daily import get_syariah_backfill_status
+    return jsonify(get_syariah_backfill_status())
+
+
 @bp_admin.route("/admin/bsjp-status")
 def admin_bsjp_status():
     if not is_authed():
@@ -775,7 +799,7 @@ def list_users():
         return jsonify({"error": "unauthorized"}), 401
     from core.db import get_db, fetchall
     conn = get_db()
-    users = fetchall(conn, "SELECT id, username, role, created_at FROM users ORDER BY id")
+    users = fetchall(conn, "SELECT id, username, role, mode, created_at FROM users ORDER BY id")
     return jsonify([dict(u) for u in users])
 
 
@@ -787,15 +811,39 @@ def add_user():
     username = (data.get("username") or "").strip()
     password = (data.get("password") or "").strip()
     role     = data.get("role", "guest")
+    mode     = data.get("mode", "general")
     if not username or not password:
         return jsonify({"ok": False, "error": "Username dan password wajib"})
     if role not in ("admin", "guest"):
         return jsonify({"ok": False, "error": "Role harus admin atau guest"})
+    if mode not in ("general", "syariah"):
+        return jsonify({"ok": False, "error": "Mode harus general atau syariah"})
     from core.auth import register
-    ok = register(username, password, role)
+    ok = register(username, password, role, mode)
     if ok:
         return jsonify({"ok": True})
     return jsonify({"ok": False, "error": "Username sudah dipakai"})
+
+
+@bp_admin.route("/admin/users/mode/<int:user_id>", methods=["POST"])
+def set_user_mode(user_id):
+    """Flip an existing account between general and syariah.
+
+    Without this the mode would only ever be settable at creation, leaving every
+    pre-existing account — the admin's own included — stuck on 'general'.
+    """
+    if not is_authed():
+        return jsonify({"ok": False}), 401
+    mode = (request.get_json() or {}).get("mode", "")
+    if mode not in ("general", "syariah"):
+        return jsonify({"ok": False, "error": "Mode harus general atau syariah"})
+    from core.db import get_db, execute, transaction
+    conn = get_db()
+    with transaction(conn):
+        execute(conn, "UPDATE users SET mode = %s WHERE id = %s", [mode, user_id])
+    # The change lands in the target's session only on their next login — their
+    # session cookie still carries the old mode until then.
+    return jsonify({"ok": True, "mode": mode})
 
 
 @bp_admin.route("/admin/users/delete/<int:user_id>", methods=["POST"])

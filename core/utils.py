@@ -91,6 +91,17 @@ def load_syariah_reference(syariah_file: str) -> frozenset:
     return _syariah_cache
 
 
+def syariah_tickers() -> frozenset:
+    """Sharia universe, path resolved from the repo root.
+
+    Convenience wrapper so callers outside the request/template layer don't each
+    rebuild the path to syariah.md. Backed by the same cache.
+    """
+    import os
+    path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "syariah.md")
+    return load_syariah_reference(path)
+
+
 def load_kompas100_reference(kompas100_file: str):
     """Load Kompas100 tickers list from .md file."""
     tickers = []

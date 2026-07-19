@@ -37,10 +37,17 @@ def _create_users(conn):
             username     VARCHAR(255) UNIQUE NOT NULL,
             password_hash VARCHAR(255) NOT NULL,
             role         VARCHAR(50) DEFAULT 'guest',
+            mode         VARCHAR(20) NOT NULL DEFAULT 'general',
             created_at   TIMESTAMP DEFAULT NOW()
         )
     """)
     conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+    # Sharia mode — added incrementally via ALTER TABLE.
+    # 'general' = full IDX universe; 'syariah' = OJK Daftar Efek Syariah only.
+    # Orthogonal to `role`: a user is admin-or-guest AND general-or-syariah.
+    conn.cursor().execute(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS mode VARCHAR(20) NOT NULL DEFAULT 'general'"
+    )
 
 
 def _create_raw_messages(conn):
@@ -337,12 +344,24 @@ def _create_bsjp_signals(conn):
             score       REAL,
             day_rank    INTEGER,
             lot_size    INTEGER,
-            computed_at TIMESTAMP DEFAULT NOW(),
-            UNIQUE(date, ticker)
+            universe    TEXT NOT NULL DEFAULT 'full',
+            computed_at TIMESTAMP DEFAULT NOW()
         )
     """)
+    # 'full' = every tradable ticker; 'syariah' = OJK Daftar Efek Syariah only.
+    # Both are produced from one scored pool per day, then sliced to TOP_N
+    # separately — a syariah run must promote lower-ranked sharia signals into
+    # the slots the excluded tickers would have taken, which filtering the
+    # 'full' rows downstream cannot reproduce. See scraper_daily.run_bsjp_scan.
+    cur.execute("ALTER TABLE bsjp_signals ADD COLUMN IF NOT EXISTS universe TEXT NOT NULL DEFAULT 'full'")
+    # Widen the old UNIQUE(date, ticker): a sharia ticker legitimately appears
+    # in both universes on the same day.
+    cur.execute("ALTER TABLE bsjp_signals DROP CONSTRAINT IF EXISTS bsjp_signals_date_ticker_key")
+    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_bsjp_date_ticker_universe "
+                "ON bsjp_signals(date, ticker, universe)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_bsjp_date   ON bsjp_signals(date)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_bsjp_ticker ON bsjp_signals(ticker)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_bsjp_date_universe ON bsjp_signals(date, universe)")
 
 
 def _create_bsjp_results(conn):

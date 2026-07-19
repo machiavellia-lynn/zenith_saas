@@ -1,7 +1,7 @@
 """routes/routes_bsjp.py — BSJP Signal endpoints"""
 from flask import Blueprint, jsonify, request, render_template
 from core.db import get_db, fetchall
-from core.auth import require_auth
+from core.auth import require_auth, current_universe
 from algo.corporate_actions import ca_tickers, suspected_tickers
 from datetime import datetime, timezone, timedelta
 
@@ -24,9 +24,13 @@ def page_bsjp():
 def api_bsjp_signals():
     date_str = request.args.get("date") or _today_dmy()
     conn = get_db()
+    # Sharia accounts read their own TOP_N slice, ranked over sharia candidates
+    # only — not the full-universe rows with the non-sharia ones removed, which
+    # would leave the freed slots empty instead of promoted. See run_bsjp_scan.
     rows = fetchall(conn,
-        "SELECT * FROM bsjp_signals WHERE date = %s ORDER BY day_rank ASC NULLS LAST",
-        [date_str])
+        "SELECT * FROM bsjp_signals WHERE date = %s AND universe = %s "
+        "ORDER BY day_rank ASC NULLS LAST",
+        [date_str, current_universe()])
     # Backstop: run_bsjp_scan now filters CA tickers before insert, but rows
     # written before that landed still carry them — drop them on read.
     ca_set   = ca_tickers(conn)
@@ -41,9 +45,17 @@ def api_bsjp_signals():
 @require_auth
 def api_bsjp_results():
     date_str = request.args.get("date") or _today_dmy()
-    rows = fetchall(get_db(),
-        "SELECT * FROM bsjp_results WHERE date = %s ORDER BY id",
-        [date_str])
+    # bsjp_results carries no universe of its own — an exit outcome for a
+    # (date, ticker) is the same whichever universe picked it — so scope it to
+    # the tickers this account's signals actually contain.
+    rows = fetchall(get_db(), """
+        SELECT r.* FROM bsjp_results r
+        WHERE r.date = %s
+          AND EXISTS (SELECT 1 FROM bsjp_signals s
+                      WHERE s.date = r.date AND s.ticker = r.ticker
+                        AND s.universe = %s)
+        ORDER BY r.id
+    """, [date_str, current_universe()])
     return jsonify({"date": date_str, "count": len(rows), "results": rows})
 
 

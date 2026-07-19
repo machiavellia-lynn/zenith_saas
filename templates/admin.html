@@ -260,6 +260,13 @@ body.sidebar-layout { overflow: hidden; }
             </div>
             <div id="enrichBStatus" style="margin-top:8px;font-family:var(--font-mono);font-size:11px;color:var(--muted);min-height:16px"></div>
             <div id="progBSJP" style="display:none" class="a-progress"><div class="a-progress-fill anim" id="progBSJPFill"></div></div>
+
+            <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+              <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Syariah backfill</div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Isi sinyal <code>universe=syariah</code> untuk tanggal yang sudah punya sinyal full tapi belum syariah. Insert-only — tidak pernah menghapus atau menulis ulang sinyal full yang sudah ada.</div>
+              <button class="a-btn" id="btnSyrBackfill" onclick="runSyariahBackfill()">Backfill Syariah (semua tanggal)</button>
+              <div id="syrBackfillStatus" style="margin-top:8px;font-family:var(--font-mono);font-size:11px;color:var(--muted);min-height:16px"></div>
+            </div>
           </div>
 
         </div>
@@ -341,6 +348,12 @@ body.sidebar-layout { overflow: hidden; }
                   <option value="guest">guest</option>
                   <option value="admin">admin</option>
                 </select>
+                <select class="a-select" id="newMode" style="flex:1" title="Universe saham yang terlihat oleh user ini">
+                  <option value="general">general</option>
+                  <option value="syariah">syariah</option>
+                </select>
+              </div>
+              <div style="display:flex;justify-content:flex-end">
                 <button class="a-btn primary" id="addUserBtn" onclick="addUser()">Add User</button>
               </div>
               <div id="addUserMsg" style="font-size:12px;min-height:16px"></div>
@@ -677,6 +690,51 @@ window.runAction = function(action) {
     });
 };
 
+/* Syariah backfill — separate from runAction: no date range (always targets
+   every date missing a syariah slice), and insert-only so it carries none of
+   the "this will rewrite history" caution the other BSJP actions need. */
+var _syrBackfillPoll = null;
+window.runSyariahBackfill = function() {
+  var btn = document.getElementById('btnSyrBackfill');
+  var statEl = document.getElementById('syrBackfillStatus');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  statEl.style.color = 'var(--muted)';
+  statEl.textContent = 'Memulai...';
+
+  fetch('/admin/bsjp-syariah-backfill').then(function(r){ return r.json(); }).then(function(d) {
+    if (!d.ok) {
+      btn.disabled = false;
+      statEl.style.color = 'var(--down)';
+      statEl.textContent = 'Error: ' + (d.error || '?');
+      return;
+    }
+    _syrBackfillPoll = setInterval(function() {
+      fetch('/admin/bsjp-syariah-backfill-status').then(function(r){ return r.json(); }).then(function(s) {
+        if (s.status === 'running') {
+          statEl.style.color = 'var(--muted)';
+          statEl.textContent = 'Memproses ' + (s.done||0) + ' / ' + (s.total||0) + ' tanggal...';
+        } else if (s.status === 'done') {
+          clearInterval(_syrBackfillPoll);
+          btn.disabled = false;
+          statEl.style.color = 'var(--up)';
+          statEl.textContent = '✓ Selesai — ' + (s.done||0) + ' tanggal diproses.';
+          toast('Syariah backfill selesai ✓', 'success');
+        } else if (s.status === 'error') {
+          clearInterval(_syrBackfillPoll);
+          btn.disabled = false;
+          statEl.style.color = 'var(--down)';
+          statEl.textContent = 'Error: ' + (s.error || '?');
+        }
+      }).catch(function(){});
+    }, 1500);
+  }).catch(function(e) {
+    btn.disabled = false;
+    statEl.style.color = 'var(--down)';
+    statEl.textContent = 'Gagal: ' + e.message;
+  });
+};
+
 var BTN_LABELS = {
   btnFetchDaily: 'Price History (Daily)', btnRecomputeW: 'Wyckoff Signals', btnEodSummary: 'EOD Summary',
   btnFetch15m: 'Price History (15m)', btnRecomputeB: 'BSJP Signals',
@@ -849,13 +907,19 @@ function loadUsers() {
         var isAdmin = u.role === 'admin';
         var avBg    = isAdmin ? 'var(--accent)' : 'var(--surface)';
         var avCol   = isAdmin ? '#fff' : 'var(--muted)';
+        var mode    = u.mode || 'general';
+        var isSyr   = mode === 'syariah';
         return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface2);border-radius:9px;border:1px solid var(--border)">'+
           '<div style="display:flex;align-items:center;gap:10px">'+
             '<div class="user-av" style="background:'+avBg+';border:1px solid var(--border);color:'+avCol+'">'+u.username[0].toUpperCase()+'</div>'+
             '<span style="font-size:13px;font-weight:500;color:var(--ink);font-family:var(--font-mono)">'+u.username+'</span>'+
             '<span style="padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600;background:'+(isAdmin?'var(--accent-soft)':'var(--surface)')+';border:1px solid var(--border);color:'+(isAdmin?'var(--accent)':'var(--text-dim)')+'">'+u.role+'</span>'+
+            '<span style="padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600;background:'+(isSyr?'var(--up-soft, var(--surface))':'var(--surface)')+';border:1px solid var(--border);color:'+(isSyr?'var(--up)':'var(--text-dim)')+'">'+mode+'</span>'+
           '</div>'+
-          '<button class="a-btn danger small" onclick="deleteUser('+u.id+',\''+u.username+'\')">Hapus</button>'+
+          '<div style="display:flex;align-items:center;gap:8px">'+
+            '<button class="a-btn small" onclick="toggleUserMode('+u.id+',\''+mode+'\')" title="Ganti universe saham user ini">→ '+(isSyr?'general':'syariah')+'</button>'+
+            '<button class="a-btn danger small" onclick="deleteUser('+u.id+',\''+u.username+'\')">Hapus</button>'+
+          '</div>'+
         '</div>';
       }).join('');
     }).catch(function() {
@@ -863,10 +927,22 @@ function loadUsers() {
     });
 }
 
+window.toggleUserMode = function(id, current) {
+  var next = current === 'syariah' ? 'general' : 'syariah';
+  fetch('/admin/users/mode/'+id, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode: next })
+  }).then(function(r){ return r.json(); })
+    .then(function(d){ if (d.ok) loadUsers(); })
+    .catch(function(){});
+};
+
 window.addUser = function() {
   var username = document.getElementById('newUsername').value.trim();
   var password = document.getElementById('newPassword').value.trim();
   var role     = document.getElementById('newRole').value;
+  var mode     = document.getElementById('newMode').value;
   var msgEl    = document.getElementById('addUserMsg');
   if (!username || !password) { msgEl.style.color='var(--down)'; msgEl.textContent='Username dan password wajib diisi.'; return; }
   var btn = document.getElementById('addUserBtn');
@@ -874,7 +950,7 @@ window.addUser = function() {
   fetch('/admin/users/add', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: username, password: password, role: role })
+    body: JSON.stringify({ username: username, password: password, role: role, mode: mode })
   }).then(function(r){ return r.json(); })
     .then(function(d) {
       btn.disabled = false;

@@ -6,9 +6,9 @@ import logging
 from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request
 
-from core.auth import is_authed
+from core.auth import is_authed, is_syariah
 from config import WIB, YF_HEADERS, INTERVAL_MAP, SECTORS
-from core.utils import parse_date, date_range
+from core.utils import parse_date, date_range, syariah_tickers
 from core.db import get_db, fetchall
 from core.cache import TTLCache
 from data.price_fetch import fetch_ohlcv, fetch_ohlcv_datasectors
@@ -179,9 +179,17 @@ def flow():
     if not data:
         return jsonify({"tickers": [], "totals": {}})
 
+    # Applied here rather than on `data` so it also catches the tickers the
+    # kompas100 and sector branches inject above. `totals` below is derived from
+    # this list, so a sharia account's totals match the rows it can actually see.
+    # The underlying SM/BM/MF aggregation in eod_summary is untouched.
+    allowed = syariah_tickers() if is_syariah() else None
+
     tickers = []
     for t, d in data.items():
         if sector_members and t not in sector_members:
+            continue
+        if allowed is not None and t not in allowed:
             continue
         nodata  = d.get("_nodata", False)
         sm      = round(d["sm_val"], 2) if not nodata else None
@@ -438,4 +446,9 @@ def ticker_search():
         WHERE tu.is_active = TRUE
         ORDER BY tu.ticker
     """)
+    # Autocomplete is the one place a hidden ticker could still be discovered by
+    # typing, so the sharia filter has to reach here too.
+    if is_syariah():
+        allowed = syariah_tickers()
+        tickers = [t for t in tickers if t["ticker"] in allowed]
     return jsonify({"tickers": tickers})

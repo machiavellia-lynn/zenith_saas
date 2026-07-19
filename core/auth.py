@@ -45,12 +45,34 @@ def is_admin() -> bool:
     return session.get("role") == "admin"
 
 
+def get_mode() -> str:
+    """'general' (full IDX universe) or 'syariah' (OJK Daftar Efek Syariah only).
+
+    Orthogonal to role. Defaults to 'general' so a session predating the mode
+    column — or any caller outside a request — sees the unrestricted universe.
+    """
+    return session.get("mode") or "general"
+
+
+def is_syariah() -> bool:
+    return get_mode() == "syariah"
+
+
+def current_universe() -> str:
+    """Session mode mapped to the algo layer's universe key ('full' | 'syariah').
+
+    The two vocabularies differ on purpose: 'general' describes the account,
+    'full' describes the ticker set the algos ranked over.
+    """
+    return "syariah" if is_syariah() else "full"
+
+
 def login(username: str, password: str) -> bool:
     """Authenticate user against database. Returns True on success."""
     conn = get_db()
     user = fetchone(
         conn,
-        "SELECT id, username, password_hash, role FROM users WHERE username = %s",
+        "SELECT id, username, password_hash, role, mode FROM users WHERE username = %s",
         [username]
     )
 
@@ -60,12 +82,16 @@ def login(username: str, password: str) -> bool:
     session["authed"] = True
     session["user"] = user["username"]
     session["role"] = user["role"]
+    session["mode"] = user.get("mode") or "general"
     return True
 
 
-def register(username: str, password: str, role: str = "guest") -> bool:
+def register(username: str, password: str, role: str = "guest",
+             mode: str = "general") -> bool:
     """Create new user. Returns True on success, False if user exists."""
     if role not in ("admin", "guest"):
+        return False
+    if mode not in ("general", "syariah"):
         return False
 
     conn = get_db()
@@ -79,8 +105,8 @@ def register(username: str, password: str, role: str = "guest") -> bool:
         with transaction(conn):
             execute(
                 conn,
-                "INSERT INTO users (username, password_hash, role) VALUES (%s, %s, %s)",
-                [username, password_hash, role]
+                "INSERT INTO users (username, password_hash, role, mode) VALUES (%s, %s, %s, %s)",
+                [username, password_hash, role, mode]
             )
         return True
     except Exception:
