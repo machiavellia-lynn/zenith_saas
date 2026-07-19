@@ -1195,7 +1195,7 @@ def admin_data_coverage():
 
         rows = fetchall(conn,
             "SELECT date, COUNT(*) AS cnt FROM bsjp_signals "
-            "WHERE date LIKE %s GROUP BY date", [dmy_pat])
+            "WHERE universe = 'full' AND date LIKE %s GROUP BY date", [dmy_pat])
         sources.append({"key": "bsjp_signals", "label": "bsjp_signals",
                         "group": "BSJP", "days": _day_dict_dmy(rows)})
 
