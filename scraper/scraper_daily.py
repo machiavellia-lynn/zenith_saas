@@ -385,10 +385,20 @@ def _score_bsjp_pool(conn, today: str, today_ymd: str) -> list:
         if not sig:
             continue
 
-        # Entry = EOD close from eod_summary (tick-rounded), not 15:45 candle
+        # Entry = EOD close from eod_summary (tick-rounded), not 15:45 candle.
+        # BSJP executes at the daily closing price (IEP), not the 15:45 mark used
+        # only to detect the setup — so SL must be recomputed off the same EOD
+        # entry too, exactly like algo_backtest.py's Pass 1 already does. Left
+        # un-recomputed, a FIXED_2PCT stop (POWER_BREAK_V21/V22) would stay
+        # anchored to the 15:45 price, which is often not the closing price and
+        # can drift enough to make the live stop meaningfully looser or tighter
+        # than the intended -2%. MA5/BB_MID stops are unaffected either way —
+        # both come from row_scan's ma5/bb_mid, which is identical to row's
+        # (row_scan = dict(row) with only price_close/price_change_pct swapped).
         sig["entry"] = _to_tick(eod_price_close)
         sig["tp1"]   = _to_tick(eod_price_close * 1.01)
         sig["tp2"]   = _to_tick(eod_price_close * 1.02)
+        sig["sl"]    = algo._compute_sl(row, sig["entry"], sig["sl_type"])
 
         score = _compute_score(row_scan, sig["setup"])
         lot   = int(10_000_000 / eod_price_close)
