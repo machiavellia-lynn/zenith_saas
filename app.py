@@ -50,19 +50,6 @@ app.register_blueprint(bp_api)
 _log = logging.getLogger("zenith.app")
 
 
-@app.context_processor
-def inject_syariah():
-    """Expose the sharia ticker list to every template.
-
-    Embedded in the page (via sidebar.html) rather than fetched, so render
-    functions can check compliance synchronously without racing an extra
-    request. ~3 KB, static between OJK's twice-yearly DES revisions.
-    """
-    from core.utils import load_syariah_reference
-    path = os.path.join(os.path.dirname(__file__), "syariah.md")
-    return {"syariah_tickers": sorted(load_syariah_reference(path))}
-
-
 # Bounds every request's DB transaction to that request. Without it the
 # thread-local connection stays 'idle in transaction' forever and its locks
 # block schema migrations — see core.db.teardown_db.

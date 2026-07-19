@@ -25,15 +25,16 @@ from datetime import datetime
 
 from config import WIB, PF_INITIAL_EQUITY, PF_WYCKOFF_INITIAL_EQUITY, PF_BSJP_INITIAL_EQUITY, PF_WYCKOFF_ALLOC, PF_BSJP_ALLOC, PF_LOT_SIZE
 from core.db import fetchall
+from core.utils import syariah_tickers
 from algo.algo_wyckoff import get_action
 from algo.corporate_actions import ca_tickers
 
 log = logging.getLogger("zenith.portfolio")
 
 _pf_lock    = threading.Lock()
-_pf_result  = None
-_pf_running = False
-_pf_error   = None
+_pf_result  = {}        # universe -> cached simulation
+_pf_running = set()     # universes currently simulating
+_pf_error   = {}        # universe -> last error string
 
 
 # ── Date helpers (DD-MM-YYYY domain, matching eod_summary) ────────────────────
@@ -100,11 +101,16 @@ def _max_drawdown_rp(series: list) -> int:
 
 # ── Wyckoff simulation (multi-entry swing, MTM equity) ────────────────────────
 def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list,
-                       wyckoff_alloc: int = None, wyckoff_basis: int = None):
+                       wyckoff_alloc: int = None, wyckoff_basis: int = None,
+                       universe: str = "full"):
     """Walk eod_summary day-by-day, deploying PF_WYCKOFF_ALLOC per BUY signal."""
     alloc = wyckoff_alloc or PF_WYCKOFF_ALLOC
     basis = wyckoff_basis or PF_WYCKOFF_INITIAL_EQUITY
     ca_set = ca_tickers(conn)
+    # Unlike BSJP there is no TOP_N here — every BUY opens a position with no
+    # capital constraint (see the equity snapshot comment below), so restricting
+    # the universe is purely subtractive and can be applied as a row filter.
+    allowed = syariah_tickers() if universe == "syariah" else None
     all_rows = fetchall(conn, """
         SELECT ticker, date, price_close, phase, atr_pct,
                sri, sm_val, bm_val, bm_sma10, price_change_pct, watch
@@ -116,6 +122,8 @@ def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list,
     rows = []
     for r in all_rows:
         if not r.get("price_close") or r["ticker"] in ca_set:
+            continue
+        if allowed is not None and r["ticker"] not in allowed:
             continue
         c = _to_cmp(r["date"])
         if fc and c < fc:
@@ -273,13 +281,18 @@ def _simulate_wyckoff(conn, date_from: str, date_to: str, axis_dates: list,
 
 # ── BSJP simulation (overnight, every trade resolves T+1) ─────────────────────
 def _simulate_bsjp(conn, date_from: str, date_to: str, axis_dates: list,
-                    bsjp_alloc: int = None, bsjp_initial: int = None):
+                    bsjp_alloc: int = None, bsjp_initial: int = None,
+                    universe: str = "full"):
     """Reuse the BSJP backtest engine, size each trade at PF_BSJP_ALLOC."""
     alloc   = bsjp_alloc   or PF_BSJP_ALLOC
     initial = bsjp_initial or PF_BSJP_INITIAL_EQUITY
     from algo.algo_backtest import run_bsjp_backtest
 
-    bt = run_bsjp_backtest(conn, date_from=date_from, date_to=date_to)
+    # The engine re-ranks per universe rather than filtering its 'full' output —
+    # a sharia run promotes lower-ranked sharia signals into the freed TOP_N
+    # slots, so these trades are not a subset of the full-universe ones.
+    bt = run_bsjp_backtest(conn, date_from=date_from, date_to=date_to,
+                           universe=universe)
     ca_set = ca_tickers(conn)
 
     # flatten all per-setup trade details
@@ -389,7 +402,7 @@ def _build_stats(eq_values: list, closed_trades: list, avg_hold_days: bool,
 
 # ── Public: run / async wrappers ──────────────────────────────────────────────
 def simulate_portfolio(conn, date_from: str = None, date_to: str = None,
-                        user_params: dict = None) -> dict:
+                        user_params: dict = None, universe: str = "full") -> dict:
     """Full portfolio simulation across both algos over a shared date axis."""
     global _pf_result
 
@@ -400,10 +413,12 @@ def simulate_portfolio(conn, date_from: str = None, date_to: str = None,
 
     wy_eq, wy_trades, wy_stats = _simulate_wyckoff(
         conn, date_from, date_to, axis_dates,
-        wyckoff_alloc=up.get("wyckoff_alloc"), wyckoff_basis=up.get("wyckoff_basis"))
+        wyckoff_alloc=up.get("wyckoff_alloc"), wyckoff_basis=up.get("wyckoff_basis"),
+        universe=universe)
     bs_eq, bs_trades, bs_stats = _simulate_bsjp(
         conn, date_from, date_to, axis_dates,
-        bsjp_alloc=up.get("bsjp_alloc"), bsjp_initial=up.get("bsjp_capital"))
+        bsjp_alloc=up.get("bsjp_alloc"), bsjp_initial=up.get("bsjp_capital"),
+        universe=universe)
 
     result = {
         "equity": {
@@ -414,6 +429,7 @@ def simulate_portfolio(conn, date_from: str = None, date_to: str = None,
         "wyckoff": {"stats": wy_stats, "trades": wy_trades},
         "bsjp":    {"stats": bs_stats, "trades": bs_trades},
         "axis_dates":  axis_dates,
+        "universe":    universe,
         "date_range":  f"{axis_dates[0]} - {axis_dates[-1]}" if axis_dates else "-",
         "computed_at": datetime.now(WIB).strftime("%d-%m-%Y %H:%M"),
         "user_params": {
@@ -425,7 +441,7 @@ def simulate_portfolio(conn, date_from: str = None, date_to: str = None,
     }
 
     with _pf_lock:
-        _pf_result = result
+        _pf_result[universe] = result
     return result
 
 
@@ -537,44 +553,48 @@ def _axis_dates(conn, date_from: str, date_to: str) -> list:
 
 
 def request_portfolio_sim(date_from: str = None, date_to: str = None,
-                           user_params: dict = None) -> bool:
-    """Non-blocking trigger from the HTTP thread (BSJP backtest is slow)."""
-    global _pf_running, _pf_error
+                           user_params: dict = None, universe: str = "full") -> bool:
+    """Non-blocking trigger from the HTTP thread (BSJP backtest is slow).
 
+    Tracked per universe: a general user's simulation must not make a syariah
+    user's request look like it is already running (and so never start).
+    """
     def _run():
-        global _pf_running, _pf_error
         try:
             from core.db import get_db
             simulate_portfolio(get_db(), date_from=date_from, date_to=date_to,
-                               user_params=user_params)
-            _pf_error = None
+                               user_params=user_params, universe=universe)
+            with _pf_lock:
+                _pf_error.pop(universe, None)
         except Exception as e:
-            log.error("Portfolio sim error: %s", e)
-            _pf_error = str(e)
+            log.error("Portfolio sim error (%s): %s", universe, e)
+            with _pf_lock:
+                _pf_error[universe] = str(e)
         finally:
             from core.db import close_db
             close_db()
-            _pf_running = False
+            with _pf_lock:
+                _pf_running.discard(universe)
 
     with _pf_lock:
-        if _pf_running:
+        if universe in _pf_running:
             return False
-        _pf_running = True
-        _pf_error   = None
+        _pf_running.add(universe)
+        _pf_error.pop(universe, None)
 
-    threading.Thread(target=_run, daemon=True, name="portfolio-sim").start()
+    threading.Thread(target=_run, daemon=True, name=f"portfolio-sim-{universe}").start()
     return True
 
 
-def get_portfolio_status() -> dict:
+def get_portfolio_status(universe: str = "full") -> dict:
     with _pf_lock:
-        if _pf_running:
+        if universe in _pf_running:
             return {"status": "running"}
-        if _pf_error:
-            return {"status": "error", "result": _pf_error}
+        if _pf_error.get(universe):
+            return {"status": "error", "result": _pf_error[universe]}
         return {"status": "done"}
 
 
-def get_portfolio_result() -> dict | None:
+def get_portfolio_result(universe: str = "full") -> dict | None:
     with _pf_lock:
-        return _pf_result
+        return _pf_result.get(universe)

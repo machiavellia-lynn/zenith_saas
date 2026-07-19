@@ -220,6 +220,21 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
+/* ── SYARIAH BRAND MARK ──────────────────────────────────────────── */
+/* Crescent beside the Zenith wordmark, shown only for sharia accounts. It marks
+   the whole session rather than individual rows: a sharia account never sees a
+   non-sharia ticker, so a per-ticker badge would mark every row identically. */
+.sidebar-brand-syariah {
+  width: 11px; height: 11px;
+  margin-left: 5px;
+  fill: #E3B341;                 /* amber — readable on both light and dark */
+  flex: none;
+}
+:root[data-theme="dark"] .sidebar-brand-syariah { fill: #F0C660; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .sidebar-brand-syariah { fill: #F0C660; }
+}
+
 /* ── CM GRADIENT BAR ─────────────────────────────────────────────── */
 .cm-bar-wrap { display: flex; align-items: center; justify-content: flex-end; gap: 7px; }
 .cm-bar-track {
