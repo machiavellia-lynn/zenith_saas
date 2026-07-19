@@ -22,6 +22,7 @@ from config import (
     RECOMPUTE_HOUR, RECOMPUTE_MINUTE,
 )
 from core.db import get_scraper_db, transaction, fetchall
+from core.trading_calendar import trading_dates
 from core.utils import trim_memory
 import psycopg2
 from scraper.scraper_parser import parse_joker_message, parse_mf_message
@@ -795,10 +796,7 @@ async def scraper_main():
                     # Step 5: compute BSJP indicators for all tickers
                     _set_step("bsjp")
                     log.info("Fix All — Step 5: compute BSJP indicators")
-                    bsjp_dates = [r["date"] for r in fetchall(conn, """
-                        SELECT DISTINCT date FROM price_history
-                        ORDER BY date
-                    """)]
+                    bsjp_dates = trading_dates(conn)
                     total_b = 0
                     for i, d in enumerate(bsjp_dates, 1):
                         try:

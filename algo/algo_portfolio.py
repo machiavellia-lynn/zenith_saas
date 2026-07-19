@@ -25,6 +25,7 @@ from datetime import datetime
 
 from config import WIB, PF_INITIAL_EQUITY, PF_WYCKOFF_INITIAL_EQUITY, PF_BSJP_INITIAL_EQUITY, PF_WYCKOFF_ALLOC, PF_BSJP_ALLOC, PF_LOT_SIZE
 from core.db import fetchall
+from core.trading_calendar import trading_dates
 from algo.algo_wyckoff import get_action
 from algo.corporate_actions import ca_tickers
 
@@ -516,10 +517,14 @@ def _axis_dates(conn, date_from: str, date_to: str) -> list:
     and must always land on this axis — otherwise a trade whose exit date has
     no eod_summary row (e.g. a day Telegram scraping was down) has its P&L
     silently dropped from the cumulative equity curve while still being
-    counted in the trade log."""
+    counted in the trade log.
+
+    The eod_summary side is deliberately left unfiltered: it may carry a closed
+    day that got seeded into it, which only adds a flat point to the curve,
+    whereas dropping a date that a trade actually exits on would silently lose
+    that trade's P&L — the failure this union exists to prevent."""
     dates_dmy = {r["date"] for r in fetchall(conn, "SELECT DISTINCT date FROM eod_summary")}
-    for r in fetchall(conn, "SELECT DISTINCT date FROM price_history"):
-        d = r["date"]  # YYYY-MM-DD
+    for d in trading_dates(conn):  # YYYY-MM-DD, bursa-open days only
         if d and len(d) == 10:
             dates_dmy.add(f"{d[8:10]}-{d[5:7]}-{d[:4]}")
 

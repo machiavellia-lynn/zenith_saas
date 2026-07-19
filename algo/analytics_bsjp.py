@@ -9,6 +9,7 @@ import logging
 import threading
 
 from core.db import fetchall, execute
+from core.trading_calendar import trading_dates
 from algo.indicators import (
     compute_ma, compute_ma50, compute_bollinger_bands, detect_sideways,
     compute_close_position, compute_ma5_price_streak, compute_days_since_near_level,
@@ -31,6 +32,15 @@ def compute_bsjp_for_date(conn, date_str: str) -> int:
     else:
         date_yyyy = date_str
 
+    # The window must be 210 *trading* days. price_history also holds rows for
+    # days the bursa was closed, and those carry the previous session's close
+    # forward verbatim — leaving them in double-counts a price inside every
+    # MA/BB/ATR window and shifts the streak/days-since counters.
+    window_dates = trading_dates(conn, date_to=date_yyyy)[-210:]
+    if not window_dates or window_dates[-1] != date_yyyy:
+        log.info("bsjp: %s is not a trading day — skipped", date_str)
+        return 0
+
     tickers_rows = fetchall(conn, """
         SELECT DISTINCT ph.ticker FROM price_history ph
         JOIN ticker_universe u ON u.ticker = ph.ticker
@@ -47,9 +57,9 @@ def compute_bsjp_for_date(conn, date_str: str) -> int:
     all_ph = fetchall(conn, """
         SELECT ticker, date, open, high, low, close, volume
         FROM price_history
-        WHERE ticker = ANY(%s) AND date <= %s
+        WHERE ticker = ANY(%s) AND date = ANY(%s)
         ORDER BY ticker, date DESC
-    """, [tickers, date_yyyy])
+    """, [tickers, window_dates])
 
     ph_map: dict = {}
     for r in all_ph:
@@ -99,12 +109,14 @@ def compute_bsjp_for_date(conn, date_str: str) -> int:
 
 
 def compute_bsjp_range(conn, date_from: str, date_to: str) -> int:
-    """Run compute_bsjp_for_date for every date in range (DD-MM-YYYY format)."""
-    dates = [r["date"] for r in fetchall(conn, """
-        SELECT DISTINCT date FROM price_history
-        WHERE date BETWEEN %s AND %s
-        ORDER BY date
-    """, [date_from, date_to])]
+    """Run compute_bsjp_for_date for every trading date in range.
+    Accepts DD-MM-YYYY or YYYY-MM-DD bounds."""
+    def _to_yyyy(d):
+        if d and len(d) == 10 and d[2] == '-' and d[5] == '-':
+            return f"{d[6:10]}-{d[3:5]}-{d[:2]}"
+        return d
+
+    dates = trading_dates(conn, _to_yyyy(date_from), _to_yyyy(date_to))
     total = 0
     for d in dates:
         total += compute_bsjp_for_date(conn, d)

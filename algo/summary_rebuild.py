@@ -6,6 +6,7 @@ RULE: Only write flow columns (sm_val, bm_val, tx_count, mf_plus, mf_minus, vwap
 """
 import logging
 from core.db import get_db, fetchall, execute
+from core.trading_calendar import TRADING_DAY_HAVING
 
 log = logging.getLogger("zenith.summary_rebuild")
 log.setLevel(logging.INFO)
@@ -113,25 +114,27 @@ def seed_eod_from_price_history(conn, date_from: str = None, date_to: str = None
         return d
 
     if date_from and date_to:
-        cur = execute(conn, """
+        cur = execute(conn, f"""
             INSERT INTO eod_summary (date, ticker, sm_val, bm_val, tx_count)
             SELECT
                 TO_CHAR(ph.date::date, 'DD-MM-YYYY'),
                 tu.ticker,
                 0, 0, 0
-            FROM (SELECT DISTINCT date FROM price_history
-                  WHERE date >= %s AND date <= %s) ph
+            FROM (SELECT date FROM price_history
+                  WHERE date >= %s AND date <= %s
+                  GROUP BY date HAVING {TRADING_DAY_HAVING}) ph
             CROSS JOIN (SELECT ticker FROM ticker_universe WHERE is_active = TRUE) tu
             ON CONFLICT (date, ticker) DO NOTHING
         """, [_to_yyyy(date_from), _to_yyyy(date_to)])
     else:
-        cur = execute(conn, """
+        cur = execute(conn, f"""
             INSERT INTO eod_summary (date, ticker, sm_val, bm_val, tx_count)
             SELECT
                 TO_CHAR(ph.date::date, 'DD-MM-YYYY'),
                 tu.ticker,
                 0, 0, 0
-            FROM (SELECT DISTINCT date FROM price_history) ph
+            FROM (SELECT date FROM price_history
+                  GROUP BY date HAVING {TRADING_DAY_HAVING}) ph
             CROSS JOIN (SELECT ticker FROM ticker_universe WHERE is_active = TRUE) tu
             ON CONFLICT (date, ticker) DO NOTHING
         """)

@@ -426,7 +426,8 @@ def admin_backfill_intraday_all():
     import threading, time as _time
     from datetime import datetime, timedelta
     from data.price_fetch import backfill_intraday_15m
-    from core.db import get_scraper_db, fetchall
+    from core.db import get_scraper_db
+    from core.trading_calendar import trading_dates
     from config import WIB
     import logging as _logging
     _log = _logging.getLogger("zenith.admin")
@@ -436,10 +437,9 @@ def admin_backfill_intraday_all():
         conn = get_scraper_db()
         try:
             cutoff = (datetime.now(WIB) - timedelta(days=60)).strftime("%Y-%m-%d")
-            rows   = fetchall(conn, """
-                SELECT DISTINCT date FROM price_history
-                WHERE date >= %s ORDER BY date
-            """, [cutoff])
+            # Bursa-open days only — fetching 15m for a closed day burns API
+            # quota and writes nothing.
+            dates = trading_dates(conn, date_from=cutoff)
         except Exception as e:
             _intraday_all.update({"status": "error", "error": str(e)})
             conn.close()
@@ -447,7 +447,6 @@ def admin_backfill_intraday_all():
         finally:
             conn.close()
 
-        dates = [r["date"] for r in rows]  # format YYYY-MM-DD
         _intraday_all.update({
             "status": "running", "total": len(dates),
             "done": 0, "rows_total": 0, "error": None, "current_date": None,

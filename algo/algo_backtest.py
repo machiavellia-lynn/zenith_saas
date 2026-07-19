@@ -9,6 +9,7 @@ from collections import defaultdict
 from datetime import datetime
 from config import WIB
 from core.db import fetchall
+from core.trading_calendar import next_trading_day_map
 from algo.algo_wyckoff import get_action, get_watch_flag
 
 log = logging.getLogger("zenith.backtest")
@@ -371,14 +372,11 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None) -> dict:
     # eod_summary which only has days with Telegram data).  BSJP exits T+1 using
     # 15m candles — the exit date must be the real next bursa day regardless of
     # whether eod_summary has data for it.
-    _ph_rows = fetchall(conn, "SELECT DISTINCT date FROM price_history ORDER BY date")
-    if _ph_rows:
-        _ph_dmy = sorted(
-            [f"{r['date'][8:10]}-{r['date'][5:7]}-{r['date'][:4]}" for r in _ph_rows],
-            key=_to_cmp,
-        )
-        date_to_next = {d: _ph_dmy[i + 1] for i, d in enumerate(_ph_dmy[:-1])}
-    else:
+    # Must go through trading_calendar: a bare DISTINCT date includes days the
+    # bursa was closed (fabricated carried-forward rows), which points the exit
+    # at a holiday with no 15m candles and silently drops the trade to NO_DATA.
+    date_to_next = next_trading_day_map(conn)
+    if not date_to_next:
         date_to_next = {
             d: all_sorted_dates[i + 1]
             for i, d in enumerate(all_sorted_dates)
