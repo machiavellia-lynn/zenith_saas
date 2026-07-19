@@ -1010,6 +1010,14 @@ function groupByMonth(rows, dateField){
   return out;
 }
 function sumPnl(rows){ return rows.reduce(function(s,t){ return s+(t.pnl_rp||0); }, 0); }
+function winRatePct(rows){
+  // Win rate over CLOSED trades only — an OPEN Wyckoff position hasn't won or
+  // lost yet, so including it would water down the ratio.
+  var closed = rows.filter(function(t){ return t.status !== 'OPEN'; });
+  if (!closed.length) return null;
+  var wins = closed.filter(function(t){ return (t.gain||0) > 0; }).length;
+  return Math.round(wins/closed.length*1000)/10;
+}
 
 function wyRowHtml(t){
   var muted = t.status==='OPEN';
@@ -1059,7 +1067,7 @@ function bsMiniTable(rows){
     + '<col style="width:88px"/><col style="width:88px"/><col style="width:78px"/>'
     + '<col style="width:70px"/><col style="width:78px"/><col style="width:52px"/></colgroup>'
     + '<thead><tr><th class="pf-th left">Ticker</th><th class="pf-th left">Tgl</th><th class="pf-th left">Setup</th>'
-    + '<th class="pf-th">Price</th><th class="pf-th">Price</th><th class="pf-th">PnL%</th><th class="pf-th">Nilai</th>'
+    + '<th class="pf-th">Entry</th><th class="pf-th">Exit</th><th class="pf-th">PnL%</th><th class="pf-th">Nilai</th>'
     + '<th class="pf-th">P&L Rp</th><th class="pf-th">Lot</th></tr></thead>'
     + '<tbody>'+rows.map(bsRowHtml).join('')+'</tbody></table>';
 }
@@ -1093,10 +1101,12 @@ function renderGroupedByMonth(rows, tab, dateField){
         + '</div>';
       }).join('');
     }
+    var mWr = winRatePct(m.rows);
     return '<div>'
       + '<div class="pf-month-row" data-monthkey="'+mKey+'">'
       +   '<div class="pf-grp-chevron'+(mOpen?' open':'')+'"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 1.5L7 5L3 8.5"/></svg></div>'
       +   '<div class="pf-grp-label">'+m.label+'</div>'
+      +   (mWr!=null ? '<div class="pf-grp-count" style="color:'+(mWr>=50?'var(--up)':'var(--down)')+'">'+mWr+'% WR</div>' : '')
       +   '<div class="pf-grp-count">'+m.rows.length+' trade</div>'
       +   '<div class="pf-grp-pnl" style="color:'+(mPnl>=0?'var(--up)':'var(--down)')+'">'+fmtCpt(mPnl)+'</div>'
       + '</div>'
@@ -1184,8 +1194,8 @@ function renderBsTable(rows){
 
   var cols = [
     {col:'ticker',label:'Ticker',cls:'left'}, {col:'date',label:'Tgl',cls:'left'},
-    {col:'setup',label:'Setup',cls:'left'}, {col:'entry_price',label:'Price'},
-    {col:'exit_price',label:'Price'}, {col:'gain',label:'PnL%'},
+    {col:'setup',label:'Setup',cls:'left'}, {col:'entry_price',label:'Entry'},
+    {col:'exit_price',label:'Exit'}, {col:'gain',label:'PnL%'},
     {col:'txn_value',label:'Nilai'}, {col:'pnl_rp',label:'P&L Rp'},
     {col:'lots',label:'Lot'},
   ];
