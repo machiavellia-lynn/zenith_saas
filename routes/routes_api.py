@@ -191,7 +191,12 @@ def api_trade_journal():
 def api_bsjp_signals():
     ticker = request.args.get("ticker")
     limit, offset = _pagination()
-    where, params = [], []
+    # This is a machine/site integration (API-key auth, no user session), so
+    # there's no per-user mode to read — always the general/full universe.
+    # Without this, every date now returns 'full' and 'syariah' rows mixed
+    # together (up to 20 rows/date with duplicate day_rank 1-10) since
+    # bsjp_signals gained the universe column — see [[project_syariah_universe_mode]].
+    where, params = ["universe = 'full'"], []
     if ticker:
         where.append("ticker = %s")
         params.append(ticker.upper())
@@ -306,7 +311,7 @@ _TABLES = [
      "description": "Wyckoff algo live trade log.",
      "filters": ["ticker", "status (open|closed)", "date_from", "date_to", "limit", "offset"]},
     {"path": "/api/v1/bsjp-signals", "table": "bsjp_signals",
-     "description": "BSJP (Beli Sore Jual Pagi) day-trade signals.",
+     "description": "BSJP (Beli Sore Jual Pagi) day-trade signals. Always the general/full-universe picks, not the syariah-restricted set.",
      "filters": ["ticker", "date_from", "date_to", "limit", "offset"]},
     {"path": "/api/v1/bsjp-results", "table": "bsjp_results",
      "description": "BSJP trade outcomes.",
