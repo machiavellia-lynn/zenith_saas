@@ -94,6 +94,30 @@ PF_WYCKOFF_ALLOC       = 5_000_000    # Rp — capital deployed per Wyckoff BUY 
 PF_BSJP_ALLOC          = 15_000_000   # Rp — capital deployed per BSJP signal
 PF_LOT_SIZE            = 100          # IDX: 1 lot = 100 shares
 
+# ── BSJP setup allowlist ───────────────────────────────────────────────────────
+# Which of BSJPAlgo's 6 setups are allowed to fire a signal — gates
+# BSJPAlgo.signal_detail() (see algo/algo_bsjp.py), the single choke point
+# both the live daily scan (scraper/scraper_daily.py) and the backtest engine
+# (algo/algo_backtest.py, and therefore the /portfolio simulation) call through.
+# A setup NOT in this set is disabled, not deleted — its _setup_*() detection
+# method and SL_MAP/SETUP_MAX_RPR entries stay intact in algo_bsjp.py so
+# re-enabling it later is a one-line change here, not a rewrite.
+#
+# 2026-07-19: measured net (fee-adjusted) return per setup over the full BSJP
+# history at TP1=1%/TP2=2%, PF_BSJP_ALLOC=15jt, standard retail fees
+# (0.15% buy / 0.25% sell / 0.10% PPh + Rp10rb meterai/leg >10jt):
+#   SMA5_BREAKOUT_V13  n=813  WR=78.0%  net=+31.95%   <- enabled
+#   POWER_BREAK_V21    n=130  WR=70.0%  net= +6.78%   <- enabled
+#   BB_PULLBACK        n=61   WR=52.5%  net= -2.21%   <- disabled, net-negative
+#   SMA5_BREAKOUT_V11  n=475  WR=59.4%  net=-13.50%   <- disabled, net-negative
+#   SMA5_PULLBACK_V12  n=178  WR=63.5%  net=-11.18%   <- disabled, PF=1.0 (breakeven gross)
+#   POWER_BREAK_V22    (never ranked into TOP_N in the measured period — no data)
+# V13+V21 combined: n=943, WR=76.9%, net=+38.73% — beats either alone. Blending
+# in any disabled setup pulled the combined net back down toward the old
+# all-setups baseline of +11.84%, because each disabled setup is individually
+# net-negative, not just weaker.
+BSJP_ENABLED_SETUPS = {"SMA5_BREAKOUT_V13", "POWER_BREAK_V21"}
+
 # ── DataSectors API (Tier 1-4 integration — not yet active) ───────────────────
 DS_API_KEY    = os.environ.get("DATASECTORS_API_KEY", "")
 DS_BASE_URL   = "https://api.datasectors.com"

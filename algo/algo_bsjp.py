@@ -7,7 +7,14 @@ Setup priority (urutan cek):
 4. SMA5_BREAKOUT_V11 — fresh MA5 cross (streak == 1)
 5. BB_PULLBACK       — pullback ke BB midline, first touch
 6. SMA5_PULLBACK_V12 — pullback ke MA5, streak >= 1
+
+Which setups are actually allowed to fire is gated by config.BSJP_ENABLED_SETUPS
+in signal_detail() below — see that constant for the measured per-setup
+profitability behind the current allowlist. Detection methods for disabled
+setups stay defined here untouched; re-enabling one is a config change, not
+a code change.
 """
+from config import BSJP_ENABLED_SETUPS
 
 def _f(val, default=None):
     try: return float(val) if val is not None else default
@@ -118,6 +125,8 @@ class BSJPAlgo:
             ("BB_PULLBACK",       self._setup_bb_pullback),
             ("SMA5_PULLBACK_V12", self._setup_sma5_pullback_v12),
         ]:
+            if name not in BSJP_ENABLED_SETUPS:
+                continue
             if rpr <= self.SETUP_MAX_RPR[name] and fn(row):
                 entry   = _to_tick(price_close)
                 sl_type = self.SL_MAP[name]
