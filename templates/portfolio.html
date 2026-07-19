@@ -243,15 +243,16 @@ var S = {
    Keep in sync with config.py's PF_* constants — changing them there is a code
    deploy, which is the point. */
 var SRV_DEFAULTS = {
-  bsjp_capital: 150000000, bsjp_alloc: 15000000,
+  bsjp_capital: 150000000, bsjp_alloc: 30000000,
   wyckoff_alloc: 5000000,  wyckoff_basis: 1000000000,
 };
 
 /* ── Preferences ──────────────────────────────────────────────────────────── */
-// Key is versioned: v1 persisted wyckoff_basis 2500000000, and a stored pref
-// overrides PREFS_DEF — so without a new key an existing browser would keep
-// dividing by the old basis and still show the understated Wyckoff return.
-var PREFS_KEY = 'zenith_pf_prefs_v2';
+// Key is versioned: v1 persisted wyckoff_basis 2500000000, v2 persisted
+// bsjp_alloc 15000000 — a stored pref overrides PREFS_DEF, so without a new
+// key an existing browser would keep the old default and silently understate
+// what the server-side default now actually deploys per signal.
+var PREFS_KEY = 'zenith_pf_prefs_v3';
 // Budget defaults are derived from SRV_DEFAULTS (not re-typed) so "Reset" always
 // lands exactly on the server-side simulation basis and the two can never drift.
 var PREFS_DEF = Object.assign({}, SRV_DEFAULTS, {

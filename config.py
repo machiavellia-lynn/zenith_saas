@@ -91,7 +91,22 @@ PF_WYCKOFF_INITIAL_EQUITY = 1_000_000_000  # Rp — Wyckoff budget (basis for re
 PF_INITIAL_EQUITY         = 50_000_000    # Rp — kept for backward compat; no longer used as Wyckoff basis
 PF_BSJP_INITIAL_EQUITY    = 150_000_000   # Rp — BSJP starting capital pool (T+1 recycled daily)
 PF_WYCKOFF_ALLOC       = 5_000_000    # Rp — capital deployed per Wyckoff BUY signal
-PF_BSJP_ALLOC          = 15_000_000   # Rp — capital deployed per BSJP signal
+# 2026-07-19: measured concentrating the same 150jt/day into fewer, bigger BSJP
+# positions (TOP_N x alloc held constant) beats spreading it thin — win rate/PF
+# stay flat either way, but net (fee-adjusted) return rises as concentration
+# increases, because fees are semi-fixed per trade while gross profit compounds
+# on committed capital instead of being diluted across lower-ranked picks:
+#   TOP_N=10, alloc=15jt (old): n=1281  WR=69.6%  PF=2.35  net=+50.26%
+#   TOP_N=7,  alloc=21.4jt:     n=1015  WR=70.2%  PF=2.40  net=+69.74%
+#   TOP_N=5,  alloc=30jt (new): n=776   WR=70.4%  PF=2.30  net=+72.42%
+#   TOP_N=3,  alloc=50jt:       n=495   WR=69.1%  PF=2.25  net=+81.95%
+# Stopped at 5, not lower: fewer/bigger positions concentrate single-name/
+# single-day risk (a bad print on the one name held costs far more of the
+# portfolio) in a way this win-rate/PF backtest doesn't price in — 3 or lower
+# trades that tail risk for a small further net gain. See scraper_daily.py's
+# TOP_N_BSJP (must match — this constant lives there too, backtest engines
+# don't share one physical TOP_N with the live scanner) and PF_LOT_SIZE below.
+PF_BSJP_ALLOC          = 30_000_000   # Rp — capital deployed per BSJP signal. Was 15jt.
 PF_LOT_SIZE            = 100          # IDX: 1 lot = 100 shares
 
 # ── BSJP setup allowlist ───────────────────────────────────────────────────────

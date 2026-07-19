@@ -327,7 +327,13 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None,
     from collections import defaultdict as _dd
 
     algo  = BSJPAlgo()
-    TOP_N = 10
+    # 2026-07-19: was 10 @ PF_BSJP_ALLOC=15jt. Concentrating the same daily
+    # capital into fewer, bigger picks measured better net (fee-adjusted)
+    # return — see config.py's PF_BSJP_ALLOC comment for the numbers. Must
+    # match scraper_daily.py's TOP_N_BSJP — no shared constant between the
+    # backtest engine and the live scanner, so this needs updating in both
+    # places by hand.
+    TOP_N = 5
     UNIVERSES = ("full", "syariah")
 
     _empty = {

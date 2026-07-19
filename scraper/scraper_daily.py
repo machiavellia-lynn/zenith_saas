@@ -96,7 +96,10 @@ BSJP_15M_HOUR        = 15
 BSJP_15M_MINUTE      = 46
 BSJP_HOUR            = 15
 BSJP_MINUTE          = 48
-TOP_N_BSJP = 10
+# 2026-07-19: was 10 @ PF_BSJP_ALLOC=15jt — see config.py's PF_BSJP_ALLOC
+# comment for why. Must match algo_backtest.py's TOP_N (no shared constant
+# between the live scanner and the backtest engine).
+TOP_N_BSJP = 5
 
 # ── Analytics throttle — recompute at most once per 60s per date ───────────────
 _analytics_throttle: dict = {}
