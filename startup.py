@@ -4,8 +4,6 @@ RULE: Called once by app.py at startup. All init logic lives here, not in app.py
 """
 import os
 import logging
-import threading
-import time
 
 log = logging.getLogger("zenith.startup")
 
@@ -17,8 +15,12 @@ def do_startup(app):
         _seed_admin()
         _start_scraper()
         _start_price_cache()
-        _start_backtest()
-        _start_portfolio_sim()
+        # No startup compute for backtest or portfolio sim: both are in-memory-only
+        # caches with zero DB persistence, so warming them here just spent RAM that
+        # gets recomputed on the next deploy anyway. /api/portfolio and /admin's
+        # "Recompute Portfolio" button self-heal/trigger on demand; only
+        # /api/public/performance has no fallback and will 503 until one of those
+        # runs post-deploy.
 
 
 def _init_schema():
@@ -82,36 +84,3 @@ def _start_price_cache():
     except Exception as e:
         log.error("Price cache start failed: %s", e)
 
-
-def _start_backtest():
-    def _run():
-        from algo.algo_backtest import run_backtest, run_bsjp_backtest
-        from core.db import get_db
-        try:
-            conn = get_db()
-            run_backtest(conn, days=0)
-            log.info("Startup Wyckoff backtest OK")
-        except Exception as e:
-            log.warning("Startup Wyckoff backtest failed: %s", e)
-        try:
-            conn = get_db()
-            run_bsjp_backtest(conn)
-            log.info("Startup BSJP backtest OK")
-        except Exception as e:
-            log.warning("Startup BSJP backtest failed: %s", e)
-
-    threading.Thread(target=_run, daemon=True, name="startup-backtest").start()
-
-
-def _start_portfolio_sim():
-    """Pre-warm portfolio simulation at startup so /portfolio loads instantly."""
-    def _run():
-        time.sleep(10)   # let backtest + scraper settle first
-        try:
-            from algo.algo_portfolio import request_portfolio_sim
-            request_portfolio_sim(date_from=None, date_to=None)
-            log.info("Startup portfolio sim triggered")
-        except Exception as e:
-            log.warning("Startup portfolio sim failed: %s", e)
-
-    threading.Thread(target=_run, daemon=True, name="startup-portfolio").start()

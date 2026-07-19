@@ -18,7 +18,6 @@ def ensure_schema():
     _create_eod_summary(conn)
     _create_price_history(conn)
     _create_ticker_universe(conn)
-    _create_trade_journal(conn)
     _create_backtest_cache(conn)
     _create_price_history_15m(conn)
     _create_ohlcv_cache(conn)
@@ -242,28 +241,6 @@ def _create_price_history_15m(conn):
     conn.cursor().execute(
         "CREATE INDEX IF NOT EXISTS idx_ph15m_ticker ON price_history_15m(ticker, datetime)"
     )
-
-
-def _create_trade_journal(conn):
-    conn.cursor().execute("""
-        CREATE TABLE IF NOT EXISTS trade_journal (
-            id           SERIAL PRIMARY KEY,
-            ticker       TEXT NOT NULL,
-            entry_phase  TEXT,
-            entry_date   TEXT NOT NULL,
-            buy_price    REAL NOT NULL,
-            status       TEXT NOT NULL DEFAULT 'open',
-            exit_date    TEXT,
-            sell_price   REAL,
-            gain_pct     REAL,
-            hold_days    INTEGER,
-            exit_reason  TEXT,
-            created_at   TEXT,
-            updated_at   TEXT
-        )
-    """)
-    conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_journal_ticker_status ON trade_journal(ticker, status)")
-    conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_journal_entry_date ON trade_journal(entry_date)")
 
 
 def _create_backtest_cache(conn):
