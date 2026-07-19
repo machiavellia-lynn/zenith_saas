@@ -100,10 +100,20 @@ class BSJPAlgo:
         "SMA5_PULLBACK_V12": 0.50,
     }
 
+    # 2026-07-19: SMA5_BREAKOUT_V13 measured net (fee-adjusted) BETTER at a
+    # fixed -2% stop than its original MA5-based one, despite a LOWER win rate
+    # (76.3%->70.2% full, 78.2%->71.8% syariah) — MA5 in an uptrend sits well
+    # below price, so it was a looser stop that let more trades survive but lost
+    # more per stop-out; fixed -2% cuts losses faster than it costs in win rate.
+    # full:    net +44.53% -> +46.08%   (PF 2.09 -> 2.25)
+    # syariah: net +42.48% -> +46.14%   (PF 2.20 -> 2.45)
+    # Trade count/selection is unchanged either way (SL only affects how a trade
+    # exits, not whether it's taken) — was "MA5". See config.BSJP_ENABLED_SETUPS
+    # for the setup-selection analysis this SL change is layered on top of.
     SL_MAP = {
         "POWER_BREAK_V21":   "FIXED_2PCT",
         "POWER_BREAK_V22":   "FIXED_2PCT",
-        "SMA5_BREAKOUT_V13": "MA5",
+        "SMA5_BREAKOUT_V13": "FIXED_2PCT",
         "SMA5_BREAKOUT_V11": "MA5",
         "BB_PULLBACK":       "BB_MID",
         "SMA5_PULLBACK_V12": "MA5",
