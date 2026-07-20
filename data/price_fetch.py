@@ -184,6 +184,136 @@ def _fetch_close(ticker: str, target_date: str = None):
         return ticker, None
 
 
+def _fetch_ohlcv_history(ticker: str, date_from: datetime = None, date_to: datetime = None):
+    """Fetch daily OHLCV history for a ticker from Yahoo Finance. Restored
+    2026-07-20 — see fetch_daily_yahoo's docstring for why Yahoo is back as the
+    default daily-OHLCV source (was removed 2026-07-18 in favor of DataSectors,
+    which fixed a real back-adjustment accuracy issue but made daily consumption
+    ~3x the ticker universe per fetch, burning the DataSectors quota in ~2 days)."""
+    symbol = f"{ticker}.JK"
+    try:
+        params = {"interval": "1d", "includeAdjustedClose": "false"}
+        if date_from and date_to:
+            params["period1"] = int(date_from.timestamp())
+            params["period2"] = int(date_to.timestamp())
+        else:
+            params["range"] = "1y"
+        resp = requests.get(
+            f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
+            headers=YF_HEADERS,
+            params=params,
+            timeout=10,
+        )
+        r = resp.json().get("chart", {}).get("result", [None])[0]
+        if not r:
+            return ticker, []
+        timestamps = r.get("timestamp", [])
+        q       = r.get("indicators", {}).get("quote", [{}])[0]
+        opens   = q.get("open",   [])
+        highs   = q.get("high",   [])
+        lows    = q.get("low",    [])
+        closes  = q.get("close",  [])
+        volumes = q.get("volume", [])
+        rows = []
+        for i, ts in enumerate(timestamps):
+            c = closes[i] if i < len(closes) else None
+            if not c:
+                continue
+            rows.append({
+                "date":   datetime.fromtimestamp(ts, tz=WIB).strftime("%Y-%m-%d"),
+                "open":   round(float(opens[i]),   0) if i < len(opens)   and opens[i]   else None,
+                "high":   round(float(highs[i]),   0) if i < len(highs)   and highs[i]   else None,
+                "low":    round(float(lows[i]),    0) if i < len(lows)    and lows[i]    else None,
+                "close":  round(float(c),          0),
+                "volume": int(volumes[i])              if i < len(volumes) and volumes[i] else None,
+            })
+        return ticker, rows
+    except Exception:
+        return ticker, []
+
+
+def fetch_daily_yahoo(conn, tickers: list, date_from: str, date_to: str = None, progress_cb=None) -> dict:
+    """Fetch daily OHLCV from Yahoo Finance for given tickers — the frequent/cheap
+    default path for daily OHLCV (restored 2026-07-20).
+
+    Yahoo retroactively back-adjusts historical closes across a ticker's stock
+    split / rights issue, which can silently corrupt price_history for tickers
+    that later have a CA (see incident_datasectors_15m_price_corruption) — that
+    accuracy problem is real and is why fetch_daily_datasectors exists. But
+    calling DataSectors for the full active universe on every automatic daily
+    pass (enrich_daily_ohlcv ran 3x/day) burned a whole month's quota in about
+    two days. The fix: Yahoo (free, no meaningful rate limit) for the frequent
+    automatic path, and a weekly DataSectors backfill (Sunday 02:00 WIB — see
+    scraper_daily.py's SUNDAY_DS_CORRECTION_HOUR/MINUTE) to self-heal whatever
+    Yahoo back-adjusted during the week. fetch_daily_datasectors is unchanged
+    and still used by that weekly job, corporate-action investigation, and the
+    admin "Price History (Daily)" manual button.
+
+    date_from / date_to in DD-MM-YYYY. date_to defaults to date_from.
+    Parallel fetch (unlike the DataSectors path, Yahoo doesn't need per-call
+    throttling — matches the pre-2026-07-18 implementation).
+    progress_cb(done, total, current_ticker, inserted, failed) — called per
+    ticker as it completes (order not guaranteed; fetch is parallel).
+    Caller is responsible for commit."""
+    if not tickers:
+        return {"ok": True, "tickers": 0, "rows_inserted": 0, "failed_count": 0}
+
+    fmt  = "%d-%m-%Y"
+    dt_f = datetime.strptime(date_from, fmt).replace(tzinfo=WIB) - timedelta(days=3)
+    dt_t = datetime.strptime(date_to or date_from, fmt).replace(tzinfo=WIB) + timedelta(days=1)
+
+    inserted = 0
+    failed   = []
+    done     = 0
+
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        futures = {ex.submit(_fetch_ohlcv_history, t, dt_f, dt_t): t for t in tickers}
+        for fut in as_completed(futures):
+            ticker = futures[fut]
+            done  += 1
+            try:
+                _, rows = fut.result()
+            except Exception as e:
+                log.warning("Yahoo daily fetch fail ticker=%s: %s", ticker, e)
+                rows = []
+
+            if not rows:
+                failed.append(ticker)
+            for r in rows:
+                try:
+                    execute(conn, """
+                        INSERT INTO price_history (date, ticker, open, high, low, close, volume)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (date, ticker) DO UPDATE SET
+                            open = EXCLUDED.open, high = EXCLUDED.high,
+                            low  = EXCLUDED.low,  close = EXCLUDED.close,
+                            volume = EXCLUDED.volume
+                    """, [r["date"], ticker, r["open"], r["high"], r["low"], r["close"], r["volume"]])
+                    inserted += 1
+                except Exception as e:
+                    log.warning("Yahoo daily insert fail ticker=%s date=%s: %s", ticker, r.get("date"), e)
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
+
+            if progress_cb:
+                try:
+                    progress_cb(done, len(tickers), ticker, inserted, len(failed))
+                except Exception:
+                    pass
+
+    log.info("fetch_daily_yahoo %s→%s: %d rows, %d tickers, %d failed",
+             date_from, date_to or date_from, inserted, len(tickers), len(failed))
+    return {
+        "ok":            True,
+        "tickers":       len(tickers),
+        "rows_inserted": inserted,
+        "failed_count":  len(failed),
+        "failed":        failed[:20],
+    }
+
+
 def fetch_ohlcv(ticker: str, tf: str, interval_map: dict) -> dict:
     """Fetch OHLCV candles from Yahoo Finance. Returns dict with candles list."""
     from config import WIB
@@ -450,11 +580,13 @@ def backfill_prices(conn, days: int = 30, date_from: str = None, date_to: str = 
         return 0
 
 
-def backfill_price_history_ohlcv(conn, date_from: str = None, date_to: str = None):
-    """Backfill price_history with full OHLCV for all active tickers in ticker_universe,
-    via DataSectors (see fetch_daily_datasectors — Yahoo retroactively back-adjusts
-    split/rights-issue history, which corrupted this table; no longer used here).
+def backfill_price_history_ohlcv(conn, date_from: str = None, date_to: str = None,
+                                  provider: str = "yahoo"):
+    """Backfill price_history with full OHLCV for all active tickers in ticker_universe.
     date_from / date_to in DD-MM-YYYY or None for last 210 days.
+    provider: "yahoo" (default, cheap/frequent) or "datasectors" (accurate,
+    un-adjusted — pass explicitly for the weekly correction job; see
+    fetch_daily_yahoo's docstring for why Yahoo is the default here).
     Caller is responsible for commit."""
     tickers = [r["ticker"] for r in fetchall(conn,
         "SELECT ticker FROM ticker_universe WHERE is_active = TRUE")]
@@ -462,14 +594,16 @@ def backfill_price_history_ohlcv(conn, date_from: str = None, date_to: str = Non
         tickers = [r["ticker"] for r in fetchall(conn, "SELECT DISTINCT ticker FROM eod_summary")]
 
     if date_from and date_to:
-        log.info("Backfilling price_history OHLCV %s → %s for %d tickers", date_from, date_to, len(tickers))
+        log.info("Backfilling price_history OHLCV %s → %s for %d tickers via %s",
+                 date_from, date_to, len(tickers), provider)
     else:
         now       = datetime.now(WIB)
         date_from = (now - timedelta(days=210)).strftime("%d-%m-%Y")
         date_to   = now.strftime("%d-%m-%Y")
-        log.info("Backfilling price_history OHLCV 210d for %d tickers", len(tickers))
+        log.info("Backfilling price_history OHLCV 210d for %d tickers via %s", len(tickers), provider)
 
-    res = fetch_daily_datasectors(conn, tickers, date_from, date_to)
+    fetch_fn = fetch_daily_datasectors if provider == "datasectors" else fetch_daily_yahoo
+    res = fetch_fn(conn, tickers, date_from, date_to)
     return res.get("rows_inserted", 0)
 
 
@@ -479,9 +613,14 @@ def backfill_price_history_200d(conn):
 
 
 def enrich_daily_ohlcv(conn, date_str: str) -> int:
-    """Fetch today's OHLCV from DataSectors for all active tickers in ticker_universe.
+    """Fetch today's OHLCV from Yahoo for all active tickers in ticker_universe.
     Stores full OHLCV in price_history AND updates eod_summary.price_close when row exists.
-    (Was Yahoo — see fetch_daily_datasectors docstring for why that was dropped.)
+    Runs 3x/day (midday/first/second pass, via run_backfill) — always Yahoo, never
+    DataSectors: at 821 active tickers that's ~2,463 DataSectors requests/day if it
+    were DataSectors, which burned a whole month's quota in about two days when this
+    briefly ran on DataSectors 2026-07-18 to 2026-07-20. Accuracy correction for
+    whatever Yahoo back-adjusts happens separately, weekly, via DataSectors — see
+    fetch_daily_yahoo's docstring.
     Caller is responsible for commit."""
     tickers = [r["ticker"] for r in fetchall(conn,
         "SELECT ticker FROM ticker_universe WHERE is_active = TRUE")]
@@ -493,7 +632,7 @@ def enrich_daily_ohlcv(conn, date_str: str) -> int:
         return 0
 
     date_yyyy = f"{date_str[6:10]}-{date_str[3:5]}-{date_str[:2]}"
-    fetch_daily_datasectors(conn, tickers, date_str)
+    fetch_daily_yahoo(conn, tickers, date_str)
 
     updated = 0
     for r in fetchall(conn, "SELECT ticker, close FROM price_history WHERE date = %s AND ticker = ANY(%s)",

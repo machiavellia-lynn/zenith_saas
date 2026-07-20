@@ -101,6 +101,15 @@ BSJP_MINUTE          = 48
 # between the live scanner and the backtest engine).
 TOP_N_BSJP = 5
 
+# 2026-07-20: weekly accuracy correction. enrich_daily_ohlcv (the 3x/day
+# automatic path) uses Yahoo for cost, but Yahoo retroactively back-adjusts
+# historical closes across a stock split/rights issue — this window re-pulls
+# the full active universe from DataSectors (un-adjusted, but rate/quota
+# limited, hence weekly not daily) to self-heal whatever drifted during the
+# week. Sunday 02:00 WIB: market closed, quiet off-hours.
+SUNDAY_DS_CORRECTION_HOUR   = 2
+SUNDAY_DS_CORRECTION_MINUTE = 0
+
 # ── Analytics throttle — recompute at most once per 60s per date ───────────────
 _analytics_throttle: dict = {}
 _analytics_throttle_lock  = threading.Lock()
@@ -644,6 +653,7 @@ async def scraper_main():
         bsjp_prefetch_done = bsjp_15m_done = bsjp_scan_done = corp_action_done_today = False
         last_check_date = None
         last_weekly_yw  = None  # (iso_year, iso_week) of last weekly maintenance run
+        last_ds_correction_yw = None  # (iso_year, iso_week) of last DataSectors OHLCV correction
 
         while True:
             conn = _ensure_conn(conn)
@@ -779,6 +789,33 @@ async def scraper_main():
                     log.error(f"❌ Weekly maintenance: {e}")
                 finally:
                     last_weekly_yw = iso_yw
+                    trim_memory()
+
+            # ── Weekly DataSectors OHLCV accuracy correction: Sunday 02:00 WIB ──
+            # See SUNDAY_DS_CORRECTION_HOUR's comment: enrich_daily_ohlcv runs on
+            # Yahoo for cost every day, this self-heals whatever Yahoo
+            # back-adjusted during the week using DataSectors' un-adjusted data.
+            iso_yw_ds = now_wib.isocalendar()[:2]
+            if (now_wib.weekday() == 6
+                    and now_wib.hour >= SUNDAY_DS_CORRECTION_HOUR
+                    and now_wib.minute >= SUNDAY_DS_CORRECTION_MINUTE
+                    and iso_yw_ds != last_ds_correction_yw):
+                try:
+                    log.info("🛰️ DataSectors OHLCV correction (Sun 02:00) — full active universe, last 210d")
+                    from data.price_fetch import backfill_price_history_ohlcv, sync_eod_prices_from_history
+                    rows    = backfill_price_history_ohlcv(conn, provider="datasectors")
+                    updated = sync_eod_prices_from_history(conn)
+                    conn.commit()
+                    log.info(f"🛰️ DS correction done: {rows} price_history rows written, "
+                             f"{updated} eod_summary rows synced")
+                except Exception as e:
+                    log.error(f"❌ DS OHLCV correction: {e}")
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
+                finally:
+                    last_ds_correction_yw = iso_yw_ds
                     trim_memory()
 
             with _backfill_lock:
