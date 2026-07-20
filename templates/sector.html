@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="light">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8"/>
 <script>(function(){var t=localStorage.getItem('zenith-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
@@ -136,7 +136,7 @@ function sparklineSVG(data, w, h, isUp) {
 function renderSectors() {
   var sectors = S.sectors;
   if (!sectors.length) {
-    document.getElementById('sectorGrid').innerHTML = '<div style="grid-column:1/-1;padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Tidak ada data.</div>';
+    document.getElementById('sectorGrid').innerHTML = '<div style="grid-column:1/-1;padding:48px 0;text-align:center;color:var(--muted);font-size:13px">No data.</div>';
     return;
   }
 
@@ -223,7 +223,7 @@ function load(silent) {
       renderSectors();
     })
     .catch(function() {
-      if (!silent) document.getElementById('sectorGrid').innerHTML = '<div style="grid-column:1/-1;padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Gagal memuat data.</div>';
+      if (!silent) document.getElementById('sectorGrid').innerHTML = '<div style="grid-column:1/-1;padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Failed to load data.</div>';
     });
 }
 

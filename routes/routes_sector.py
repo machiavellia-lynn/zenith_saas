@@ -34,7 +34,7 @@ def sector_api():
         parse_date(date_from)
         parse_date(date_to)
     except ValueError:
-        return jsonify({"error": "Format tanggal salah"}), 400
+        return jsonify({"error": "Invalid date format"}), 400
 
     dates = date_range(date_from, date_to)
 

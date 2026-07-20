@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="light">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8"/>
 <script>(function(){var t=localStorage.getItem('zenith-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
@@ -46,12 +46,12 @@ body.sidebar-layout { overflow: hidden; }
       <div class="stat-card">
         <div class="stat-card-label">SM total</div>
         <div class="stat-card-value up" id="statSM">—</div>
-        <div class="stat-card-sub" id="statSMSub">— emiten</div>
+        <div class="stat-card-sub" id="statSMSub">— stocks</div>
       </div>
       <div class="stat-card">
         <div class="stat-card-label">BM total</div>
         <div class="stat-card-value down" id="statBM">—</div>
-        <div class="stat-card-sub" id="statBMSub">— emiten</div>
+        <div class="stat-card-sub" id="statBMSub">— stocks</div>
       </div>
       <div class="stat-card">
         <div class="stat-card-label">Clean Money</div>
@@ -61,12 +61,12 @@ body.sidebar-layout { overflow: hidden; }
       <div class="stat-card">
         <div class="stat-card-label">MF+</div>
         <div class="stat-card-value up" id="statMFP">—</div>
-        <div class="stat-card-sub">money flow masuk</div>
+        <div class="stat-card-sub">incoming money flow</div>
       </div>
       <div class="stat-card">
         <div class="stat-card-label">MF−</div>
         <div class="stat-card-value down" id="statMFM">—</div>
-        <div class="stat-card-sub">money flow keluar</div>
+        <div class="stat-card-sub">outgoing money flow</div>
       </div>
       <div class="stat-card">
         <div class="stat-card-label">Net MF</div>
@@ -78,7 +78,7 @@ body.sidebar-layout { overflow: hidden; }
     <div class="toolbar">
       <div class="toolbar-search">
         <span class="toolbar-search-icon">⌕</span>
-        <input type="text" id="tickerSearch" placeholder="Cari ticker..." autocomplete="off"/>
+        <input type="text" id="tickerSearch" placeholder="Search ticker..." autocomplete="off"/>
         <button id="searchClear" style="display:none;background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0">✕</button>
       </div>
       <div class="toolbar-divider"></div>
@@ -90,8 +90,8 @@ body.sidebar-layout { overflow: hidden; }
         <span class="filter-badge" id="filterBadge" style="display:none">0</span>
         <span style="font-size:10px;margin-left:2px" id="filterChevron">▼</span>
         <div class="filter-dropdown" id="filterDropdown">
-          <div class="filter-opt" data-key="netPos"><div class="filter-checkbox" data-key="netPos"></div>Net MF Positif</div>
-          <div class="filter-opt" data-key="cmPos"><div class="filter-checkbox" data-key="cmPos"></div>CM Positif</div>
+          <div class="filter-opt" data-key="netPos"><div class="filter-checkbox" data-key="netPos"></div>Net MF Positive</div>
+          <div class="filter-opt" data-key="cmPos"><div class="filter-checkbox" data-key="cmPos"></div>CM Positive</div>
           <div class="filter-opt" data-key="tx10"><div class="filter-checkbox" data-key="tx10"></div>TX ≥ 10</div>
           <div class="filter-sep"></div>
           <button class="filter-clear" id="filterClear">Clear all</button>
@@ -148,7 +148,7 @@ document.querySelectorAll('.filter-opt').forEach(function(o){o.addEventListener(
 document.getElementById('filterClear').addEventListener('click',function(e){e.stopPropagation();Object.keys(S.filters).forEach(function(k){S.filters[k]=false;});document.querySelectorAll('.filter-checkbox').forEach(function(c){c.classList.remove('checked');});badge();filter();});
 function badge(){var c=Object.values(S.filters).filter(Boolean).length;var b=document.getElementById('filterBadge');b.textContent=c;b.style.display=c?'flex':'none';fBtn.classList.toggle('has-filters',c>0);}
 function filter(){var rows=S.rows.slice();if(S.q)rows=rows.filter(function(r){return r.ticker.startsWith(S.q);});if(S.filters.netPos)rows=rows.filter(function(r){return(r.net_mf||0)>0;});if(S.filters.cmPos)rows=rows.filter(function(r){return(r.clean_money||0)>0;});if(S.filters.tx10)rows=rows.filter(function(r){return(r.tx||0)>=10;});var col=S.sortCol;rows.sort(function(a,b){var av=a[col]!=null?a[col]:-999999,bv=b[col]!=null?b[col]:-999999;if(typeof av==='string')return S.sortAsc?av.localeCompare(bv):bv.localeCompare(av);return S.sortAsc?av-bv:bv-av;});S.filtered=rows;render();}
-function render(){var body=document.getElementById('tableBody'),rows=S.filtered;if(!rows.length){body.innerHTML='<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Tidak ada data.</div>';document.getElementById('rowCount').textContent='0 dari '+S.rows.length+' emiten';return;}
+function render(){var body=document.getElementById('tableBody'),rows=S.filtered;if(!rows.length){body.innerHTML='<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">No data.</div>';document.getElementById('rowCount').textContent='0 of '+S.rows.length+' stocks';return;}
 var maxCM=rows.reduce(function(m,r){return Math.max(m,Math.abs(r.clean_money||0));},1);
 body.innerHTML=rows.map(function(r,i){var nmf=r.net_mf,rC=r.rsm>60?'var(--up)':'var(--text-dim)';return'<div class="data-table-row mf-cols">'+
 '<div class="row-num'+(i<3?' top3':'')+'">'+String(i+1).padStart(2,'0')+'</div>'+
@@ -163,8 +163,8 @@ body.innerHTML=rows.map(function(r,i){var nmf=r.net_mf,rC=r.rsm>60?'var(--up)':'
 '<div style="text-align:right;font-family:var(--font-mono);font-size:12.5px;color:'+(nmf!=null?(nmf>=0?'var(--up)':'var(--down)'):'var(--text-dim)')+';font-weight:600">'+(nmf!=null?(nmf>=0?'+':'')+window.fmtMoney(nmf):'—')+'</div>'+
 '<div class="price-cell"><div class="price-cell-price">'+(r.price?window.fmtPrice(r.price):'—')+'</div><div class="price-cell-chg '+(r.gain_pct>=0?'up':'down')+'">'+(r.gain_pct!=null?window.fmtPct(r.gain_pct):'—')+'</div></div>'+
 '</div>';}).join('');
-document.getElementById('rowCount').textContent=rows.length+' dari '+S.rows.length+' emiten';}
-function fetchData(silent){if(!silent)document.getElementById('tableBody').innerHTML='<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Loading...</div>';var from=window.isoToDD_MM_YYYY(S.dateFrom),to=window.isoToDD_MM_YYYY(S.dateTo);fetch('/api/flow?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to)).then(function(r){return r.json();}).then(function(d){S.rows=(d.tickers||[]).map(function(r){return Object.assign({name:''},r);});var t=d.totals||{},smT=t.sm||0,bmT=t.bm||0,cmT=t.net_cm||0,mfpT=t.mf_plus||0,mfmT=t.mf_minus||0,nmfT=t.net_mf||0,smC=S.rows.filter(function(r){return(r.sm_val||0)>0;}).length,bmC=S.rows.filter(function(r){return(r.bm_val||0)>0;}).length;document.getElementById('statSM').textContent='+'+window.fmtMoney(smT);document.getElementById('statSMSub').textContent=smC+' emiten';document.getElementById('statBM').textContent=window.fmtMoney(bmT);document.getElementById('statBMSub').textContent=bmC+' emiten';var cmEl=document.getElementById('statCM');cmEl.textContent=(cmT>=0?'+':'')+window.fmtMoney(cmT);cmEl.className='stat-card-value '+(cmT>=0?'up':'down');document.getElementById('statMFP').textContent=mfpT!=null?'+'+window.fmtMoney(mfpT):'—';document.getElementById('statMFM').textContent=mfmT!=null?window.fmtMoney(mfmT):'—';var nmfEl=document.getElementById('statNetMF');nmfEl.textContent=nmfT!=null?(nmfT>=0?'+':'')+window.fmtMoney(nmfT):'—';nmfEl.className='stat-card-value '+(nmfT>=0?'up':'down');var liveEl=document.getElementById('liveTs');if(liveEl){var now=new Date();liveEl.textContent='Update '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0');}filter();}).catch(function(){if(!silent)document.getElementById('tableBody').innerHTML='<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Gagal memuat data.</div>';});}
+document.getElementById('rowCount').textContent=rows.length+' of '+S.rows.length+' stocks';}
+function fetchData(silent){if(!silent)document.getElementById('tableBody').innerHTML='<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Loading...</div>';var from=window.isoToDD_MM_YYYY(S.dateFrom),to=window.isoToDD_MM_YYYY(S.dateTo);fetch('/api/flow?date_from='+encodeURIComponent(from)+'&date_to='+encodeURIComponent(to)).then(function(r){return r.json();}).then(function(d){S.rows=(d.tickers||[]).map(function(r){return Object.assign({name:''},r);});var t=d.totals||{},smT=t.sm||0,bmT=t.bm||0,cmT=t.net_cm||0,mfpT=t.mf_plus||0,mfmT=t.mf_minus||0,nmfT=t.net_mf||0,smC=S.rows.filter(function(r){return(r.sm_val||0)>0;}).length,bmC=S.rows.filter(function(r){return(r.bm_val||0)>0;}).length;document.getElementById('statSM').textContent='+'+window.fmtMoney(smT);document.getElementById('statSMSub').textContent=smC+' stocks';document.getElementById('statBM').textContent=window.fmtMoney(bmT);document.getElementById('statBMSub').textContent=bmC+' stocks';var cmEl=document.getElementById('statCM');cmEl.textContent=(cmT>=0?'+':'')+window.fmtMoney(cmT);cmEl.className='stat-card-value '+(cmT>=0?'up':'down');document.getElementById('statMFP').textContent=mfpT!=null?'+'+window.fmtMoney(mfpT):'—';document.getElementById('statMFM').textContent=mfmT!=null?window.fmtMoney(mfmT):'—';var nmfEl=document.getElementById('statNetMF');nmfEl.textContent=nmfT!=null?(nmfT>=0?'+':'')+window.fmtMoney(nmfT):'—';nmfEl.className='stat-card-value '+(nmfT>=0?'up':'down');var liveEl=document.getElementById('liveTs');if(liveEl){var now=new Date();liveEl.textContent='Updated '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0');}filter();}).catch(function(){if(!silent)document.getElementById('tableBody').innerHTML='<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Failed to load data.</div>';});}
 function load(){fetchData(false);}
 setInterval(function(){fetchLastDate(function(iso){var wasLive=(S.dateFrom===S.liveDate);if(iso!==S.liveDate&&wasLive){S.liveDate=iso;S.dateFrom=iso;S.dateTo=iso;sdp.setDates(iso,iso);}else{S.liveDate=iso;}if(S.dateFrom===S.liveDate)fetchData(true);});},30000);
 })();

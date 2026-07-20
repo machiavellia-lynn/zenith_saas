@@ -29,7 +29,7 @@ def api_backtest():
     # Return cached result
     result = get_backtest_result()
     if not result:
-        return jsonify({"error": "Belum ada data. Klik RUN BACKTEST."})
+        return jsonify({"error": "No data yet. Click RUN BACKTEST."})
     return jsonify(result)
 
 

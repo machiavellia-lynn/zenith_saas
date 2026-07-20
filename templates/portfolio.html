@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="light">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8"/>
 <script>(function(){var t=localStorage.getItem('zenith-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
@@ -126,13 +126,13 @@ html, body { height: 100%; }
 <div class="main-content">
   <div class="page-header">
     <div>
-      <div class="page-subtitle">Simulasi pertumbuhan modal · Wyckoff &amp; BSJP</div>
+      <div class="page-subtitle">Capital growth simulation · Wyckoff &amp; BSJP</div>
       <h1 class="page-title">Portfolio Simulation</h1>
     </div>
     <div class="page-header-actions">
-      <span style="font-size:11.5px;color:var(--muted)">Periode</span>
+      <span style="font-size:11.5px;color:var(--muted)">Period</span>
       <div id="pfDatePicker"></div>
-      <button id="pfGearBtn" type="button" title="Pengaturan simulasi"
+      <button id="pfGearBtn" type="button" title="Simulation settings"
               style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);
                      background:var(--surface);color:var(--muted);cursor:pointer;
                      display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">
@@ -168,21 +168,21 @@ html, body { height: 100%; }
         <div id="pfStatusFilter" style="display:flex;gap:4px"></div>
         <div class="pf-viewmode-btn" id="pfViewModeBtn">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1.5" width="10" height="2.5" rx="1"/><rect x="1" y="5" width="10" height="2.5" rx="1"/><rect x="1" y="8.5" width="6" height="2.5" rx="1"/></svg>
-          <span id="pfViewModeLbl">Kelompokkan per bulan</span>
+          <span id="pfViewModeLbl">Group by month</span>
         </div>
         <div style="flex:1"></div>
         <span id="pfTabInfo" style="font-family:var(--font-mono);font-size:11px;color:var(--muted)"></span>
       </div>
       <div id="pfTableWrap" style="overflow-x:auto"></div>
       <div style="padding:10px 18px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);flex-wrap:wrap;gap:8px">
-        <span id="pfAllocFoot">Lot size IDX = 100 saham</span>
-        <span style="font-family:var(--font-mono);font-size:11px">Klik header untuk sort</span>
+        <span id="pfAllocFoot">Lot size IDX = 100 shares</span>
+        <span style="font-family:var(--font-mono);font-size:11px">Click header to sort</span>
       </div>
     </div>
 
     <!-- ── Status / empty ── -->
     <div id="pfStatus" class="empty-state">
-      <span class="pf-spinner"></span> &nbsp;Menghitung simulasi portfolio…
+      <span class="pf-spinner"></span> &nbsp;Calculating portfolio simulation…
     </div>
 
   </div>
@@ -268,12 +268,12 @@ S.prefs = Object.assign({}, PREFS_DEF, JSON.parse(localStorage.getItem(PREFS_KEY
 
    Every money figure here is derived from the SAME per-trade recompute
    (scaleTrades), not scaled independently — that's what guarantees lots ×
-   entry price always equals the displayed Nilai, and the stats panel always
+   entry price always equals the displayed Value, and the stats panel always
    equals the sum of the visible trade log. Previously lots was `round(server
-   lots × ratio)` while Nilai/P&L were separately `round(server value × ratio)`
+   lots × ratio)` while Value/P&L were separately `round(server value × ratio)`
    — two different roundings of two different quantities, so they could (and
    did — see KKGI: 278 × 36 lot × 100 should be Rp 1.000.800, card showed
-   999rb) disagree.
+   999K) disagree.
 
    The one figure that genuinely can't be derived this way is the equity
    curve's shape: reconstructing it exactly needs the full day-by-day walk
@@ -400,25 +400,25 @@ function viewData(){
 function fmtRp(v){ return v==null ? '—' : 'Rp ' + Math.round(v).toLocaleString('id-ID'); }
 function fmtM(v){ return (v/1e6).toFixed(2) + 'M'; }
 function fmtPctS(v){ return v==null ? '—' : (v>=0?'+':'') + Number(v).toFixed(2) + '%'; }
-// Compact: 4850000 → "4.85jt", 120000 → "120rb", -50000 → "-50rb"
+// Compact: 4850000 → "4.85M", 120000 → "120K", -50000 → "-50K"
 function fmtCpt(v){
   if (v==null) return '—';
   var s = v < 0 ? '-' : '+';
   var a = Math.abs(v);
-  if (a >= 1e6) return s + (a/1e6).toFixed(2) + 'jt';
-  if (a >= 1e3) return s + Math.round(a/1e3) + 'rb';
+  if (a >= 1e6) return s + (a/1e6).toFixed(2) + 'M';
+  if (a >= 1e3) return s + Math.round(a/1e3) + 'K';
   return s + Math.round(a);
 }
 function fmtTxn(v){
   if (v==null) return '—';
   var a = Math.abs(v);
-  if (a >= 1e6) return (a/1e6).toFixed(2) + 'jt';
-  if (a >= 1e3) return Math.round(a/1e3) + 'rb';
+  if (a >= 1e6) return (a/1e6).toFixed(2) + 'M';
+  if (a >= 1e3) return Math.round(a/1e3) + 'K';
   return Math.round(a);
 }
 function dmyToDayMon(d){
   if (!d || d.length !== 10) return d || '—';
-  var MON = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  var MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return d.slice(0,2) + ' ' + (MON[parseInt(d.slice(3,5),10)-1] || '');
 }
 
@@ -426,9 +426,9 @@ function dmyToDayMon(d){
 var today = window.todayLocal();
 S.dateFrom = S.dateTo = today;
 
-// Debounce: tunggu 750ms setelah onChange terakhir, tapi hanya jalankan sim
-// jika kalender sudah tertutup — mencegah sim dengan tanggal salah saat user
-// masih memilih range (klik "from" dulu, belum klik "to").
+// Debounce: wait 750ms after the last onChange, but only run the sim
+// once the calendar is closed — prevents simulating with the wrong date
+// while the user is still picking a range (clicked "from", not yet "to").
 var _simTimer = null;
 function runSimDebounced(){
   clearTimeout(_simTimer);
@@ -452,23 +452,23 @@ var sdp = new window.StockbitDatePicker('pfDatePicker', {
     '<div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:2px;display:flex;align-items:center;gap:6px">'
     + '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">'
     + '<circle cx="7" cy="7" r="2"/><path d="M7 1v1M7 12v1M1 7h1M12 7h1M2.9 2.9l.7.7M10.4 10.4l.7.7M11.1 2.9l-.7.7M3.6 10.4l-.7.7"/>'
-    + '</svg>Pengaturan Simulasi</div>'
-    + '<div class="pfg-section">Modal &amp; Alokasi</div>'
-    + '<div class="pfg-row"><span class="pfg-label">Modal BSJP</span><input class="pfg-input" id="pfgBsjpCap" type="text" inputmode="numeric"></div>'
-    + '<div class="pfg-row"><span class="pfg-label">Per sinyal BSJP</span><input class="pfg-input" id="pfgBsjpAlloc" type="text" inputmode="numeric"></div>'
-    + '<div class="pfg-row"><span class="pfg-label">Modal Wyckoff</span><input class="pfg-input" id="pfgWyckoffCap" type="text" inputmode="numeric"></div>'
-    + '<div class="pfg-row"><span class="pfg-label">Per sinyal Wyckoff</span><input class="pfg-input" id="pfgWyckoffAlloc" type="text" inputmode="numeric"></div>'
-    + '<div class="pfg-section" style="margin-top:14px">Biaya Transaksi</div>'
+    + '</svg>Simulation Settings</div>'
+    + '<div class="pfg-section">Capital &amp; Allocation</div>'
+    + '<div class="pfg-row"><span class="pfg-label">BSJP Capital</span><input class="pfg-input" id="pfgBsjpCap" type="text" inputmode="numeric"></div>'
+    + '<div class="pfg-row"><span class="pfg-label">Per BSJP Signal</span><input class="pfg-input" id="pfgBsjpAlloc" type="text" inputmode="numeric"></div>'
+    + '<div class="pfg-row"><span class="pfg-label">Wyckoff Capital</span><input class="pfg-input" id="pfgWyckoffCap" type="text" inputmode="numeric"></div>'
+    + '<div class="pfg-row"><span class="pfg-label">Per Wyckoff Signal</span><input class="pfg-input" id="pfgWyckoffAlloc" type="text" inputmode="numeric"></div>'
+    + '<div class="pfg-section" style="margin-top:14px">Transaction Fees</div>'
     + '<div class="pfg-row"><span class="pfg-label"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none">'
-    + '<input id="pfgFeesOn" type="checkbox" style="width:14px;height:14px;cursor:pointer"> Hitung biaya transaksi</label></span></div>'
+    + '<input id="pfgFeesOn" type="checkbox" style="width:14px;height:14px;cursor:pointer"> Include transaction fees</label></span></div>'
     + '<div id="pfgFeeRows">'
-    + '<div class="pfg-row"><span class="pfg-label">Fee Beli</span><input class="pfg-input" id="pfgFeeBuy" type="number" step="0.01" min="0"><span class="pfg-suffix">%</span></div>'
-    + '<div class="pfg-row"><span class="pfg-label">Fee Jual</span><input class="pfg-input" id="pfgFeeSell" type="number" step="0.01" min="0"><span class="pfg-suffix">%</span></div>'
-    + '<div class="pfg-row"><span class="pfg-label">PPh Final</span><input class="pfg-input" id="pfgFeePph" type="number" step="0.01" min="0"><span class="pfg-suffix">%</span></div>'
+    + '<div class="pfg-row"><span class="pfg-label">Buy Fee</span><input class="pfg-input" id="pfgFeeBuy" type="number" step="0.01" min="0"><span class="pfg-suffix">%</span></div>'
+    + '<div class="pfg-row"><span class="pfg-label">Sell Fee</span><input class="pfg-input" id="pfgFeeSell" type="number" step="0.01" min="0"><span class="pfg-suffix">%</span></div>'
+    + '<div class="pfg-row"><span class="pfg-label">Final Tax</span><input class="pfg-input" id="pfgFeePph" type="number" step="0.01" min="0"><span class="pfg-suffix">%</span></div>'
     + '</div>'
     + '<div style="display:flex;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">'
     + '<button type="button" id="pfgResetBtn" style="flex:1;padding:7px 0;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text-dim);font-size:12px;cursor:pointer">Reset</button>'
-    + '<button type="button" id="pfgSaveBtn" style="flex:2;padding:7px 0;border:none;border-radius:8px;background:var(--ink);color:var(--bg);font-size:12px;font-weight:600;cursor:pointer">Simpan &amp; Hitung Ulang</button>'
+    + '<button type="button" id="pfgSaveBtn" style="flex:2;padding:7px 0;border:none;border-radius:8px;background:var(--ink);color:var(--bg);font-size:12px;font-weight:600;cursor:pointer">Save &amp; Recalculate</button>'
     + '</div>';
   document.body.appendChild(panel);
 
@@ -814,33 +814,33 @@ function toggleAlgo(id){
    ════════════════════════════════════════════════════════════════════════ */
 function openStatRows(trades){
   var open = (trades||[]).filter(function(t){ return t.status==='OPEN'; });
-  if (!open.length) return [{ label:'Open Posisi', val:'0', c:'ink' }];
+  if (!open.length) return [{ label:'Open Positions', val:'0', c:'ink' }];
   var totalPnl = open.reduce(function(s,t){ return s+(t.pnl_rp||0); }, 0);
   var wins  = open.filter(function(t){ return (t.pnl_rp||0)>0; });
   var losses = open.filter(function(t){ return (t.pnl_rp||0)<=0; });
   var best  = open.reduce(function(m,t){ return (t.gain||0)>(m.gain||0)?t:m; }, open[0]);
   var worst = open.reduce(function(m,t){ return (t.gain||0)<(m.gain||0)?t:m; }, open[0]);
   return [
-    { label:'Open Posisi',    val:open.length.toString(), c:'ink' },
+    { label:'Open Positions', val:open.length.toString(), c:'ink' },
     { label:'Unrealized P&L', val:fmtRp(totalPnl), c: totalPnl>=0?'up':'down' },
-    { label:'Profit / Rugi',  val:wins.length+' / '+losses.length, c: wins.length>losses.length?'up':'down' },
-    { label:'Terbaik',  val:best.ticker+' '+fmtPctS(best.gain),  c:(best.gain||0)>=0?'up':'down' },
-    { label:'Terburuk', val:worst.ticker+' '+fmtPctS(worst.gain), c:(worst.gain||0)>=0?'up':'down' },
+    { label:'Profit / Loss',  val:wins.length+' / '+losses.length, c: wins.length>losses.length?'up':'down' },
+    { label:'Best',  val:best.ticker+' '+fmtPctS(best.gain),  c:(best.gain||0)>=0?'up':'down' },
+    { label:'Worst', val:worst.ticker+' '+fmtPctS(worst.gain), c:(worst.gain||0)>=0?'up':'down' },
   ];
 }
 
 function statRows(algoId, st, trades){
-  var holdVal = algoId === 'bsjp' ? 'T+1' : (st.avg_hold!=null ? st.avg_hold + ' hari' : '—');
+  var holdVal = algoId === 'bsjp' ? 'T+1' : (st.avg_hold!=null ? st.avg_hold + ' days' : '—');
   var rows = [
     { label:'Total Return',    val:fmtPctS(st.total_return_pct), c: st.total_return_pct>=0?'up':'down' },
     { label:'Win Rate',        val:(st.win_rate!=null?st.win_rate+'%':'—'), c: (st.win_rate!=null&&st.win_rate>=50)?'up':'down' },
     { label:'Avg Hold',        val:holdVal, c:'ink' },
     { label:'Total Trades',    val:(st.total_trades!=null?st.total_trades.toLocaleString('id-ID'):'—'), c:'ink' },
     { label:'Profit Factor',   val:(st.profit_factor!=null?st.profit_factor+'×':'—'), c: (st.profit_factor!=null&&st.profit_factor>=1)?'up':'down' },
-    { label:'Total Transaksi', val:(st.total_txn_value!=null?fmtRp(st.total_txn_value):'—'), c:'ink' },
+    { label:'Total Transaction Value', val:(st.total_txn_value!=null?fmtRp(st.total_txn_value):'—'), c:'ink' },
   ];
   if (S.prefs.fees_enabled){
-    rows.push({ label:'Biaya Transaksi (Fee)', val:fmtRp(st.total_fees||0), c:'down' });
+    rows.push({ label:'Transaction Fee', val:fmtRp(st.total_fees||0), c:'down' });
   }
   return rows;
 }
@@ -897,7 +897,7 @@ function renderStats(){
     var st = S.view[a.id].stats;
     var trades = S.view[a.id].trades;
     var allocM = a.id === 'bsjp' ? S.prefs.bsjp_alloc : S.prefs.wyckoff_alloc;
-    var allocFmt = allocM >= 1e6 ? (allocM/1e6).toFixed(0)+'jt' : allocM.toLocaleString('id-ID');
+    var allocFmt = allocM >= 1e6 ? (allocM/1e6).toFixed(0)+'M' : allocM.toLocaleString('id-ID');
 
     var tabHtml = '';
     if (a.id === 'wyckoff') {
@@ -955,7 +955,7 @@ function renderTradeLog(){
   var wy = S.view.wyckoff.trades, bs = S.view.bsjp.trades;
 
   document.getElementById('pfAllocFoot').textContent =
-    'Lot size IDX = 100 saham · Alokasi Wyckoff ' + fmtRp(S.prefs.wyckoff_alloc)
+    'Lot size IDX = 100 shares · Wyckoff Allocation ' + fmtRp(S.prefs.wyckoff_alloc)
     + ' · BSJP ' + fmtRp(S.prefs.bsjp_alloc) + ' per signal';
 
   // tabs
@@ -974,7 +974,7 @@ function renderTradeLog(){
   var filtEl = document.getElementById('pfStatusFilter');
   if (S.tab === 'wyckoff'){
     filtEl.style.display = 'flex';
-    filtEl.innerHTML = [{id:'all',label:'Semua'},{id:'open',label:'Open'},{id:'closed',label:'Closed'}].map(function(f){
+    filtEl.innerHTML = [{id:'all',label:'All'},{id:'open',label:'Open'},{id:'closed',label:'Closed'}].map(function(f){
       return '<div class="pf-filt'+(S.statusFilter===f.id?' active':'')+'" data-filt="'+f.id+'">'+f.label+'</div>';
     }).join('');
     filtEl.querySelectorAll('.pf-filt').forEach(function(b){
@@ -987,12 +987,12 @@ function renderTradeLog(){
   if (S.tab === 'wyckoff'){
     var oc = S.view.wyckoff.stats.open_count, cc = S.view.wyckoff.stats.closed_count;
     info.textContent = oc + ' open · ' + cc + ' closed';
-  } else info.textContent = 'semua resolved T+1';
+  } else info.textContent = 'all resolved T+1';
 
   // view mode toggle
   var vmBtn = document.getElementById('pfViewModeBtn');
   vmBtn.classList.toggle('active', S.viewMode==='month');
-  document.getElementById('pfViewModeLbl').textContent = S.viewMode==='month' ? 'Tampilan flat' : 'Kelompokkan per bulan';
+  document.getElementById('pfViewModeLbl').textContent = S.viewMode==='month' ? 'Flat view' : 'Group by month';
   vmBtn.onclick = function(){ S.viewMode = S.viewMode==='month' ? 'flat' : 'month'; renderTradeLog(); };
 
   // table
@@ -1057,7 +1057,7 @@ function bindPagination(wrap){
 }
 
 /* ── Grouped-by-month view ────────────────────────────────────────────── */
-var MON_FULL = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+var MON_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 function ymd(d){ var p=d.split('-'); return p[2]+p[1]+p[0]; }
 function monthOf(d){ var p=d.split('-'); return { key:p[2]+'-'+p[1], label:MON_FULL[parseInt(p[1],10)-1]+' '+p[2] }; }
 
@@ -1128,7 +1128,7 @@ function wyMiniTable(rows){
     + '<col style="width:88px"/><col style="width:80px"/><col style="width:74px"/><col style="width:80px"/>'
     + '<col style="width:58px"/><col style="width:70px"/></colgroup>'
     + '<thead><tr><th class="pf-th left">Ticker</th><th class="pf-th left">Entry</th><th class="pf-th">Price</th>'
-    + '<th class="pf-th left">Exit</th><th class="pf-th">Price</th><th class="pf-th">Gain%</th><th class="pf-th">Nilai</th>'
+    + '<th class="pf-th left">Exit</th><th class="pf-th">Price</th><th class="pf-th">Gain%</th><th class="pf-th">Value</th>'
     + '<th class="pf-th">P&L Rp</th><th class="pf-th">Hold</th><th class="pf-th center">Status</th></tr></thead>'
     + '<tbody>'+rows.map(wyRowHtml).join('')+'</tbody></table>';
 }
@@ -1137,8 +1137,8 @@ function bsMiniTable(rows){
     + '<col style="width:76px"/><col style="width:72px"/><col style="width:170px"/>'
     + '<col style="width:88px"/><col style="width:88px"/><col style="width:78px"/>'
     + '<col style="width:70px"/><col style="width:78px"/><col style="width:52px"/></colgroup>'
-    + '<thead><tr><th class="pf-th left">Ticker</th><th class="pf-th left">Tgl</th><th class="pf-th left">Setup</th>'
-    + '<th class="pf-th">Entry</th><th class="pf-th">Exit</th><th class="pf-th">PnL%</th><th class="pf-th">Nilai</th>'
+    + '<thead><tr><th class="pf-th left">Ticker</th><th class="pf-th left">Date</th><th class="pf-th left">Setup</th>'
+    + '<th class="pf-th">Entry</th><th class="pf-th">Exit</th><th class="pf-th">PnL%</th><th class="pf-th">Value</th>'
     + '<th class="pf-th">P&L Rp</th><th class="pf-th">Lot</th></tr></thead>'
     + '<tbody>'+rows.map(bsRowHtml).join('')+'</tbody></table>';
 }
@@ -1147,7 +1147,7 @@ function renderGroupedByMonth(rows, tab, dateField){
   var months = groupByMonth(rows, dateField);
   var wrap = document.getElementById('pfTableWrap');
   if (!months.length){
-    wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:12px">Tidak ada trade.</div>';
+    wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:12px">No trades.</div>';
     return;
   }
   wrap.innerHTML = months.map(function(m){
@@ -1165,7 +1165,7 @@ function renderGroupedByMonth(rows, tab, dateField){
           + '<div class="pf-date-row" data-datekey="'+dKey+'">'
           +   '<div class="pf-grp-chevron'+(dOpen?' open':'')+'"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 1.5L7 5L3 8.5"/></svg></div>'
           +   '<div class="pf-grp-label">'+dd.label+'</div>'
-          +   '<div class="pf-grp-count">'+dd.rows.length+' trade</div>'
+          +   '<div class="pf-grp-count">'+dd.rows.length+' trades</div>'
           +   '<div class="pf-grp-pnl" style="color:'+(dPnl>=0?'var(--up)':'var(--down)')+'">'+fmtCpt(dPnl)+'</div>'
           + '</div>'
           + body
@@ -1178,7 +1178,7 @@ function renderGroupedByMonth(rows, tab, dateField){
       +   '<div class="pf-grp-chevron'+(mOpen?' open':'')+'"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 1.5L7 5L3 8.5"/></svg></div>'
       +   '<div class="pf-grp-label">'+m.label+'</div>'
       +   (mWr!=null ? '<div class="pf-grp-count" style="color:'+(mWr>=50?'var(--up)':'var(--down)')+'">'+mWr+'% WR</div>' : '')
-      +   '<div class="pf-grp-count">'+m.rows.length+' trade</div>'
+      +   '<div class="pf-grp-count">'+m.rows.length+' trades</div>'
       +   '<div class="pf-grp-pnl" style="color:'+(mPnl>=0?'var(--up)':'var(--down)')+'">'+fmtCpt(mPnl)+'</div>'
       + '</div>'
       + datesHtml
@@ -1214,7 +1214,7 @@ function renderWyTable(rows){
     {col:'ticker',label:'Ticker',cls:'left'}, {col:'entry_date',label:'Entry',cls:'left'},
     {col:'entry_price',label:'Price'}, {col:'exit_date',label:'Exit',cls:'left'},
     {col:'exit_price',label:'Price'}, {col:'gain',label:'Gain%'},
-    {col:'txn_value',label:'Nilai'}, {col:'pnl_rp',label:'P&L Rp'},
+    {col:'txn_value',label:'Value'}, {col:'pnl_rp',label:'P&L Rp'},
     {col:'hold_days',label:'Hold'}, {col:'status',label:'Status',cls:'center'},
   ];
   var head = cols.map(function(c){
@@ -1236,7 +1236,7 @@ function renderWyTable(rows){
       + '<td class="pf-td" style="text-align:center">'+wyStatusBadge(t.status)+'</td>'
       + '</tr>';
   }).join('');
-  if (!body) body = '<tr><td colspan="10" style="padding:24px;text-align:center;color:var(--muted);font-size:12px">Tidak ada trade.</td></tr>';
+  if (!body) body = '<tr><td colspan="10" style="padding:24px;text-align:center;color:var(--muted);font-size:12px">No trades.</td></tr>';
 
   var wrap = document.getElementById('pfTableWrap');
   wrap.innerHTML =
@@ -1264,10 +1264,10 @@ function renderBsTable(rows){
   var paged = r.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
 
   var cols = [
-    {col:'ticker',label:'Ticker',cls:'left'}, {col:'date',label:'Tgl',cls:'left'},
+    {col:'ticker',label:'Ticker',cls:'left'}, {col:'date',label:'Date',cls:'left'},
     {col:'setup',label:'Setup',cls:'left'}, {col:'entry_price',label:'Entry'},
     {col:'exit_price',label:'Exit'}, {col:'gain',label:'PnL%'},
-    {col:'txn_value',label:'Nilai'}, {col:'pnl_rp',label:'P&L Rp'},
+    {col:'txn_value',label:'Value'}, {col:'pnl_rp',label:'P&L Rp'},
     {col:'lots',label:'Lot'},
   ];
   var head = cols.map(function(c){
@@ -1289,7 +1289,7 @@ function renderBsTable(rows){
       + '<td class="pf-td" style="text-align:right;font-size:12px;color:var(--text-dim)">'+t.lots+'</td>'
       + '</tr>';
   }).join('');
-  if (!body) body = '<tr><td colspan="9" style="padding:24px;text-align:center;color:var(--muted);font-size:12px">Tidak ada trade.</td></tr>';
+  if (!body) body = '<tr><td colspan="9" style="padding:24px;text-align:center;color:var(--muted);font-size:12px">No trades.</td></tr>';
 
   var wrap = document.getElementById('pfTableWrap');
   wrap.innerHTML =
@@ -1329,7 +1329,7 @@ var pollTimer = null;
 function runSim(){
   if (S.loading) return;
   S.loading = true;
-  if (!S.data) setStatus('<span class="pf-spinner"></span> &nbsp;Menghitung simulasi portfolio…');
+  if (!S.data) setStatus('<span class="pf-spinner"></span> &nbsp;Calculating portfolio simulation…');
   var from = window.isoToDD_MM_YYYY(S.dateFrom), to = window.isoToDD_MM_YYYY(S.dateTo);
   // Only the date range is ever sent — capital/alloc are fixed server-side (config.py)
   // and never travel over the wire. "What-if my own budget" is applied client-side
@@ -1351,7 +1351,7 @@ function runSim(){
         poll(function(){ S.loading = false; runSim(); });
       }
     })
-    .catch(function(){ S.loading=false; if(S.data) renderAll(); setStatus('<span style="color:var(--down)">⚠ Gagal menjalankan simulasi.</span>'); });
+    .catch(function(){ S.loading=false; if(S.data) renderAll(); setStatus('<span style="color:var(--down)">⚠ Failed to run simulation.</span>'); });
 }
 
 function poll(onDone){
@@ -1359,7 +1359,7 @@ function poll(onDone){
   pollTimer = setInterval(function(){
     fetch('/api/portfolio?status=1').then(function(r){ return r.json(); }).then(function(d){
       if (d.status !== 'running'){ clearInterval(pollTimer); (onDone || fetchResult)(); }
-    }).catch(function(){ clearInterval(pollTimer); S.loading=false; setStatus('<span style="color:var(--down)">⚠ Gagal.</span>'); });
+    }).catch(function(){ clearInterval(pollTimer); S.loading=false; setStatus('<span style="color:var(--down)">⚠ Failed.</span>'); });
   }, 1300);
 }
 
@@ -1368,8 +1368,8 @@ function fetchResult(){
     S.loading = false;
     if (d && d.equity){ S.data = d; cacheFirstSigs(); syncPickerToRange(d); renderAll(); }
     else if (d && d.status === 'running'){ poll(); }
-    else setStatus('<span style="color:var(--down)">⚠ Tidak ada data.</span>');
-  }).catch(function(){ S.loading=false; setStatus('<span style="color:var(--down)">⚠ Gagal memuat hasil.</span>'); });
+    else setStatus('<span style="color:var(--down)">⚠ No data.</span>');
+  }).catch(function(){ S.loading=false; setStatus('<span style="color:var(--down)">⚠ Failed to load results.</span>'); });
 }
 
 var pickerSynced = false;
@@ -1402,8 +1402,8 @@ fetch('/api/portfolio').then(function(r){ return r.json(); }).then(function(d){
     runSim(); // filter to first-signal start; renderAll in callback — no full-range flicker
   }
   else if (d && d.status === 'running'){ S.loading=true; poll(); }
-  else setStatus('<span style="color:var(--down)">⚠ Tidak ada data eod_summary.</span>');
-}).catch(function(){ setStatus('<span style="color:var(--down)">⚠ Gagal memuat.</span>'); });
+  else setStatus('<span style="color:var(--down)">⚠ No eod_summary data.</span>');
+}).catch(function(){ setStatus('<span style="color:var(--down)">⚠ Failed to load.</span>'); });
 
 })();
 </script>

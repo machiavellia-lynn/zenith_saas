@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="light">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8"/>
 <script>(function(){var t=localStorage.getItem('zenith-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
@@ -206,7 +206,7 @@ body.sidebar-layout { overflow: hidden; }
     <div style="display:flex;align-items:center;gap:12px">
       <div class="chart-ticker-input-wrap" id="tickerWrap" style="position:relative">
         <span style="color:var(--muted);font-size:13px">⌕</span>
-        <input type="text" class="chart-ticker-input" id="tickerInput" value="BBRI" placeholder="Cari ticker atau nama emiten..." maxlength="40" autocomplete="off"/>
+        <input type="text" class="chart-ticker-input" id="tickerInput" value="BBRI" placeholder="Search ticker or company name..." maxlength="40" autocomplete="off"/>
         <div id="tickerSuggest" style="display:none;position:absolute;top:calc(100% + 6px);left:0;min-width:260px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.1);z-index:40;overflow:hidden"></div>
       </div>
       <div style="width:1px;height:28px;background:var(--border)"></div>
@@ -218,7 +218,7 @@ body.sidebar-layout { overflow: hidden; }
         </div>
       </div>
       <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
-        <span style="font-size:11px;color:var(--muted)">Tanggal TX:</span>
+        <span style="font-size:11px;color:var(--muted)">TX Date:</span>
         <div id="chartDatePicker"></div>
       </div>
     </div>
@@ -292,18 +292,18 @@ body.sidebar-layout { overflow: hidden; }
       <div class="metric-group">
         <div class="metric-group-label">Flow</div>
         <div class="metric-group-cells">
-          <div class="metric-cell"><div class="metric-lbl" title="Volume-weighted average price dari transaksi Smart Money">Avg SM</div><div class="metric-val" id="mpAvgSM" style="color:var(--up)">—</div></div>
-          <div class="metric-cell"><div class="metric-lbl" title="Volume-weighted average price dari transaksi Bad Money">Avg BM</div><div class="metric-val" id="mpAvgBM" style="color:var(--down)">—</div></div>
+          <div class="metric-cell"><div class="metric-lbl" title="Volume-weighted average price from Smart Money transactions">Avg SM</div><div class="metric-val" id="mpAvgSM" style="color:var(--up)">—</div></div>
+          <div class="metric-cell"><div class="metric-lbl" title="Volume-weighted average price from Bad Money transactions">Avg BM</div><div class="metric-val" id="mpAvgBM" style="color:var(--down)">—</div></div>
         </div>
       </div>
       <div class="metric-group" style="flex:1.3">
         <div class="metric-group-label">Metric</div>
         <div class="metric-group-cells">
-          <div class="metric-cell"><div class="metric-lbl" title="Average True Range — volatilitas harian sebagai % harga">ATR%</div><div class="metric-val" id="mpATR">—</div></div>
-          <div class="metric-cell"><div class="metric-lbl" title="Smart Rotation Index — kekuatan rotasi smart money, makin tinggi makin dominan">SRI</div><div class="metric-val" id="mpSRI">—</div></div>
-          <div class="metric-cell"><div class="metric-lbl" title="Money Efficiency Score — efisiensi clean money relatif terhadap total transaksi">MES</div><div class="metric-val" id="mpMES">—</div></div>
-          <div class="metric-cell"><div class="metric-lbl" title="Risk/Reward Potential Ratio — estimasi potensi imbal hasil vs risiko">RPR</div><div class="metric-val" id="mpRPR">—</div></div>
-          <div class="metric-cell"><div class="metric-lbl" title="Volume Excess Gap — selisih dominasi transaksi SM vs BM">Vx Gap</div><div class="metric-val" id="mpVXG">—</div></div>
+          <div class="metric-cell"><div class="metric-lbl" title="Average True Range — daily volatility as % of price">ATR%</div><div class="metric-val" id="mpATR">—</div></div>
+          <div class="metric-cell"><div class="metric-lbl" title="Smart Rotation Index — strength of smart money rotation, higher means more dominant">SRI</div><div class="metric-val" id="mpSRI">—</div></div>
+          <div class="metric-cell"><div class="metric-lbl" title="Money Efficiency Score — efficiency of clean money relative to total transactions">MES</div><div class="metric-val" id="mpMES">—</div></div>
+          <div class="metric-cell"><div class="metric-lbl" title="Risk/Reward Potential Ratio — estimated potential return vs risk">RPR</div><div class="metric-val" id="mpRPR">—</div></div>
+          <div class="metric-cell"><div class="metric-lbl" title="Volume Excess Gap — difference in SM vs BM transaction dominance">Vx Gap</div><div class="metric-val" id="mpVXG">—</div></div>
         </div>
       </div>
       <div class="metric-group">
@@ -322,7 +322,7 @@ body.sidebar-layout { overflow: hidden; }
         </div>
         <div class="trx-scroll">
           <table class="trx-table">
-            <thead><tr><th class="trx-th" style="text-align:left">WAKTU</th><th class="trx-th">HARGA</th><th class="trx-th">GAIN</th><th class="trx-th">VAL</th><th class="trx-th">VOLX</th></tr></thead>
+            <thead><tr><th class="trx-th" style="text-align:left">TIME</th><th class="trx-th">PRICE</th><th class="trx-th">GAIN</th><th class="trx-th">VAL</th><th class="trx-th">VOLX</th></tr></thead>
             <tbody id="smBody"><tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);font-size:12px">—</td></tr></tbody>
           </table>
         </div>
@@ -335,7 +335,7 @@ body.sidebar-layout { overflow: hidden; }
         </div>
         <div class="trx-scroll">
           <table class="trx-table">
-            <thead><tr><th class="trx-th" style="text-align:left">WAKTU</th><th class="trx-th">HARGA</th><th class="trx-th">GAIN</th><th class="trx-th">VAL</th><th class="trx-th">VOLX</th></tr></thead>
+            <thead><tr><th class="trx-th" style="text-align:left">TIME</th><th class="trx-th">PRICE</th><th class="trx-th">GAIN</th><th class="trx-th">VAL</th><th class="trx-th">VOLX</th></tr></thead>
             <tbody id="bmBody"><tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);font-size:12px">—</td></tr></tbody>
           </table>
         </div>
@@ -991,7 +991,7 @@ async function doLoad() {
   if (!input) return;
   currentTicker = input;
   document.getElementById('ohlcTicker').textContent = '—';
-  showLoad('Mengambil data...');
+  showLoad('Fetching data...');
   cleanupChart();
   initChart();
   initSubPanes();
@@ -1001,7 +1001,7 @@ async function doLoad() {
     var data = await res.json();
     if (data.error) throw new Error(data.error);
     var candles = data.candles || [];
-    if (!candles.length) throw new Error('Data kosong');
+    if (!candles.length) throw new Error('No data');
     lastCandles = candles;
     prevCloseMap = {};
     for (var i=0; i<candles.length; i++) prevCloseMap[candles[i].time] = i>0 ? candles[i-1].close : candles[i].open;
@@ -1115,7 +1115,7 @@ async function loadTransactions() {
   var dt = isoToAPI(txDateTo || txDateFrom);
   var url = '/api/transactions?ticker='+encodeURIComponent(currentTicker)+'&date_from='+encodeURIComponent(df)+'&date_to='+encodeURIComponent(dt);
   function buildRows(rows, col) {
-    if (!rows.length) return '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);font-size:12px">Tidak ada data</td></tr>';
+    if (!rows.length) return '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);font-size:12px">No data</td></tr>';
     return rows.map(function(r){
       var g = r.gain_pct; var gc = g!=null?(g>=0?'var(--up)':'var(--down)'):'var(--text-dim)';
       return '<tr class="trx-row">'+
@@ -1135,7 +1135,7 @@ async function loadTransactions() {
     document.getElementById('smBody').innerHTML = buildRows(data.sm||[], '#3a6b58');
     document.getElementById('bmBody').innerHTML = buildRows(data.bm||[], '#c87d3a');
   } catch(e) {
-    var err = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--down);font-size:12px">Gagal memuat data</td></tr>';
+    var err = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--down);font-size:12px">Failed to load data</td></tr>';
     document.getElementById('smBody').innerHTML = err; document.getElementById('bmBody').innerHTML = err;
   }
 }

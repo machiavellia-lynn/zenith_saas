@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="light">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8"/>
 <script>(function(){var t=localStorage.getItem('zenith-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
@@ -48,19 +48,19 @@ body.sidebar-layout { overflow: hidden; }
   <div class="page-body">
     <!-- IHSG market warning (shown when IHSG down > 1.5%) -->
     <div class="market-warn" id="marketWarn" style="display:none">
-      ⚠️ <strong>Pasar Melemah</strong> — IHSG turun lebih dari 1.5% hari ini. Pertimbangkan untuk skip signal BSJP.
+      ⚠️ <strong>Market Weakening</strong> — IHSG is down more than 1.5% today. Consider skipping BSJP signals.
     </div>
 
     <div class="stat-cards-4">
       <div class="stat-card">
         <div class="stat-card-label">SM total</div>
         <div class="stat-card-value up" id="statSM">—</div>
-        <div class="stat-card-sub" id="statSMSub">— emiten</div>
+        <div class="stat-card-sub" id="statSMSub">— stocks</div>
       </div>
       <div class="stat-card">
         <div class="stat-card-label">BM total</div>
         <div class="stat-card-value down" id="statBM">—</div>
-        <div class="stat-card-sub" id="statBMSub">— emiten</div>
+        <div class="stat-card-sub" id="statBMSub">— stocks</div>
       </div>
       <div class="stat-card">
         <div class="stat-card-label">Clean Money</div>
@@ -77,7 +77,7 @@ body.sidebar-layout { overflow: hidden; }
     <div class="toolbar">
       <div class="toolbar-search">
         <span class="toolbar-search-icon">⌕</span>
-        <input type="text" id="tickerSearch" placeholder="Cari ticker..." autocomplete="off"/>
+        <input type="text" id="tickerSearch" placeholder="Search ticker..." autocomplete="off"/>
         <button id="searchClear" style="display:none;background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0">✕</button>
       </div>
       <div class="toolbar-divider"></div>
@@ -202,10 +202,10 @@ function filter() {
 function render() {
   var body = document.getElementById('tableBody');
   var rows = S.filtered;
-  document.getElementById('resultCount').textContent = rows.length + ' sinyal';
+  document.getElementById('resultCount').textContent = rows.length + ' signals';
   if (!rows.length) {
-    body.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Tidak ada sinyal untuk filter ini.</div>';
-    document.getElementById('rowCount').textContent = '0 dari ' + S.rows.length + ' sinyal';
+    body.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">No signals for this filter.</div>';
+    document.getElementById('rowCount').textContent = '0 of ' + S.rows.length + ' signals';
     return;
   }
   body.innerHTML = rows.map(function(r,i){
@@ -216,7 +216,7 @@ function render() {
     var score    = r.score != null ? (r.score * 100).toFixed(1) : '—';
     return '<div class="data-table-row bsjp-cols">' +
       '<div style="font-family:var(--font-mono);font-size:11.5px;font-weight:600;color:'+(i<3?'var(--accent)':'var(--muted)')+'">'+String(i+1).padStart(2,'0')+'</div>'+
-      '<div class="ticker-cell">'+'<div class="ticker-cell-info"><div class="ticker-cell-name">'+r.ticker+(r.is_ca_suspected?' <span title="Suspected corporate action — terdeteksi otomatis, menunggu review admin" style="display:inline-block;padding:1px 6px;border-radius:99px;background:rgba(200,99,58,.15);color:var(--accent);font-size:9px;font-weight:700;vertical-align:middle">CA?</span>':'')+'</div><div class="ticker-cell-sub">'+(r.name||'')+'</div></div></div>'+
+      '<div class="ticker-cell">'+'<div class="ticker-cell-info"><div class="ticker-cell-name">'+r.ticker+(r.is_ca_suspected?' <span title="Suspected corporate action — auto-detected, pending admin review" style="display:inline-block;padding:1px 6px;border-radius:99px;background:rgba(200,99,58,.15);color:var(--accent);font-size:9px;font-weight:700;vertical-align:middle">CA?</span>':'')+'</div><div class="ticker-cell-sub">'+(r.name||'')+'</div></div></div>'+
       '<div style="display:flex;justify-content:center">'+window.setupBadgeHTML(r.setup)+'</div>'+
       '<div style="text-align:right"><div style="font-family:var(--font-mono);font-size:12.5px;font-weight:500">'+(entry?window.fmtPrice(entry):'—')+'</div></div>'+
       '<div style="text-align:right"><div style="font-family:var(--font-mono);font-size:12.5px;color:var(--up);font-weight:500">'+(r.tp1?window.fmtPrice(r.tp1):'—')+'</div>'+(tp1Delta?'<div style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">+'+tp1Delta+'%</div>':'')+'</div>'+
@@ -229,7 +229,7 @@ function render() {
       '</div>'+
     '</div>';
   }).join('');
-  document.getElementById('rowCount').textContent = rows.length + ' dari ' + S.rows.length + ' sinyal';
+  document.getElementById('rowCount').textContent = rows.length + ' of ' + S.rows.length + ' signals';
 }
 
 function load() {
@@ -255,16 +255,16 @@ function load() {
     /* Stat cards from flow totals */
     var t = fd.totals || {};
     document.getElementById('statSM').textContent = '+' + window.fmtMoney(t.sm || 0);
-    document.getElementById('statSMSub').textContent = (fd.tickers||[]).filter(function(r){return(r.sm_val||0)>0;}).length + ' emiten';
+    document.getElementById('statSMSub').textContent = (fd.tickers||[]).filter(function(r){return(r.sm_val||0)>0;}).length + ' stocks';
     document.getElementById('statBM').textContent = window.fmtMoney(t.bm || 0);
-    document.getElementById('statBMSub').textContent = (fd.tickers||[]).filter(function(r){return(r.bm_val||0)>0;}).length + ' emiten';
+    document.getElementById('statBMSub').textContent = (fd.tickers||[]).filter(function(r){return(r.bm_val||0)>0;}).length + ' stocks';
     var cmT = t.net_cm || 0;
     var cmEl = document.getElementById('statCM');
     cmEl.textContent = (cmT>=0?'+':'') + window.fmtMoney(cmT);
     cmEl.className = 'stat-card-value ' + (cmT>=0?'up':'down');
     filter();
   }).catch(function() {
-    document.getElementById('tableBody').innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Gagal memuat data.</div>';
+    document.getElementById('tableBody').innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Failed to load data.</div>';
   });
 }
 

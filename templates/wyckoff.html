@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="light">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8"/>
 <script>(function(){var t=localStorage.getItem('zenith-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
@@ -54,12 +54,12 @@ body.sidebar-layout { overflow: hidden; }
       <div class="stat-card">
         <div class="stat-card-label">SM total</div>
         <div class="stat-card-value up" id="statSM">—</div>
-        <div class="stat-card-sub" id="statSMCount">— emiten</div>
+        <div class="stat-card-sub" id="statSMCount">— stocks</div>
       </div>
       <div class="stat-card">
         <div class="stat-card-label">BM total</div>
         <div class="stat-card-value down" id="statBM">—</div>
-        <div class="stat-card-sub" id="statBMCount">— emiten</div>
+        <div class="stat-card-sub" id="statBMCount">— stocks</div>
       </div>
       <div class="stat-card">
         <div class="stat-card-label">Clean Money</div>
@@ -78,7 +78,7 @@ body.sidebar-layout { overflow: hidden; }
       <!-- Search -->
       <div class="toolbar-search">
         <span class="toolbar-search-icon">⌕</span>
-        <input type="text" id="tickerSearch" placeholder="Cari ticker..." autocomplete="off" spellcheck="false"/>
+        <input type="text" id="tickerSearch" placeholder="Search ticker..." autocomplete="off" spellcheck="false"/>
         <button id="searchClear" style="display:none;background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0">✕</button>
       </div>
 
@@ -321,8 +321,8 @@ function renderTable() {
   var body = document.getElementById('tableBody');
   var rows = state.filtered;
   if (!rows.length) {
-    body.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Tidak ada data untuk filter ini.</div>';
-    document.getElementById('rowCount').textContent = '0 dari ' + state.rows.length + ' emiten';
+    body.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">No data for this filter.</div>';
+    document.getElementById('rowCount').textContent = '0 of ' + state.rows.length + ' stocks';
     return;
   }
 
@@ -356,7 +356,7 @@ function renderTable() {
   }).join('');
 
   body.innerHTML = html;
-  document.getElementById('rowCount').textContent = rows.length + ' dari ' + state.rows.length + ' emiten';
+  document.getElementById('rowCount').textContent = rows.length + ' of ' + state.rows.length + ' stocks';
 }
 
 /* ── Load data ── */
@@ -383,9 +383,9 @@ function fetchData(silent) {
       var bmCount  = state.rows.filter(function(r){ return (r.bm_val||0) > 0; }).length;
 
       document.getElementById('statSM').textContent       = '+' + window.fmtMoney(smTotal);
-      document.getElementById('statSMCount').textContent  = smCount + ' emiten';
+      document.getElementById('statSMCount').textContent  = smCount + ' stocks';
       document.getElementById('statBM').textContent       = window.fmtMoney(bmTotal);
-      document.getElementById('statBMCount').textContent  = bmCount + ' emiten';
+      document.getElementById('statBMCount').textContent  = bmCount + ' stocks';
       var cmEl = document.getElementById('statCM');
       cmEl.textContent = (cmTotal >= 0 ? '+' : '') + window.fmtMoney(cmTotal);
       cmEl.className   = 'stat-card-value ' + (cmTotal >= 0 ? 'up' : 'down');
@@ -396,7 +396,7 @@ function fetchData(silent) {
       applyFilter();
     })
     .catch(function(err) {
-      if (!silent) body.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Gagal memuat data.</div>';
+      if (!silent) body.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--muted);font-size:13px">Failed to load data.</div>';
     });
 }
 function loadData() { fetchData(false); }
@@ -419,7 +419,7 @@ function openDetail(r) {
     ['Bad Money', r.bm_val != null ? window.fmtMoney(r.bm_val) : '—', r.tx_bm ? r.tx_bm+' TX' : '', 'down'],
     ['Clean Money', r.clean_money != null ? window.fmtMoneySign(r.clean_money) : '—', 'SM − BM', r.clean_money >= 0 ? 'up' : 'down'],
     ['RSM', r.rsm != null ? r.rsm.toFixed(1)+'%' : '—', '', r.rsm >= 60 ? 'up' : 'dim'],
-    ['TX Total', r.tx || '—', 'frekuensi', ''],
+    ['TX Total', r.tx || '—', 'frequency', ''],
   ];
 
   body.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +

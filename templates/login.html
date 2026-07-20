@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="light">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -358,7 +358,7 @@ body {
     <div class="pw-wrap">
       <input type="password" class="form-input" id="passwordInput"
         placeholder="Password..." autocomplete="current-password"/>
-      <button type="button" class="pw-toggle" id="pwToggle" onclick="togglePw()" aria-label="Tampilkan password">
+      <button type="button" class="pw-toggle" id="pwToggle" onclick="togglePw()" aria-label="Show password">
         <div class="pw-icon-wrap" id="pwIconWrap">
           <svg class="pw-icon-open" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
             <path d="M1 8C1 8 3.5 3 8 3S15 8 15 8S12.5 13 8 13S1 8 1 8Z"/>
@@ -398,7 +398,7 @@ function togglePw() {
   var show = inp.type === 'password';
   inp.type = show ? 'text' : 'password';
   wrap.classList.toggle('pw-showing', show);
-  document.getElementById('pwToggle').setAttribute('aria-label', show ? 'Sembunyikan password' : 'Tampilkan password');
+  document.getElementById('pwToggle').setAttribute('aria-label', show ? 'Hide password' : 'Show password');
 }
 
 async function doAuth() {

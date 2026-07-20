@@ -318,8 +318,8 @@ window.StockbitDatePicker = class StockbitDatePicker {
     }
 
     const hintText = this._step === 'from'
-      ? '↓ Klik tanggal mulai'
-      : '↓ Klik akhir · klik sama untuk single';
+      ? '↓ Click start date'
+      : '↓ Click end · click same for single';
 
     const footLabel = this.from
       ? (this.from !== this.to ? `${this._fmt(this.from)} → ${this._fmt(this.to)}` : this._fmt(this.from))

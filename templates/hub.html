@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="light">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8"/>
 <script>(function(){var t=localStorage.getItem('zenith-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
@@ -497,7 +497,7 @@ body { display: flex; flex-direction: column; }
           <div class="hub-stat">
             <div class="hub-stat-label">Smart-active</div>
             <div class="hub-stat-val" id="snapSMCount"><span class="skel-bar" style="width:36px;height:20px;"></span></div>
-            <div class="hub-stat-delta">emiten</div>
+            <div class="hub-stat-delta">stocks</div>
           </div>
           <div class="hub-stat">
             <div class="hub-stat-label">Net MF</div>
@@ -530,9 +530,9 @@ body { display: flex; flex-direction: column; }
           <div class="hub-module-num">01</div>
         </div>
         <div class="hub-module-name">Flow</div>
-        <div class="hub-module-sub">Daily SM/BM ledger per emiten</div>
+        <div class="hub-module-sub">Daily SM/BM ledger per stock</div>
         <div class="hub-module-stat" id="statFlow"></div>
-        <div class="hub-module-desc">Tabel aliran dana institusional — Smart Money, Bad Money, Clean Money, dan RSM per ticker. Sort dan filter by date.</div>
+        <div class="hub-module-desc">Institutional fund flow table — Smart Money, Bad Money, Clean Money, and RSM per ticker. Sort and filter by date.</div>
         <div class="hub-module-footer">
           <span class="hub-module-open">Open</span>
           <span style="color:var(--text-dim)">→</span>
@@ -548,7 +548,7 @@ body { display: flex; flex-direction: column; }
         <div class="hub-module-name">Wyckoff</div>
         <div class="hub-module-sub">Smart money phase scanner</div>
         <div class="hub-module-stat" id="statWyckoff"></div>
-        <div class="hub-module-desc">Klasifikasi fase per emiten (SOS / SPRING / ACCUM / DISTRI) dari dominasi SM terhadap BM, disaring tiga safety gate.</div>
+        <div class="hub-module-desc">Phase classification per stock (SOS / SPRING / ACCUM / DISTRI) based on SM dominance over BM, filtered through three safety gates.</div>
         <div class="hub-module-footer">
           <span class="hub-module-open">Open</span>
           <span style="color:var(--text-dim)">→</span>
@@ -564,7 +564,7 @@ body { display: flex; flex-direction: column; }
         <div class="hub-module-name">BSJP</div>
         <div class="hub-module-sub">Overnight MA5 breakout</div>
         <div class="hub-module-stat" id="statBSJP"></div>
-        <div class="hub-module-desc">Sinyal entry EOD dari setup SMA5 breakout dan pullback — murni data harga OHLCV, tanpa flow data Telegram.</div>
+        <div class="hub-module-desc">EOD entry signal from SMA5 breakout and pullback setup — pure OHLCV price data, no Telegram flow data.</div>
         <div class="hub-module-footer">
           <span class="hub-module-open">Open</span>
           <span style="color:var(--text-dim)">→</span>
@@ -580,7 +580,7 @@ body { display: flex; flex-direction: column; }
         <div class="hub-module-name">Sector</div>
         <div class="hub-module-sub">Rotation map</div>
         <div class="hub-module-stat" id="statSector"></div>
-        <div class="hub-module-desc">Peta rotasi sektor — industri mana yang sedang diakumulasi atau didistribusi smart money.</div>
+        <div class="hub-module-desc">Sector rotation map — which industries are currently being accumulated or distributed by smart money.</div>
         <div class="hub-module-footer">
           <span class="hub-module-open">Open</span>
           <span style="color:var(--text-dim)">→</span>
@@ -663,7 +663,7 @@ function updateMarketStatus() {
   var dot    = document.getElementById('marketDot');
   var status = document.getElementById('marketStatus');
   if (dot)    dot.style.background = open ? '' : 'var(--muted)';
-  if (status) status.textContent   = open ? 'Live snapshot' : 'Market tutup';
+  if (status) status.textContent   = open ? 'Live snapshot' : 'Market closed';
 }
 updateMarketStatus();
 setInterval(updateMarketStatus, 60000);
@@ -748,7 +748,7 @@ async function init() {
     if (!ld.date) { _clr(['snapCM','snapSMCount','snapNetMF']); return; }
     dt = ld.date.replace(/\//g, '-');
     var accumDateEl = document.getElementById('accumDateLabel');
-    if (accumDateEl) accumDateEl.textContent = 'Data per ' + dt;
+    if (accumDateEl) accumDateEl.textContent = 'Data as of ' + dt;
   } catch (_) { _clr(['snapCM','snapSMCount','snapNetMF']); return; }
 
   /* Parallel: flow + sector + bsjp signals */
@@ -779,7 +779,7 @@ async function init() {
     netMFEl.style.color = (netMF != null && netMF >= 0) ? 'var(--up)' : 'var(--down)';
 
     var flowStat = document.getElementById('statFlow');
-    if (flowStat) flowStat.textContent = active + ' emiten aktif';
+    if (flowStat) flowStat.textContent = active + ' active stocks';
   } else {
     _clr(['snapCM','snapSMCount','snapNetMF']);
   }
@@ -831,7 +831,7 @@ async function init() {
   /* BSJP module mini stat */
   if (bd && bd.count != null) {
     var bsjpStat = document.getElementById('statBSJP');
-    if (bsjpStat) bsjpStat.textContent = bd.count + ' sinyal hari ini';
+    if (bsjpStat) bsjpStat.textContent = bd.count + ' signals today';
   }
 }
 
@@ -850,7 +850,7 @@ window.__showZenithHelp = function () {
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;width:min(90vw,580px);max-height:82vh;display:flex;flex-direction:column;box-shadow:0 16px 64px rgba(0,0,0,.16);transform:scale(.97);transition:transform .2s;">
     <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
       <div>
-        <div style="font-size:16px;font-weight:600;color:var(--ink);">Panduan membaca data</div>
+        <div style="font-size:16px;font-weight:600;color:var(--ink);">Guide to reading the data</div>
         <div style="font-size:12px;color:var(--muted);margin-top:2px;">Smart Money Analysis — Zenith</div>
       </div>
       <button onclick="if(typeof ZenithModal!=='undefined')ZenithModal.close('infoBackdrop')" style="background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;padding:2px 8px;">✕</button>
@@ -858,27 +858,27 @@ window.__showZenithHelp = function () {
     <div style="overflow-y:auto;padding:20px 22px;display:flex;flex-direction:column;gap:14px;">
       <div style="padding:14px 16px;background:var(--surface2);border-radius:10px;border-left:3px solid var(--moss);">
         <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px;">SM VAL — Smart Money</div>
-        <div style="font-size:12.5px;color:var(--text-dim);line-height:1.55;">Total dana besar yang masuk ke saham dari pemain institusional. Semakin besar = potensi akumulasi.</div>
+        <div style="font-size:12.5px;color:var(--text-dim);line-height:1.55;">Total large funds flowing into a stock from institutional players. Larger = higher accumulation potential.</div>
       </div>
       <div style="padding:14px 16px;background:var(--surface2);border-radius:10px;border-left:3px solid var(--accent);">
         <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px;">BM VAL — Bad Money</div>
-        <div style="font-size:12.5px;color:var(--text-dim);line-height:1.55;">Total dana besar yang keluar dari saham. Dominan Bad Money = distribusi / penjualan besar.</div>
+        <div style="font-size:12.5px;color:var(--text-dim);line-height:1.55;">Total large funds flowing out of a stock. Bad Money dominance = distribution / large-scale selling.</div>
       </div>
       <div style="padding:14px 16px;background:var(--surface2);border-radius:10px;border-left:3px solid var(--moss);">
         <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px;">CM — Clean Money</div>
-        <div style="font-size:12.5px;color:var(--text-dim);line-height:1.55;">SM Val − BM Val. Positif besar = dana masuk dominan. Negatif = distribusi lebih dominan.</div>
+        <div style="font-size:12.5px;color:var(--text-dim);line-height:1.55;">SM Val − BM Val. Large positive = inflow dominates. Negative = distribution dominates.</div>
       </div>
       <div style="padding:14px 16px;background:var(--surface2);border-radius:10px;border-left:3px solid var(--muted);">
-        <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px;">RSM — Rasio Smart Money</div>
-        <div style="font-size:12.5px;color:var(--text-dim);line-height:1.55;">SM / (SM + BM) × 100%. Di atas 70% = sinyal kuat akumulasi.</div>
+        <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px;">RSM — Smart Money Ratio</div>
+        <div style="font-size:12.5px;color:var(--text-dim);line-height:1.55;">SM / (SM + BM) × 100%. Above 70% = strong accumulation signal.</div>
       </div>
       <div style="padding:14px 16px;background:var(--accent-soft);border-radius:10px;">
         <div style="font-size:12.5px;color:var(--accent);font-weight:600;margin-bottom:6px;">Clean Money Formula</div>
         <div style="font-family:var(--font-mono);font-size:12px;color:var(--ink);line-height:1.7;">
           CM = SM − BM<br>
-          Positif → akumulasi dominan<br>
-          Negatif → distribusi dominan<br>
-          RSM &gt; 70% → sinyal kuat SM
+          Positive → accumulation dominant<br>
+          Negative → distribution dominant<br>
+          RSM &gt; 70% → strong SM signal
         </div>
       </div>
     </div>

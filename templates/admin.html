@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="light">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8"/>
 <script>(function(){var t=localStorage.getItem('zenith-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
@@ -142,7 +142,7 @@ body.sidebar-layout { overflow: hidden; }
                 <input type="file" id="sessionFile" accept=".session" style="display:none" onchange="onSessionFile(this)"/>
                 <button class="a-btn" onclick="document.getElementById('sessionFile').click()" style="font-family:var(--font-mono);font-size:12px">
                   <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M7 2v8M3 6l4-4 4 4"/><path d="M2 10v2h10v-2"/></svg>
-                  <span id="sessionFileName">Pilih .session</span>
+                  <span id="sessionFileName">Choose .session</span>
                 </button>
                 <button class="a-btn primary" id="uploadBtn" onclick="uploadSession()" disabled>Upload</button>
               </div>
@@ -159,7 +159,7 @@ body.sidebar-layout { overflow: hidden; }
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
             <div>
               <div class="a-section-title">Data Coverage</div>
-              <div class="a-section-sub">Kelengkapan data per tabel</div>
+              <div class="a-section-sub">Data completeness per table</div>
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
               <div id="hmNavWrap" style="display:none;align-items:center;gap:6px">
@@ -193,10 +193,10 @@ body.sidebar-layout { overflow: hidden; }
           <div id="covViewHeatmap" style="display:none">
             <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
               <span style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">Status</span>
-              <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-dim)"><span style="width:11px;height:11px;border-radius:3px;background:#4caf74;display:inline-block"></span>Lengkap</span>
-              <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-dim)"><span style="width:11px;height:11px;border-radius:3px;background:#c87d3a;display:inline-block"></span>Sebagian</span>
-              <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-dim)"><span style="width:11px;height:11px;border-radius:3px;background:#c03838;display:inline-block"></span>Kosong</span>
-              <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-dim)"><span style="width:11px;height:11px;border-radius:3px;background:var(--surface3);border:1px solid var(--border);display:inline-block"></span>Libur/Weekend</span>
+              <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-dim)"><span style="width:11px;height:11px;border-radius:3px;background:#4caf74;display:inline-block"></span>Complete</span>
+              <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-dim)"><span style="width:11px;height:11px;border-radius:3px;background:#c87d3a;display:inline-block"></span>Partial</span>
+              <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-dim)"><span style="width:11px;height:11px;border-radius:3px;background:#c03838;display:inline-block"></span>Empty</span>
+              <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-dim)"><span style="width:11px;height:11px;border-radius:3px;background:var(--surface3);border:1px solid var(--border);display:inline-block"></span>Holiday/Weekend</span>
             </div>
             <div id="hmGrid" style="overflow-x:auto"></div>
             <div id="hmGaps" style="margin-top:14px"></div>
@@ -211,7 +211,7 @@ body.sidebar-layout { overflow: hidden; }
           <div style="display:flex;align-items:center;gap:14px">
             <div>
               <div class="a-section-title">Algo Settings</div>
-              <div class="a-section-sub">Backfill data dan recompute analytics</div>
+              <div class="a-section-sub">Backfill data and recompute analytics</div>
             </div>
             <div class="seg-ctrl" id="algoToggle">
               <div class="seg-btn active" data-algo="wyckoff" onclick="switchAlgo('wyckoff')">Wyckoff</div>
@@ -263,8 +263,8 @@ body.sidebar-layout { overflow: hidden; }
 
             <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
               <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Syariah backfill</div>
-              <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Isi sinyal <code>universe=syariah</code> untuk tanggal yang sudah punya sinyal full tapi belum syariah. Insert-only — tidak pernah menghapus atau menulis ulang sinyal full yang sudah ada.</div>
-              <button class="a-btn" id="btnSyrBackfill" onclick="runSyariahBackfill()">Backfill Syariah (semua tanggal)</button>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Fills in <code>universe=syariah</code> signals for dates that already have full signals but not syariah. Insert-only — never deletes or overwrites existing full signals.</div>
+              <button class="a-btn" id="btnSyrBackfill" onclick="runSyariahBackfill()">Backfill Syariah (all dates)</button>
               <div id="syrBackfillStatus" style="margin-top:8px;font-family:var(--font-mono);font-size:11px;color:var(--muted);min-height:16px"></div>
             </div>
           </div>
@@ -276,7 +276,7 @@ body.sidebar-layout { overflow: hidden; }
       <div class="a-section">
         <div class="a-section-head">
           <div class="a-section-title">Corporate Actions</div>
-          <div class="a-section-sub">Stock split / right issue — ticker <b>confirmed</b> dikecualikan dari Portfolio, BSJP signal, dan trade history. <b>Suspected</b> = terdeteksi otomatis tiap sore, belum dikecualikan sampai kamu approve.</div>
+          <div class="a-section-sub">Stock split / right issue — ticker <b>confirmed</b> is excluded from Portfolio, BSJP signal, and trade history. <b>Suspected</b> = auto-detected every evening, not excluded until you approve.</div>
         </div>
         <div class="a-section-body">
           <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">
@@ -285,28 +285,28 @@ body.sidebar-layout { overflow: hidden; }
               <input class="a-input" id="caTicker" style="width:100px;text-transform:uppercase" maxlength="10" placeholder="RAJA">
             </div>
             <div>
-              <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px">Tipe</div>
+              <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px">Type</div>
               <select class="a-select" id="caType">
                 <option value="stock_split">Stock Split (SS)</option>
                 <option value="rights_issue">Right Issue (RI)</option>
               </select>
             </div>
             <div>
-              <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px">Tanggal Efektif</div>
+              <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px">Effective Date</div>
               <input class="a-input" id="caDate" type="date" style="width:150px">
             </div>
             <div style="flex:1;min-width:160px">
-              <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px">Detail (opsional)</div>
-              <input class="a-input" id="caDetail" placeholder="mis. Ratio 1:5">
+              <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px">Detail (optional)</div>
+              <input class="a-input" id="caDetail" placeholder="e.g. Ratio 1:5">
             </div>
-            <button class="a-btn primary" onclick="caAdd()">+ Tambah</button>
+            <button class="a-btn primary" onclick="caAdd()">+ Add</button>
           </div>
           <div id="caPendingWrap" style="margin-bottom:14px;display:none">
-            <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:6px">⚠ Perlu Review — terdeteksi otomatis</div>
+            <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:6px">⚠ Needs Review — auto-detected</div>
             <table class="cov-table">
               <thead><tr>
                 <th class="cov-th" style="text-align:left">Ticker</th>
-                <th class="cov-th">Tanggal</th>
+                <th class="cov-th">Date</th>
                 <th class="cov-th" style="text-align:left">Detail</th>
                 <th class="cov-th"></th>
               </tr></thead>
@@ -316,8 +316,8 @@ body.sidebar-layout { overflow: hidden; }
           <table class="cov-table">
             <thead><tr>
               <th class="cov-th" style="text-align:left">Ticker</th>
-              <th class="cov-th" style="text-align:left">Tipe</th>
-              <th class="cov-th">Tanggal</th>
+              <th class="cov-th" style="text-align:left">Type</th>
+              <th class="cov-th">Date</th>
               <th class="cov-th" style="text-align:left">Detail</th>
               <th class="cov-th"></th>
             </tr></thead>
@@ -338,7 +338,7 @@ body.sidebar-layout { overflow: hidden; }
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
         <!-- Add user -->
         <div class="a-section" style="height:100%">
-          <div class="a-section-head"><div class="a-section-title">Tambah User</div></div>
+          <div class="a-section-head"><div class="a-section-title">Add User</div></div>
           <div class="a-section-body">
             <div style="display:flex;flex-direction:column;gap:8px;max-width:320px">
               <input type="text" class="a-input" id="newUsername" placeholder="username" autocomplete="off"/>
@@ -348,7 +348,7 @@ body.sidebar-layout { overflow: hidden; }
                   <option value="guest">guest</option>
                   <option value="admin">admin</option>
                 </select>
-                <select class="a-select" id="newMode" style="flex:1" title="Universe saham yang terlihat oleh user ini">
+                <select class="a-select" id="newMode" style="flex:1" title="Stock universe visible to this user">
                   <option value="general">general</option>
                   <option value="syariah">syariah</option>
                 </select>
@@ -363,7 +363,7 @@ body.sidebar-layout { overflow: hidden; }
 
         <!-- User list -->
         <div class="a-section" style="height:100%">
-          <div class="a-section-head"><div class="a-section-title">Daftar User</div></div>
+          <div class="a-section-head"><div class="a-section-title">User List</div></div>
           <div class="a-section-body">
             <div id="userList" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto">
               <div style="color:var(--muted);font-size:13px">Loading...</div>
@@ -451,13 +451,13 @@ body.sidebar-layout { overflow: hidden; }
       <div style="font-size:16px;font-weight:600;color:var(--ink)">API Key Created</div>
       <button onclick="closeRevealKeyModal()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1">✕</button>
     </div>
-    <div style="font-size:12.5px;color:var(--text-dim);line-height:1.5;margin-bottom:16px">Salin key ini sekarang — tidak akan ditampilkan lagi setelah modal ini ditutup.</div>
+    <div style="font-size:12.5px;color:var(--text-dim);line-height:1.5;margin-bottom:16px">Copy this key now — it will not be shown again after this modal is closed.</div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
       <code id="revealKeyValue" style="flex:1;overflow-x:auto;white-space:nowrap;font-family:var(--font-mono);font-size:12.5px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--ink)"></code>
       <button class="a-btn small" id="revealKeyCopyBtn" onclick="copyRevealKey()">Copy</button>
     </div>
     <div style="display:flex;justify-content:flex-end">
-      <button class="a-btn primary" onclick="closeRevealKeyModal()">Selesai</button>
+      <button class="a-btn primary" onclick="closeRevealKeyModal()">Done</button>
     </div>
   </div>
 </div>
@@ -465,11 +465,11 @@ body.sidebar-layout { overflow: hidden; }
 <!-- Confirm modal -->
 <div id="confirmModal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;padding:24px">
   <div onclick="event.stopPropagation()" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;width:min(90vw,380px);padding:24px 24px 20px;box-shadow:0 16px 48px rgba(0,0,0,.15)">
-    <div style="font-size:16px;font-weight:600;color:var(--ink);margin-bottom:6px" id="confirmTitle">Konfirmasi</div>
+    <div style="font-size:16px;font-weight:600;color:var(--ink);margin-bottom:6px" id="confirmTitle">Confirm</div>
     <div style="font-size:13px;color:var(--text-dim);line-height:1.6;margin-bottom:20px" id="confirmDesc"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button class="a-btn" onclick="closeConfirm()">Batal</button>
-      <button class="a-btn danger" id="confirmOkBtn">Ya, lanjutkan</button>
+      <button class="a-btn" onclick="closeConfirm()">Cancel</button>
+      <button class="a-btn danger" id="confirmOkBtn">Yes, continue</button>
     </div>
   </div>
 </div>
@@ -548,7 +548,7 @@ var PROGRESS_CONFIGS = {
            + (s.failed_count ? ' · ' + s.failed_count + ' failed' : '');
     },
     doneText: function(s) {
-      return '✓ Selesai · ' + s.rows_inserted + ' rows · ' + s.failed_count + ' failed';
+      return '✓ Done · ' + s.rows_inserted + ' rows · ' + s.failed_count + ' failed';
     },
     toastLabel: 'Price History (15m)'
   },
@@ -557,7 +557,7 @@ var PROGRESS_CONFIGS = {
     runningText: function(s) {
       return s.done + ' / ' + s.total + (s.current_date ? ' · ' + s.current_date : '');
     },
-    doneText: function(s) { return '✓ Selesai · ' + s.done + ' dates'; },
+    doneText: function(s) { return '✓ Done · ' + s.done + ' dates'; },
     toastLabel: 'Recompute Analytics'
   },
   recompute_b: {
@@ -566,7 +566,7 @@ var PROGRESS_CONFIGS = {
       return s.done + ' / ' + s.total + (s.current_date ? ' · ' + s.current_date : '')
            + (s.signals ? ' · ' + s.signals + ' signals' : '');
     },
-    doneText: function(s) { return '✓ Selesai · ' + s.done + ' dates · ' + (s.signals || 0) + ' signals'; },
+    doneText: function(s) { return '✓ Done · ' + s.done + ' dates · ' + (s.signals || 0) + ' signals'; },
     toastLabel: 'BSJP Signals'
   },
   fetch_daily: {
@@ -575,7 +575,7 @@ var PROGRESS_CONFIGS = {
       return s.done + ' / ' + s.total + (s.current ? ' · ' + s.current : '')
            + (s.step ? ' · ' + s.step : '');
     },
-    doneText: function(s) { return '✓ Selesai · ' + (s.prices_updated || 0) + ' prices · ' + (s.analytics_recomputed || 0) + ' analytics'; },
+    doneText: function(s) { return '✓ Done · ' + (s.prices_updated || 0) + ' prices · ' + (s.analytics_recomputed || 0) + ' analytics'; },
     toastLabel: 'Fetch OHLCV Daily'
   },
   eod_summary: {
@@ -583,19 +583,19 @@ var PROGRESS_CONFIGS = {
     runningText: function(s) {
       return s.done + ' / ' + s.total + (s.current_date ? ' · ' + s.current_date : '');
     },
-    doneText: function(s) { return '✓ Selesai · ' + s.done + ' dates'; },
+    doneText: function(s) { return '✓ Done · ' + s.done + ' dates'; },
     toastLabel: 'EOD Summary'
   },
   recompute_pf_w: {
     statusUrl: '/admin/portfolio-recompute-status',
-    runningText: function(s) { return 'Menghitung ulang simulasi Wyckoff + BSJP...'; },
-    doneText: function(s) { return '✓ Portfolio ter-update'; },
+    runningText: function(s) { return 'Recomputing Wyckoff + BSJP simulation...'; },
+    doneText: function(s) { return '✓ Portfolio updated'; },
     toastLabel: 'Recompute Portfolio'
   },
   recompute_pf_b: {
     statusUrl: '/admin/portfolio-recompute-status',
-    runningText: function(s) { return 'Menghitung ulang simulasi Wyckoff + BSJP...'; },
-    doneText: function(s) { return '✓ Portfolio ter-update'; },
+    runningText: function(s) { return 'Recomputing Wyckoff + BSJP simulation...'; },
+    doneText: function(s) { return '✓ Portfolio updated'; },
     toastLabel: 'Recompute Portfolio'
   }
 };
@@ -657,7 +657,7 @@ window.runAction = function(action) {
             clearInterval(pollIv);
             fill.style.width = '100%';
             if (statEl) statEl.textContent = cfg.doneText(s);
-            toast(cfg.toastLabel + ' selesai ✓', 'success');
+            toast(cfg.toastLabel + ' done ✓', 'success');
             setTimeout(function() {
               document.getElementById(progId).style.display = 'none';
               if (statEl) statEl.textContent = '';
@@ -683,10 +683,10 @@ window.runAction = function(action) {
       if (cfg) {
         startPolling();
       } else {
-        finishAction(d.ok===false?'error':'success', d.message || (d.ok ? 'Selesai ✓' : 'Error: '+(d.error||'?')));
+        finishAction(d.ok===false?'error':'success', d.message || (d.ok ? 'Done ✓' : 'Error: '+(d.error||'?')));
       }
     }).catch(function(e) {
-      finishAction('error', 'Gagal: '+e.message);
+      finishAction('error', 'Failed: '+e.message);
     });
 };
 
@@ -700,7 +700,7 @@ window.runSyariahBackfill = function() {
   if (btn.disabled) return;
   btn.disabled = true;
   statEl.style.color = 'var(--muted)';
-  statEl.textContent = 'Memulai...';
+  statEl.textContent = 'Starting...';
 
   fetch('/admin/bsjp-syariah-backfill').then(function(r){ return r.json(); }).then(function(d) {
     if (!d.ok) {
@@ -713,13 +713,13 @@ window.runSyariahBackfill = function() {
       fetch('/admin/bsjp-syariah-backfill-status').then(function(r){ return r.json(); }).then(function(s) {
         if (s.status === 'running') {
           statEl.style.color = 'var(--muted)';
-          statEl.textContent = 'Memproses ' + (s.done||0) + ' / ' + (s.total||0) + ' tanggal...';
+          statEl.textContent = 'Processing ' + (s.done||0) + ' / ' + (s.total||0) + ' dates...';
         } else if (s.status === 'done') {
           clearInterval(_syrBackfillPoll);
           btn.disabled = false;
           statEl.style.color = 'var(--up)';
-          statEl.textContent = '✓ Selesai — ' + (s.done||0) + ' tanggal diproses.';
-          toast('Syariah backfill selesai ✓', 'success');
+          statEl.textContent = '✓ Done — ' + (s.done||0) + ' dates processed.';
+          toast('Syariah backfill done ✓', 'success');
         } else if (s.status === 'error') {
           clearInterval(_syrBackfillPoll);
           btn.disabled = false;
@@ -731,7 +731,7 @@ window.runSyariahBackfill = function() {
   }).catch(function(e) {
     btn.disabled = false;
     statEl.style.color = 'var(--down)';
-    statEl.textContent = 'Gagal: ' + e.message;
+    statEl.textContent = 'Failed: ' + e.message;
   });
 };
 
@@ -776,7 +776,7 @@ window.runEnrich = function(algo) {
         toast('Error: ' + (d.error || '?'), 'error');
         return;
       }
-      statEl.textContent = 'Dimulai...';
+      statEl.textContent = 'Started...';
       _enrichPolls[algo] = setInterval(function() {
         fetch(statusUrl)
           .then(function(r){ return r.json(); })
@@ -789,15 +789,15 @@ window.runEnrich = function(algo) {
               btn.disabled = false;
               btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M13.9 2.1a1 1 0 0 0-1-.3L1.6 5.6a1 1 0 0 0 .1 1.9l3.8 1 1 3.8a1 1 0 0 0 1.9.1l3.8-11.3a1 1 0 0 0-.3-1z"/></svg> Enrich Telegram';
               var extra = ' · scanned=' + (s.scanned||0) + ' saved=' + (s.saved||0);
-              statEl.textContent = '✓ Selesai' + extra;
-              toast('Enrich Telegram selesai ✓' + extra, 'success');
+              statEl.textContent = '✓ Done' + extra;
+              toast('Enrich Telegram done ✓' + extra, 'success');
             } else if (s.status === 'error') {
               clearInterval(_enrichPolls[algo]);
               _enrichPolls[algo] = null;
               btn.disabled = false;
               btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M13.9 2.1a1 1 0 0 0-1-.3L1.6 5.6a1 1 0 0 0 .1 1.9l3.8 1 1 3.8a1 1 0 0 0 1.9.1l3.8-11.3a1 1 0 0 0-.3-1z"/></svg> Enrich Telegram';
               statEl.textContent = 'Error: ' + (s.error || '?');
-              toast('Enrich gagal: ' + (s.error || '?'), 'error');
+              toast('Enrich failed: ' + (s.error || '?'), 'error');
             }
           }).catch(function(){});
       }, 2000);
@@ -805,7 +805,7 @@ window.runEnrich = function(algo) {
     .catch(function(e) {
       btn.disabled = false;
       btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M13.9 2.1a1 1 0 0 0-1-.3L1.6 5.6a1 1 0 0 0 .1 1.9l3.8 1 1 3.8a1 1 0 0 0 1.9.1l3.8-11.3a1 1 0 0 0-.3-1z"/></svg> Enrich Telegram';
-      toast('Gagal: ' + e.message, 'error');
+      toast('Failed: ' + e.message, 'error');
     });
 };
 
@@ -858,7 +858,7 @@ function loadScraperStatus() {
         '</tr>';
       }).join('');
     }).catch(function() {
-      document.getElementById('scraperBadges').innerHTML = '<div class="status-badge idle"><div class="status-dot idle"></div><span class="status-text">Gagal memuat</span></div>';
+      document.getElementById('scraperBadges').innerHTML = '<div class="status-badge idle"><div class="status-dot idle"></div><span class="status-text">Failed to load</span></div>';
     });
 }
 
@@ -885,12 +885,12 @@ window.uploadSession = function() {
         document.getElementById('sessionOk').textContent = '✓ ' + file.name + ' uploaded';
         toast('Session file uploaded ✓', 'success');
       } else {
-        toast('Upload gagal: '+(d.error||'?'), 'error');
+        toast('Upload failed: '+(d.error||'?'), 'error');
       }
     }).catch(function(e) {
       document.getElementById('uploadBtn').disabled = false;
       document.getElementById('uploadBtn').textContent = 'Upload';
-      toast('Gagal: '+e.message, 'error');
+      toast('Failed: '+e.message, 'error');
     });
 };
 
@@ -900,7 +900,7 @@ function loadUsers() {
     .then(function(r){ return r.json(); })
     .then(function(users) {
       if (!users.length) {
-        document.getElementById('userList').innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Belum ada user.</div>';
+        document.getElementById('userList').innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">No users yet.</div>';
         return;
       }
       document.getElementById('userList').innerHTML = users.map(function(u) {
@@ -917,13 +917,13 @@ function loadUsers() {
             '<span style="padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600;background:'+(isSyr?'var(--up-soft, var(--surface))':'var(--surface)')+';border:1px solid var(--border);color:'+(isSyr?'var(--up)':'var(--text-dim)')+'">'+mode+'</span>'+
           '</div>'+
           '<div style="display:flex;align-items:center;gap:8px">'+
-            '<button class="a-btn small" onclick="toggleUserMode('+u.id+',\''+mode+'\')" title="Ganti universe saham user ini">→ '+(isSyr?'general':'syariah')+'</button>'+
-            '<button class="a-btn danger small" onclick="deleteUser('+u.id+',\''+u.username+'\')">Hapus</button>'+
+            '<button class="a-btn small" onclick="toggleUserMode('+u.id+',\''+mode+'\')" title="Change this user\'s stock universe">→ '+(isSyr?'general':'syariah')+'</button>'+
+            '<button class="a-btn danger small" onclick="deleteUser('+u.id+',\''+u.username+'\')">Delete</button>'+
           '</div>'+
         '</div>';
       }).join('');
     }).catch(function() {
-      document.getElementById('userList').innerHTML = '<div style="color:var(--down);font-size:13px">Gagal memuat daftar user.</div>';
+      document.getElementById('userList').innerHTML = '<div style="color:var(--down);font-size:13px">Failed to load user list.</div>';
     });
 }
 
@@ -944,7 +944,7 @@ window.addUser = function() {
   var role     = document.getElementById('newRole').value;
   var mode     = document.getElementById('newMode').value;
   var msgEl    = document.getElementById('addUserMsg');
-  if (!username || !password) { msgEl.style.color='var(--down)'; msgEl.textContent='Username dan password wajib diisi.'; return; }
+  if (!username || !password) { msgEl.style.color='var(--down)'; msgEl.textContent='Username and password are required.'; return; }
   var btn = document.getElementById('addUserBtn');
   btn.disabled = true;
   fetch('/admin/users/add', {
@@ -955,12 +955,12 @@ window.addUser = function() {
     .then(function(d) {
       btn.disabled = false;
       if (d.ok) {
-        msgEl.style.color = 'var(--up)'; msgEl.textContent = '✓ User "'+username+'" ditambahkan.';
+        msgEl.style.color = 'var(--up)'; msgEl.textContent = '✓ User "'+username+'" added.';
         document.getElementById('newUsername').value = '';
         document.getElementById('newPassword').value = '';
         loadUsers();
       } else {
-        msgEl.style.color = 'var(--down)'; msgEl.textContent = d.error || 'Gagal menambahkan user.';
+        msgEl.style.color = 'var(--down)'; msgEl.textContent = d.error || 'Failed to add user.';
       }
     }).catch(function() { btn.disabled=false; msgEl.style.color='var(--down)'; msgEl.textContent='Network error.'; });
 };
@@ -968,29 +968,29 @@ window.addUser = function() {
 /* Data requirements modal */
 var DATA_REQS = {
   wyckoff: {
-    title: 'Wyckoff — data yang dibutuhkan per ticker',
+    title: 'Wyckoff — data required per ticker',
     items: [
-      'eod_summary row ada untuk tanggal itu',
-      'sm_val > 0 (ada flow SM dari Telegram)',
-      'bm_val ≠ 0 (ada flow BM)',
-      'tx_sm > 0 dan tx_bm > 0',
-      'SM/BM history minimal 1 hari sebelumnya (untuk SRI & Gate A)',
-      'price_history minimal 1 row (untuk price_close)',
-      'price_history ≥ 5 rows (untuk MA5 + price_change_pct)',
-      'price_history ≥ 34 rows (untuk MA34 → MA structure)',
-      'price_history ≥ 200 rows (untuk MA200 → konteks makro)',
+      'eod_summary row exists for that date',
+      'sm_val > 0 (SM flow present from Telegram)',
+      'bm_val ≠ 0 (BM flow present)',
+      'tx_sm > 0 and tx_bm > 0',
+      'SM/BM history at least 1 day prior (for SRI & Gate A)',
+      'price_history at least 1 row (for price_close)',
+      'price_history ≥ 5 rows (for MA5 + price_change_pct)',
+      'price_history ≥ 34 rows (for MA34 → MA structure)',
+      'price_history ≥ 200 rows (for MA200 → macro context)',
     ]
   },
   bsjp: {
-    title: 'BSJP — data yang dibutuhkan per ticker',
+    title: 'BSJP — data required per ticker',
     items: [
       'ticker_universe.is_active = TRUE',
-      'price_history row ada untuk tanggal itu',
+      'price_history row exists for that date',
       'price_history ≥ 5 rows (MA5 + streak)',
       'price_history ≥ 20 rows (Bollinger Bands)',
       'price_history ≥ 50 rows (MA50)',
       'price_history ≥ 200 rows (MA200)',
-      'volume tidak null',
+      'volume not null',
     ]
   }
 };
@@ -1018,17 +1018,17 @@ function fmtKeyDate(iso) {
   if (!iso) return '—';
   var d = new Date(iso);
   if (isNaN(d)) return '—';
-  var MON = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  var MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return d.getDate() + ' ' + MON[d.getMonth()] + ' ' + d.getFullYear();
 }
 function loadApiKeys() {
   fetch('/admin/api-keys')
     .then(function(r){ return r.json(); })
     .then(function(keys) {
-      document.getElementById('apiKeyQuota').textContent = keys.length + ' API key' + (keys.length===1?'':'s') + ' aktif.';
+      document.getElementById('apiKeyQuota').textContent = keys.length + ' API key' + (keys.length===1?'':'s') + ' active.';
       var body = document.getElementById('apiKeyList');
       if (!keys.length) {
-        body.innerHTML = '<tr><td colspan="5" style="padding:20px 10px;text-align:center;color:var(--muted);font-size:13px">Belum ada API key.</td></tr>';
+        body.innerHTML = '<tr><td colspan="5" style="padding:20px 10px;text-align:center;color:var(--muted);font-size:13px">No API keys yet.</td></tr>';
         return;
       }
       body.innerHTML = keys.map(function(k) {
@@ -1036,14 +1036,14 @@ function loadApiKeys() {
           '<td style="padding:12px 10px;font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + k.name + '</td>' +
           '<td style="padding:12px 10px;overflow:hidden"><code style="display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;font-family:var(--font-mono);font-size:11.5px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:3px 8px;color:var(--text-dim)">' + k.key_prefix + '••••••••</code></td>' +
           '<td style="padding:12px 10px"><span style="display:inline-block;padding:2px 10px;border-radius:20px;background:var(--ink);color:var(--bg);font-size:11px;font-weight:600">' + k.environment + '</span></td>' +
-          '<td style="padding:12px 10px;font-size:12.5px;color:var(--text-dim);white-space:nowrap">' + (k.last_used_at ? fmtKeyDate(k.last_used_at) : 'Belum pernah') + '</td>' +
-          '<td style="padding:12px 10px;text-align:right"><button onclick="deleteApiKey(' + k.id + ',\'' + k.name.replace(/'/g,"\\'") + '\')" title="Hapus key" style="background:none;border:none;cursor:pointer;color:var(--danger);padding:4px">' +
+          '<td style="padding:12px 10px;font-size:12.5px;color:var(--text-dim);white-space:nowrap">' + (k.last_used_at ? fmtKeyDate(k.last_used_at) : 'Never') + '</td>' +
+          '<td style="padding:12px 10px;text-align:right"><button onclick="deleteApiKey(' + k.id + ',\'' + k.name.replace(/'/g,"\\'") + '\')" title="Delete key" style="background:none;border:none;cursor:pointer;color:var(--danger);padding:4px">' +
             '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 4h11M6 4V2.5h4V4M3.5 4l.7 9.5a1 1 0 0 0 1 .9h5.6a1 1 0 0 0 1-.9L12.5 4"/></svg>' +
           '</button></td>' +
         '</tr>';
       }).join('');
     }).catch(function() {
-      document.getElementById('apiKeyList').innerHTML = '<tr><td colspan="5" style="padding:20px 10px;text-align:center;color:var(--down);font-size:13px">Gagal memuat API keys.</td></tr>';
+      document.getElementById('apiKeyList').innerHTML = '<tr><td colspan="5" style="padding:20px 10px;text-align:center;color:var(--down);font-size:13px">Failed to load API keys.</td></tr>';
     });
 }
 window.createApiKey = function() {
@@ -1075,9 +1075,9 @@ window.confirmCreateApiKey = function() {
         document.getElementById('revealKeyValue').textContent = d.key;
         document.getElementById('revealKeyModal').classList.add('open');
       } else {
-        toast('Gagal buat key: ' + (d.error || '?'), 'error');
+        toast('Failed to create key: ' + (d.error || '?'), 'error');
       }
-    }).catch(function(e) { btn.disabled = false; toast('Gagal: ' + e.message, 'error'); });
+    }).catch(function(e) { btn.disabled = false; toast('Failed: ' + e.message, 'error'); });
 };
 window.closeRevealKeyModal = function() {
   document.getElementById('revealKeyModal').classList.remove('open');
@@ -1114,7 +1114,7 @@ function caLoad() {
       }).join('');
 
       if (!settled.length) {
-        body.innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Belum ada corporate action.</td></tr>';
+        body.innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);font-size:13px">No corporate actions yet.</td></tr>';
         return;
       }
       body.innerHTML = settled.map(function(r) {
@@ -1125,11 +1125,11 @@ function caLoad() {
           '<td class="cov-td" style="text-align:left">' + (CA_TYPE_LABEL[r.event_type] || r.event_type) + '</td>' +
           '<td class="cov-td">' + r.event_date + '</td>' +
           '<td class="cov-td" style="text-align:left">' + (r.detail || '—') + '</td>' +
-          '<td class="cov-td"><button class="a-btn small" onclick="caDelete(\'' + r.ticker + '\',\'' + r.event_type + '\',\'' + r.event_date + '\')">Hapus</button></td>' +
+          '<td class="cov-td"><button class="a-btn small" onclick="caDelete(\'' + r.ticker + '\',\'' + r.event_type + '\',\'' + r.event_date + '\')">Delete</button></td>' +
         '</tr>';
       }).join('');
     }).catch(function() {
-      document.getElementById('caTableBody').innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--danger);font-size:13px">Gagal memuat.</td></tr>';
+      document.getElementById('caTableBody').innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--danger);font-size:13px">Failed to load.</td></tr>';
     });
 }
 window.caAdd = function() {
@@ -1137,7 +1137,7 @@ window.caAdd = function() {
   var type   = document.getElementById('caType').value;
   var dateIn = document.getElementById('caDate').value;
   var detail = document.getElementById('caDetail').value.trim();
-  if (!ticker || !dateIn) { toast('Ticker dan tanggal wajib diisi', 'error'); return; }
+  if (!ticker || !dateIn) { toast('Ticker and date are required', 'error'); return; }
   var p = dateIn.split('-');
   var eventDate = p[2] + '-' + p[1] + '-' + p[0];
   fetch('/admin/corporate-events/add', {
@@ -1151,11 +1151,11 @@ window.caAdd = function() {
         document.getElementById('caDate').value = '';
         document.getElementById('caDetail').value = '';
         caLoad();
-        toast('Corporate action ditambahkan ✓', 'success');
+        toast('Corporate action added ✓', 'success');
       } else {
-        toast('Gagal: ' + (d.error || '?'), 'error');
+        toast('Failed: ' + (d.error || '?'), 'error');
       }
-    }).catch(function(e) { toast('Gagal: ' + e.message, 'error'); });
+    }).catch(function(e) { toast('Failed: ' + e.message, 'error'); });
 };
 window.caApprove = function(ticker, eventType, eventDate) {
   var sel = document.getElementById('caNewType_' + ticker);
@@ -1166,9 +1166,9 @@ window.caApprove = function(ticker, eventType, eventDate) {
                            new_type: sel ? sel.value : 'stock_split' })
   }).then(function(r){ return r.json(); })
     .then(function(d) {
-      if (d.ok) { caLoad(); toast(ticker + ' di-confirm — dikecualikan dari Portfolio & BSJP ✓', 'success'); }
-      else { toast('Gagal: ' + (d.error || '?'), 'error'); }
-    }).catch(function(e) { toast('Gagal: ' + e.message, 'error'); });
+      if (d.ok) { caLoad(); toast(ticker + ' confirmed — excluded from Portfolio & BSJP ✓', 'success'); }
+      else { toast('Failed: ' + (d.error || '?'), 'error'); }
+    }).catch(function(e) { toast('Failed: ' + e.message, 'error'); });
 };
 window.caReject = function(ticker, eventType, eventDate) {
   fetch('/admin/corporate-events/reject', {
@@ -1177,9 +1177,9 @@ window.caReject = function(ticker, eventType, eventDate) {
     body: JSON.stringify({ ticker: ticker, event_type: eventType, event_date: eventDate })
   }).then(function(r){ return r.json(); })
     .then(function(d) {
-      if (d.ok) { caLoad(); toast(ticker + ' ditolak — tidak akan di-flag lagi', 'success'); }
-      else { toast('Gagal: ' + (d.error || '?'), 'error'); }
-    }).catch(function(e) { toast('Gagal: ' + e.message, 'error'); });
+      if (d.ok) { caLoad(); toast(ticker + ' rejected — will not be flagged again', 'success'); }
+      else { toast('Failed: ' + (d.error || '?'), 'error'); }
+    }).catch(function(e) { toast('Failed: ' + e.message, 'error'); });
 };
 window.caDelete = function(ticker, eventType, eventDate) {
   fetch('/admin/corporate-events/delete', {
@@ -1187,8 +1187,8 @@ window.caDelete = function(ticker, eventType, eventDate) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ticker: ticker, event_type: eventType, event_date: eventDate })
   }).then(function(r){ return r.json(); })
-    .then(function(d) { if (d.ok) caLoad(); else toast('Gagal hapus: ' + (d.error||'?'), 'error'); })
-    .catch(function(e) { toast('Gagal: ' + e.message, 'error'); });
+    .then(function(d) { if (d.ok) caLoad(); else toast('Failed to delete: ' + (d.error||'?'), 'error'); })
+    .catch(function(e) { toast('Failed: ' + e.message, 'error'); });
 };
 document.getElementById('revealKeyModal').addEventListener('click', function(e) {
   if (e.target === this) closeRevealKeyModal();
@@ -1201,16 +1201,16 @@ window.copyRevealKey = function() {
     var orig = btn.textContent;
     btn.textContent = 'Copied ✓';
     setTimeout(function() { btn.textContent = orig; }, 1500);
-  }).catch(function() { toast('Gagal copy, salin manual', 'error'); });
+  }).catch(function() { toast('Failed to copy, copy manually', 'error'); });
 };
 window.deleteApiKey = function(id, name) {
-  document.getElementById('confirmTitle').textContent = 'Hapus API key "'+name+'"?';
-  document.getElementById('confirmDesc').textContent  = 'Aplikasi yang masih pakai key ini akan langsung kehilangan akses ke /api/v1/*.';
+  document.getElementById('confirmTitle').textContent = 'Delete API key "'+name+'"?';
+  document.getElementById('confirmDesc').textContent  = 'Any application still using this key will immediately lose access to /api/v1/*.';
   document.getElementById('confirmOkBtn').onclick = function() {
     closeConfirm();
     fetch('/admin/api-keys/delete/'+id, {method:'POST'})
-      .then(function(){ loadApiKeys(); toast('API key "'+name+'" dihapus ✓', 'success'); })
-      .catch(function(){ toast('Gagal menghapus API key', 'error'); });
+      .then(function(){ loadApiKeys(); toast('API key "'+name+'" deleted ✓', 'success'); })
+      .catch(function(){ toast('Failed to delete API key', 'error'); });
   };
   document.getElementById('confirmModal').style.display = 'flex';
 };
@@ -1219,13 +1219,13 @@ window.deleteApiKey = function(id, name) {
 var pendingConfirm = null;
 window.deleteUser = function(id, username) {
   pendingConfirm = { id: id, username: username };
-  document.getElementById('confirmTitle').textContent = 'Hapus user "'+username+'"?';
-  document.getElementById('confirmDesc').textContent  = 'User ini akan dihapus secara permanen dan tidak bisa dikembalikan.';
+  document.getElementById('confirmTitle').textContent = 'Delete user "'+username+'"?';
+  document.getElementById('confirmDesc').textContent  = 'This user will be permanently deleted and cannot be recovered.';
   document.getElementById('confirmOkBtn').onclick = function() {
     closeConfirm();
     fetch('/admin/users/delete/'+id, {method:'POST'})
-      .then(function(){ loadUsers(); toast('User "'+username+'" dihapus ✓', 'success'); })
-      .catch(function(){ toast('Gagal menghapus user', 'error'); });
+      .then(function(){ loadUsers(); toast('User "'+username+'" deleted ✓', 'success'); })
+      .catch(function(){ toast('Failed to delete user', 'error'); });
   };
   document.getElementById('confirmModal').style.display = 'flex';
 };
@@ -1254,9 +1254,9 @@ function hmToast(msg, type) {
   el.style.display = 'flex';
   setTimeout(function() { el.style.display = 'none'; }, 2800);
 }
-var HM_MONTHS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+var HM_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 var HM_GROUPS = [
-  {label:'MENTAH',   keys:['raw_messages','raw_mf_messages']},
+  {label:'RAW',      keys:['raw_messages','raw_mf_messages']},
   {label:'EOD',      keys:['eod_summary','price_history']},
   {label:'INTRADAY', keys:['price_history_15m']},
   {label:'SIGNALS',  keys:['bsjp_signals','wyckoff_signals']},
@@ -1298,14 +1298,14 @@ function hmCellBg(s) {
 }
 function hmCellBorder(s) { return s==='off'?'border:1px solid var(--border);':''; }
 function hmStatusTxt(s) {
-  return s==='full'?'Lengkap':s==='partial'?'Sebagian':s==='empty'?'Kosong':s==='off'?'Libur':'—';
+  return s==='full'?'Complete':s==='partial'?'Partial':s==='empty'?'Empty':s==='off'?'Holiday':'—';
 }
 
 function hmRenderSkeleton(y, m) {
   var days = hmDays(y, m);
   var h = '<table style="border-collapse:collapse;width:100%;opacity:.4;pointer-events:none"><colgroup><col style="width:140px"/>';
   for (var i=1;i<=days;i++) h+='<col style="width:16px"/>';
-  h+='</colgroup><thead><tr><th style="padding:0 0 5px;text-align:left;font-size:11px;font-weight:400;color:var(--muted)">Tabel</th>';
+  h+='</colgroup><thead><tr><th style="padding:0 0 5px;text-align:left;font-size:11px;font-weight:400;color:var(--muted)">Table</th>';
   for (var i=1;i<=days;i++) {
     var we=new Date(y,m-1,i).getDay(); we=we===0||we===6;
     h+='<th style="padding:0 0 4px;text-align:center;font-size:9px;font-weight:400;color:'+(we?'var(--border2)':'var(--muted)')+'">'+i+'</th>';
@@ -1332,7 +1332,7 @@ function hmRenderGrid(y, m) {
   var days = hmDays(y, m);
   var h = '<table style="border-collapse:collapse;width:100%;"><colgroup><col style="width:140px"/>';
   for (var i=1;i<=days;i++) h+='<col style="width:16px"/>';
-  h+='</colgroup><thead><tr><th style="padding:0 0 5px;text-align:left;font-size:11px;font-weight:400;color:var(--muted)">Tabel</th>';
+  h+='</colgroup><thead><tr><th style="padding:0 0 5px;text-align:left;font-size:11px;font-weight:400;color:var(--muted)">Table</th>';
   for (var i=1;i<=days;i++) {
     var we=new Date(y,m-1,i).getDay(); we=we===0||we===6;
     h+='<th style="padding:0 0 4px;text-align:center;font-size:9px;font-weight:400;color:'+(we?'var(--border2)':'var(--muted)')+'">'+i+'</th>';
@@ -1369,16 +1369,16 @@ function hmRenderGaps(y,m,days){
   });
   var el=document.getElementById('hmGaps');
   if(!gaps.length){
-    el.innerHTML='<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--up-soft);border-radius:var(--radius-lg);font-size:13px;color:var(--up)">✓ Semua data lengkap untuk bulan ini.</div>';
+    el.innerHTML='<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--up-soft);border-radius:var(--radius-lg);font-size:13px;color:var(--up)">✓ All data complete for this month.</div>';
     return;
   }
-  var h='<div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Data yang hilang</div><div style="display:flex;flex-direction:column;gap:6px">';
+  var h='<div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Missing data</div><div style="display:flex;flex-direction:column;gap:6px">';
   gaps.forEach(function(g){
     var url=HM_BACKFILL[g.key]||'';
-    var preview=g.dates.length>5?g.dates.slice(0,5).join(', ')+' +' +(g.dates.length-5)+' lainnya':g.dates.join(', ');
+    var preview=g.dates.length>5?g.dates.slice(0,5).join(', ')+' +' +(g.dates.length-5)+' more':g.dates.join(', ');
     h+='<div style="border-left:3px solid var(--danger);background:var(--down-soft);border-radius:var(--radius-lg);padding:10px 14px">';
     h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">';
-    h+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-weight:600;font-family:var(--font-mono);color:var(--ink)">'+g.key+'</span><span style="font-size:11.5px;color:var(--danger)">'+g.dates.length+' hari kosong</span></div>';
+    h+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-weight:600;font-family:var(--font-mono);color:var(--ink)">'+g.key+'</span><span style="font-size:11.5px;color:var(--danger)">'+g.dates.length+' empty days</span></div>';
     if(url) h+='<button class="a-btn small" onclick="hmBackfill(\''+url+'\',\''+g.dates[0]+'\',\''+g.dates[g.dates.length-1]+'\',this)">Backfill →</button>';
     h+='</div><div style="margin-top:4px;font-size:11px;font-family:var(--font-mono);color:var(--text-dim)">'+preview+'</div></div>';
   });
@@ -1404,7 +1404,7 @@ function hmLoad(y,m){
       hmRenderGrid(y,m);
     })
     .catch(function(){
-      document.getElementById('hmGrid').innerHTML='<div style="padding:12px 0;font-size:12px;color:var(--danger)">Gagal memuat. <button class="a-btn small" onclick="hmRetry()">Retry</button></div>';
+      document.getElementById('hmGrid').innerHTML='<div style="padding:12px 0;font-size:12px;color:var(--danger)">Failed to load. <button class="a-btn small" onclick="hmRetry()">Retry</button></div>';
     });
 }
 
@@ -1422,10 +1422,10 @@ window.hmBackfill=function(url,from,to,btn){
     .then(function(r){return r.json();})
     .then(function(d){
       btn.disabled=false; btn.textContent=orig;
-      hmToast(d.ok!==false?'Backfill dimulai ✓':'Error: '+(d.error||'?'), d.ok!==false?'success':'error');
+      hmToast(d.ok!==false?'Backfill started ✓':'Error: '+(d.error||'?'), d.ok!==false?'success':'error');
       if(d.ok!==false) setTimeout(function(){hmLoad(hmYear,hmMonth);},2500);
     })
-    .catch(function(e){btn.disabled=false;btn.textContent=orig;hmToast('Gagal: '+e.message,'error');});
+    .catch(function(e){btn.disabled=false;btn.textContent=orig;hmToast('Failed: '+e.message,'error');});
 };
 
 hmLoad(hmNow.getFullYear(), hmNow.getMonth()+1);

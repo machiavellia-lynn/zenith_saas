@@ -40,7 +40,7 @@ def flow():
         parse_date(date_from)
         parse_date(date_to)
     except ValueError:
-        return jsonify({"error": "Format tanggal salah, gunakan DD-MM-YYYY"}), 400
+        return jsonify({"error": "Invalid date format, use DD-MM-YYYY"}), 400
 
     dates = date_range(date_from, date_to)
     conn  = get_db()
@@ -303,7 +303,7 @@ def transactions():
         parse_date(date_from)
         parse_date(date_to)
     except ValueError:
-        return jsonify({"error": "Format tanggal salah"}), 400
+        return jsonify({"error": "Invalid date format"}), 400
 
     dates = date_range(date_from, date_to)
     try:

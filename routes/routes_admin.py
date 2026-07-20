@@ -165,7 +165,7 @@ def admin_tele_backfill():
     date_from = request.args.get("date_from", "").strip()
     date_to   = request.args.get("date_to",   "").strip()
     if not date_from or not date_to:
-        return jsonify({"ok": False, "error": "date_from dan date_to wajib (DD-MM-YYYY)"}), 400
+        return jsonify({"ok": False, "error": "date_from and date_to required (DD-MM-YYYY)"}), 400
 
     from core.utils import date_range as _date_range
     from scraper.scraper_daily import request_tele_dates_backfill
@@ -243,7 +243,7 @@ def admin_backfill_prices():
     if not is_authed():
         return redirect("/")
     if _prices_progress["status"] == "running":
-        return jsonify({"ok": False, "error": "Backfill prices sedang berjalan, tunggu selesai."})
+        return jsonify({"ok": False, "error": "Price backfill already running, wait for it to finish."})
     days      = int(request.args.get("days", 30))
     date_from = request.args.get("date_from", "").strip() or None
     date_to   = request.args.get("date_to", "").strip() or None
@@ -305,7 +305,7 @@ def admin_backfill_prices():
             conn.close()
 
     threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"ok": True, "message": f"Backfill prices dimulai ({date_from} s/d {date_to})."})
+    return jsonify({"ok": True, "message": f"Price backfill started ({date_from} to {date_to})."})
 
 
 @bp_admin.route("/admin/prices-progress")
@@ -358,11 +358,11 @@ def admin_backfill_intraday():
     if not is_authed():
         return redirect("/")
     if _intraday_progress["status"] == "running":
-        return jsonify({"ok": False, "error": "Backfill intraday sedang berjalan, tunggu selesai."})
+        return jsonify({"ok": False, "error": "Intraday backfill already running, wait for it to finish."})
     date_from = request.args.get("date_from", "").strip()
     date_to   = request.args.get("date_to",   "").strip()
     if not date_from or not date_to:
-        return jsonify({"ok": False, "error": "date_from dan date_to wajib (DD-MM-YYYY)"}), 400
+        return jsonify({"ok": False, "error": "date_from and date_to required (DD-MM-YYYY)"}), 400
 
     import threading
     from data.price_fetch import fetch_intraday_15m_datasectors
@@ -406,7 +406,7 @@ def admin_backfill_intraday():
             conn.close()
 
     threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"ok": True, "message": f"Intraday 15m backfill via DataSectors dimulai ({date_from} s/d {date_to})."})
+    return jsonify({"ok": True, "message": f"Intraday 15m backfill via DataSectors started ({date_from} to {date_to})."})
 
 
 @bp_admin.route("/admin/intraday-progress")
@@ -421,7 +421,7 @@ def admin_backfill_intraday_all():
     if not is_authed():
         return redirect("/")
     if _intraday_all["status"] == "running":
-        return jsonify({"ok": False, "error": "Sudah berjalan, tunggu selesai dulu."})
+        return jsonify({"ok": False, "error": "Already running, wait for it to finish."})
 
     import threading, time as _time
     from datetime import datetime, timedelta
@@ -478,7 +478,7 @@ def admin_backfill_intraday_all():
         _log.info("intraday_all done: %d tanggal, %d rows", len(dates), _intraday_all["rows_total"])
 
     threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"ok": True, "message": "Fetch All 15m dimulai di background."})
+    return jsonify({"ok": True, "message": "Fetch All 15m started in background."})
 
 
 @bp_admin.route("/admin/intraday-all-status")
@@ -532,12 +532,12 @@ def admin_backfill_ohlcv_daily():
     if not is_authed():
         return redirect("/")
     if _ohlcv_daily_all["status"] == "running":
-        return jsonify({"ok": False, "error": "Sudah berjalan, tunggu selesai dulu."})
+        return jsonify({"ok": False, "error": "Already running, wait for it to finish."})
 
     date_from = request.args.get("date_from", "").strip()
     date_to   = request.args.get("date_to",   "").strip()
     if not date_from or not date_to:
-        return jsonify({"ok": False, "error": "date_from dan date_to wajib (DD-MM-YYYY)"}), 400
+        return jsonify({"ok": False, "error": "date_from and date_to required (DD-MM-YYYY)"}), 400
 
     import threading
     from datetime import datetime
@@ -551,7 +551,7 @@ def admin_backfill_ohlcv_daily():
         datetime.strptime(date_from, fmt)
         datetime.strptime(date_to, fmt)
     except ValueError:
-        return jsonify({"ok": False, "error": "Format tanggal salah, gunakan DD-MM-YYYY"}), 400
+        return jsonify({"ok": False, "error": "Invalid date format, use DD-MM-YYYY"}), 400
 
     _ohlcv_daily_all.update({
         "status": "idle", "current_ticker": None,
@@ -597,7 +597,7 @@ def admin_backfill_ohlcv_daily():
         _log.info("ohlcv_daily_all done: %d tickers, %d rows", len(tickers), _ohlcv_daily_all["rows_total"])
 
     threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"ok": True, "message": f"OHLCV Daily backfill dimulai ({date_from} → {date_to})."})
+    return jsonify({"ok": True, "message": f"OHLCV Daily backfill started ({date_from} → {date_to})."})
 
 
 @bp_admin.route("/admin/ohlcv-daily-status")
@@ -633,8 +633,8 @@ def admin_seed_eod():
             conn.close()
 
     threading.Thread(target=_run, daemon=True).start()
-    label = f"{date_from} → {date_to}" if date_from else "semua tanggal"
-    return jsonify({"ok": True, "message": f"Seed EOD Summary dimulai ({label}). Cek server log untuk result."})
+    label = f"{date_from} → {date_to}" if date_from else "all dates"
+    return jsonify({"ok": True, "message": f"Seed EOD Summary started ({label}). Check server log for result."})
 
 
 # Module-level state for BSJP historical backfill
@@ -661,7 +661,7 @@ def admin_bsjp_scan():
         return redirect("/")
     date_str = request.args.get("date", "").strip()
     if not date_str:
-        return jsonify({"ok": False, "error": "Parameter date wajib (DD-MM-YYYY)"}), 400
+        return jsonify({"ok": False, "error": "Parameter date is required (DD-MM-YYYY)"}), 400
 
     from core.db import get_scraper_db
     conn = get_scraper_db()
@@ -682,12 +682,12 @@ def admin_bsjp_backfill():
     if not is_authed():
         return redirect("/")
     if _bsjp_backfill["status"] == "running":
-        return jsonify({"ok": False, "error": "Sudah berjalan, tunggu selesai dulu."})
+        return jsonify({"ok": False, "error": "Already running, wait for it to finish."})
 
     date_from = request.args.get("date_from", "").strip()
     date_to   = request.args.get("date_to",   "").strip()
     if not date_from or not date_to:
-        return jsonify({"ok": False, "error": "date_from dan date_to wajib (DD-MM-YYYY)"}), 400
+        return jsonify({"ok": False, "error": "date_from and date_to required (DD-MM-YYYY)"}), 400
 
     import threading
     import logging
@@ -735,7 +735,7 @@ def admin_bsjp_backfill():
         _log.info("BSJP backfill done: %d signals dari %d tanggal", _bsjp_backfill["inserted"], len(dates))
 
     threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"ok": True, "message": f"BSJP backfill dimulai ({date_from} → {date_to}). Cek status."})
+    return jsonify({"ok": True, "message": f"BSJP backfill started ({date_from} → {date_to}). Check status."})
 
 
 @bp_admin.route("/admin/bsjp-syariah-backfill")
@@ -750,7 +750,7 @@ def admin_bsjp_syariah_backfill():
     date_to   = request.args.get("date_to",   "").strip() or None
     triggered = backfill_syariah_signals(date_from, date_to)
     if not triggered:
-        return jsonify({"ok": False, "error": "Sudah berjalan, tunggu selesai dulu."})
+        return jsonify({"ok": False, "error": "Already running, wait for it to finish."})
     return jsonify({"ok": True})
 
 
@@ -813,16 +813,16 @@ def add_user():
     role     = data.get("role", "guest")
     mode     = data.get("mode", "general")
     if not username or not password:
-        return jsonify({"ok": False, "error": "Username dan password wajib"})
+        return jsonify({"ok": False, "error": "Username and password required"})
     if role not in ("admin", "guest"):
-        return jsonify({"ok": False, "error": "Role harus admin atau guest"})
+        return jsonify({"ok": False, "error": "Role must be admin or guest"})
     if mode not in ("general", "syariah"):
-        return jsonify({"ok": False, "error": "Mode harus general atau syariah"})
+        return jsonify({"ok": False, "error": "Mode must be general or syariah"})
     from core.auth import register
     ok = register(username, password, role, mode)
     if ok:
         return jsonify({"ok": True})
-    return jsonify({"ok": False, "error": "Username sudah dipakai"})
+    return jsonify({"ok": False, "error": "Username already taken"})
 
 
 @bp_admin.route("/admin/users/mode/<int:user_id>", methods=["POST"])
@@ -836,7 +836,7 @@ def set_user_mode(user_id):
         return jsonify({"ok": False}), 401
     mode = (request.get_json() or {}).get("mode", "")
     if mode not in ("general", "syariah"):
-        return jsonify({"ok": False, "error": "Mode harus general atau syariah"})
+        return jsonify({"ok": False, "error": "Mode must be general or syariah"})
     from core.db import get_db, execute, transaction
     conn = get_db()
     with transaction(conn):
@@ -882,7 +882,7 @@ def add_api_key():
     name        = (data.get("name") or "Default").strip() or "Default"
     environment = data.get("environment", "live")
     if environment not in ("live", "test"):
-        return jsonify({"ok": False, "error": "Environment harus live atau test"})
+        return jsonify({"ok": False, "error": "Environment must be live or test"})
 
     raw_key   = f"zenith_{environment}_{_secrets.token_urlsafe(24)}"
     key_hash  = hashlib.sha256(raw_key.encode()).hexdigest()
@@ -922,11 +922,11 @@ def admin_wyckoff_recompute():
     if not is_authed():
         return redirect("/")
     if _wyckoff_recompute["status"] == "running":
-        return jsonify({"ok": False, "error": "Sudah berjalan, tunggu selesai dulu."})
+        return jsonify({"ok": False, "error": "Already running, wait for it to finish."})
     date_from = request.args.get("date_from", "").strip()
     date_to   = request.args.get("date_to",   "").strip()
     if not date_from or not date_to:
-        return jsonify({"ok": False, "error": "date_from dan date_to wajib (DD-MM-YYYY)"}), 400
+        return jsonify({"ok": False, "error": "date_from and date_to required (DD-MM-YYYY)"}), 400
 
     import threading
     from algo.summary_rebuild import rebuild_summary_for_date
@@ -962,7 +962,7 @@ def admin_wyckoff_recompute():
         conn.close()
 
     threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"ok": True, "message": "Wyckoff recompute dimulai di background."})
+    return jsonify({"ok": True, "message": "Wyckoff recompute started in background."})
 
 
 @bp_admin.route("/admin/wyckoff-recompute-status")
@@ -983,11 +983,11 @@ _eod_summary_progress = {
 @bp_admin.route("/admin/eod-summary-rebuild")
 def admin_eod_summary_rebuild():
     if _eod_summary_progress["status"] == "running":
-        return jsonify({"ok": False, "error": "Sudah berjalan, tunggu selesai dulu."})
+        return jsonify({"ok": False, "error": "Already running, wait for it to finish."})
     date_from = request.args.get("date_from", "").strip()
     date_to   = request.args.get("date_to",   "").strip()
     if not date_from or not date_to:
-        return jsonify({"ok": False, "error": "date_from dan date_to wajib (DD-MM-YYYY)"}), 400
+        return jsonify({"ok": False, "error": "date_from and date_to required (DD-MM-YYYY)"}), 400
 
     import threading
     from algo.summary_rebuild import rebuild_summary_for_date
@@ -1020,7 +1020,7 @@ def admin_eod_summary_rebuild():
         conn.close()
 
     threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"ok": True, "message": "EOD Summary rebuild dimulai di background."})
+    return jsonify({"ok": True, "message": "EOD Summary rebuild started in background."})
 
 
 @bp_admin.route("/admin/eod-summary-status")
@@ -1041,11 +1041,11 @@ def admin_bsjp_recompute():
     if not is_authed():
         return redirect("/")
     if _bsjp_recompute["status"] == "running":
-        return jsonify({"ok": False, "error": "Sudah berjalan, tunggu selesai dulu."})
+        return jsonify({"ok": False, "error": "Already running, wait for it to finish."})
     date_from = request.args.get("date_from", "").strip()
     date_to   = request.args.get("date_to",   "").strip()
     if not date_from or not date_to:
-        return jsonify({"ok": False, "error": "date_from dan date_to wajib (DD-MM-YYYY)"}), 400
+        return jsonify({"ok": False, "error": "date_from and date_to required (DD-MM-YYYY)"}), 400
 
     import threading
     from algo.analytics_bsjp import compute_bsjp_for_date
@@ -1089,7 +1089,7 @@ def admin_bsjp_recompute():
         conn.close()
 
     threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"ok": True, "message": "BSJP recompute dimulai di background."})
+    return jsonify({"ok": True, "message": "BSJP recompute started in background."})
 
 
 @bp_admin.route("/admin/bsjp-recompute-status")
@@ -1106,8 +1106,8 @@ def admin_portfolio_recompute():
     from algo.algo_portfolio import request_portfolio_sim
     triggered = request_portfolio_sim()
     if not triggered:
-        return jsonify({"ok": False, "error": "Sudah berjalan, tunggu selesai dulu."})
-    return jsonify({"ok": True, "message": "Portfolio recompute dimulai di background."})
+        return jsonify({"ok": False, "error": "Already running, wait for it to finish."})
+    return jsonify({"ok": True, "message": "Portfolio recompute started in background."})
 
 
 @bp_admin.route("/admin/portfolio-recompute-status")
@@ -1243,7 +1243,7 @@ def admin_corporate_events_add():
     event_date  = (data.get("event_date") or "").strip()
     detail      = (data.get("detail") or "").strip() or None
     if not ticker or event_type not in ("stock_split", "rights_issue") or len(event_date) != 10:
-        return jsonify({"ok": False, "error": "ticker, event_type (stock_split/rights_issue), event_date (DD-MM-YYYY) wajib"}), 400
+        return jsonify({"ok": False, "error": "ticker, event_type (stock_split/rights_issue), event_date (DD-MM-YYYY) required"}), 400
     conn = get_db()
     execute(conn, """
         INSERT INTO corporate_events (ticker, event_type, event_date, detail, fetched_at)
@@ -1280,7 +1280,7 @@ def admin_corporate_events_approve():
     event_date = (data.get("event_date") or "").strip()
     new_type   = data.get("new_type") or "stock_split"
     if not ticker or new_type not in ("stock_split", "rights_issue"):
-        return jsonify({"ok": False, "error": "ticker + new_type (stock_split/rights_issue) wajib"}), 400
+        return jsonify({"ok": False, "error": "ticker + new_type (stock_split/rights_issue) required"}), 400
     conn = get_db()
     try:
         execute(conn, """
