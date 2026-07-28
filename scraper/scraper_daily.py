@@ -401,14 +401,12 @@ def _score_bsjp_pool(conn, today: str, today_ymd: str) -> list:
         row_scan["price_close"]      = close_1545
         row_scan["price_change_pct"] = (close_1545 - open_0900) / open_0900 * 100
 
-        # ARA guard uses the move from the PREVIOUS CLOSE (eod_summary's own
-        # price_change_pct), NOT the 09:00→15:45 intraday move. A stock that gaps
-        # up at the open and then locks ARA shows only a small intraday move and
-        # slips the gate otherwise — ALKA 24-07-2026 read +11.8% from the open but
-        # +25% (= ARA) from the prior close, and leaked into the signals. Setup
-        # detection below still uses the intraday change in row_scan.
-        if _is_ara({"price_close": close_1545,
-                    "price_change_pct": float(row.get("price_change_pct") or 0)}):
+        # ARA guard reads the eod row's own price + from-prev-close change, so the
+        # band is picked by the reference (prior close) per IDX — not the 09:00→
+        # 15:45 intraday move, which let gap-up-then-locked names leak (ALKA 24-07:
+        # +11.8% intraday, +25% = ARA from the prior close). Setup detection below
+        # still uses the intraday change in row_scan.
+        if _is_ara(row):
             continue
 
         sig = algo.signal_detail(ticker, row_scan)

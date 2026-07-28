@@ -50,10 +50,28 @@ def _to_tick(price: float) -> int:
     return int(round(price / tick) * tick)
 
 def _is_ara(row: dict) -> bool:
+    """True if the stock is at/near its ARA (auto-reject atas) ceiling.
+
+    The band is chosen by the REFERENCE price (previous close), which is what
+    IDX uses — not the current price, which can sit in a different band after a
+    boundary-crossing move (e.g. a Rp195 name that runs to 260 is still on the
+    35% band). The reference is derived from the current price and its change
+    from the prior close, both passed in as price_close / price_change_pct.
+
+    IDX bands (eff. 4 Sep 2023): Rp50–200 → 35%, >200–5000 → 25%, >5000 → 20%.
+    Thresholds sit 1% below nominal (34/24/19) on purpose: the ceiling is
+    rounded DOWN to a valid tick, so a genuinely locked stock often prints a
+    hair under nominal — a Rp101 name caps at 136 = +34.65%, not +35%, and a
+    strict `> 34` still catches it. The Rp200 boundary is inclusive of the 35%
+    band (ref <= 200), matching IDX.
+    """
     price  = _f(row.get("price_close"), 0)
     change = _f(row.get("price_change_pct"), 0)
-    if price < 200:     return change > 34
-    elif price <= 5000: return change > 24
+    if price <= 0 or change <= -100:
+        return False
+    ref = price / (1 + change / 100.0)   # previous close = IDX reference price
+    if ref <= 200:      return change > 34
+    elif ref <= 5000:   return change > 24
     else:               return change > 19
 
 

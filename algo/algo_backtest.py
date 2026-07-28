@@ -474,13 +474,11 @@ def run_bsjp_backtest(conn, date_from: str = None, date_to: str = None,
             pre_row["price_close"]      = close_1545
             pre_row["price_change_pct"] = (close_1545 - open_0900) / open_0900 * 100
 
-            # ARA guard on the from-prev-close change (eod_summary.price_change_pct),
-            # not the intraday 09:00→15:45 move — must match run_bsjp_scan so the
-            # backtest measures the same universe the live scanner produces. A
-            # gap-up-then-ARA-lock stock (ALKA 24-07: +11.8% intraday, +25% daily)
-            # leaks past the intraday basis.
-            if _is_ara({"price_close": close_1545,
-                        "price_change_pct": float(row.get("price_change_pct") or 0)}):
+            # ARA guard reads the eod row (price + from-prev-close change) so the
+            # band is the reference price's, matching run_bsjp_scan exactly — not
+            # the intraday 09:00→15:45 move, which let gap-up-then-locked names
+            # (ALKA 24-07: +11.8% intraday, +25% daily) leak past.
+            if _is_ara(row):
                 continue
             sig = algo.signal_detail(ticker, pre_row)
             if not sig:
