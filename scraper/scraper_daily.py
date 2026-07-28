@@ -96,6 +96,17 @@ BSJP_15M_HOUR        = 15
 BSJP_15M_MINUTE      = 46
 BSJP_HOUR            = 15
 BSJP_MINUTE          = 48
+# 16:45 — after RECOMPUTE (16:30) has rebuilt eod_summary off the settled close.
+# The 15:48 scan runs before the pre-closing auction, so it deliberately writes
+# no prices; this pass attaches them. See run_bsjp_pricing_pass.
+BSJP_PRICING_HOUR    = 16
+BSJP_PRICING_MINUTE  = 45
+# Budget behind the displayed lot recommendation. Deliberately NOT
+# config.PF_BSJP_ALLOC (30jt): that constant sizes the portfolio simulation,
+# while this one has always driven the on-screen lot hint at 10jt. They are
+# out of step — reconciling them changes the number users act on, so it is left
+# as an explicit decision rather than folded into an unrelated change.
+BSJP_LOT_BUDGET      = 10_000_000
 # 2026-07-19: was 10 @ PF_BSJP_ALLOC=15jt — see config.py's PF_BSJP_ALLOC
 # comment for why. Must match algo_backtest.py's TOP_N (no shared constant
 # between the live scanner and the backtest engine).
@@ -390,7 +401,14 @@ def _score_bsjp_pool(conn, today: str, today_ymd: str) -> list:
         row_scan["price_close"]      = close_1545
         row_scan["price_change_pct"] = (close_1545 - open_0900) / open_0900 * 100
 
-        if _is_ara(row_scan):
+        # ARA guard uses the move from the PREVIOUS CLOSE (eod_summary's own
+        # price_change_pct), NOT the 09:00→15:45 intraday move. A stock that gaps
+        # up at the open and then locks ARA shows only a small intraday move and
+        # slips the gate otherwise — ALKA 24-07-2026 read +11.8% from the open but
+        # +25% (= ARA) from the prior close, and leaked into the signals. Setup
+        # detection below still uses the intraday change in row_scan.
+        if _is_ara({"price_close": close_1545,
+                    "price_change_pct": float(row.get("price_change_pct") or 0)}):
             continue
 
         sig = algo.signal_detail(ticker, row_scan)
@@ -413,18 +431,27 @@ def _score_bsjp_pool(conn, today: str, today_ymd: str) -> list:
         sig["sl"]    = algo._compute_sl(row, sig["entry"], sig["sl_type"])
 
         score = _compute_score(row_scan, sig["setup"])
-        lot   = int(10_000_000 / eod_price_close)
+        lot   = int(BSJP_LOT_BUDGET / eod_price_close)
         scored.append((score, ticker, sig, row_scan, lot))
 
     scored.sort(key=lambda x: -x[0])
     return scored
 
 
-def run_bsjp_scan(conn, date_dmy: str | None = None):
+def run_bsjp_scan(conn, date_dmy: str | None = None, defer_pricing: bool = False):
     """
     15:48 pass — generate BSJP signals.
     Indicators from eod_summary directly; days_since_near_bb_mid from price_history.
     15:45 candle used for condition check only; entry = eod_summary.price_close.
+
+    defer_pricing — write the selection with entry/tp1/tp2/sl/lot left NULL.
+    Required for the live 15:48 run, which fires BEFORE the pre-closing auction
+    (15:50–16:00) settles the day's close: at that moment
+    eod_summary.price_close is still an intraday quote, so pricing off it prints
+    an entry nobody can transact at (ALKA read 855 on a day that closed 865).
+    run_bsjp_pricing_pass fills those columns at 16:45. Historical/backfill runs
+    leave this False — their eod_summary is already final, so pricing inline is
+    both correct and keeps a re-scanned past date self-contained.
     """
     from core.utils import syariah_tickers
 
@@ -453,10 +480,13 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
         "syariah": [c for c in scored if c[1] in syr][:TOP_N_BSJP],
     }
 
+    # sl_type is kept even when deferring: it is a property of the setup, not of
+    # the price, and the 16:45 pass needs it to know which stop to recompute.
+    _px = (lambda v: None) if defer_pricing else (lambda v: v)
     rows = [
-        (today, ticker, sig["setup"], sig["entry"],
-         sig["tp1"], sig["tp2"], sig["sl"], sig["sl_type"],
-         score, rank, lot, universe)
+        (today, ticker, sig["setup"], _px(sig["entry"]),
+         _px(sig["tp1"]), _px(sig["tp2"]), _px(sig["sl"]), sig["sl_type"],
+         score, rank, _px(lot), universe)
         for universe, top in slices.items()
         for rank, (score, ticker, sig, row, lot) in enumerate(top, 1)
     ]
@@ -474,8 +504,79 @@ def run_bsjp_scan(conn, date_dmy: str | None = None):
 
     n_full, n_syr = len(slices["full"]), len(slices["syariah"])
     log.info(f"[BSJP] {today}: {n_full} sinyal full / {n_syr} syariah "
-             f"(dari {len(scored)} kandidat).")
+             f"(dari {len(scored)} kandidat)"
+             f"{' — harga ditunda ke pass 16:45' if defer_pricing else ''}.")
     return n_full
+
+
+def run_bsjp_pricing_pass(conn, date_dmy: str | None = None) -> int:
+    """16:45 pass — attach entry/TP/SL/lot to signals the 15:48 scan left unpriced.
+
+    Why it is a separate pass: the scan must fire before the pre-closing auction
+    to be actionable (you place the HAKA order at IEP +2 ticks), but the price
+    it would quote does not exist yet at that moment. So the scan publishes the
+    selection and this pass publishes the prices, once RECOMPUTE (16:30) has
+    rebuilt eod_summary from the settled close.
+
+    Selection is deliberately NOT revisited here. Deciding before the auction is
+    BSJP's whole premise, and re-validating afterwards is exactly the discarded
+    ESTIMASI/CONFIRMED/INVALID design — this pass only completes rows, never
+    adds, drops, or re-ranks them.
+
+    Sweeps every unpriced row rather than only today's, so an afternoon the
+    scraper missed self-heals on a later run instead of being stranded at NULL.
+    Rows whose eod_summary close has not landed are left alone for a retry.
+    """
+    from algo.algo_bsjp import BSJPAlgo, _to_tick
+
+    algo   = BSJPAlgo()
+    params: list = []
+    clause = ""
+    if date_dmy:
+        clause = "AND s.date = %s"
+        params = [date_dmy]
+
+    pending = fetchall(conn, f"""
+        SELECT s.date, s.ticker, s.universe, s.sl_type,
+               e.price_close,
+               COALESCE(e.ma5,    p.ma5)    AS ma5,
+               COALESCE(e.bb_mid, p.bb_mid) AS bb_mid
+        FROM bsjp_signals s
+        JOIN eod_summary e
+          ON e.date = s.date AND e.ticker = s.ticker
+        LEFT JOIN price_history p
+          ON p.ticker = s.ticker
+         AND p.date = TO_CHAR(TO_DATE(s.date, 'DD-MM-YYYY'), 'YYYY-MM-DD')
+        WHERE s.entry IS NULL {clause}
+    """, params)
+
+    updates = []
+    for r in pending:
+        close = float(r.get("price_close") or 0)
+        if close <= 0:
+            continue
+        entry = _to_tick(close)
+        # Same stop the scan would have computed, just anchored to the real
+        # close: FIXED_2PCT tracks entry, MA5/BB_MID read the day's indicators.
+        sl = algo._compute_sl({"ma5": r.get("ma5"), "bb_mid": r.get("bb_mid")},
+                              entry, r["sl_type"])
+        updates.append((entry, _to_tick(close * 1.01), _to_tick(close * 1.02),
+                        sl, int(BSJP_LOT_BUDGET / close),
+                        r["date"], r["ticker"], r["universe"]))
+
+    if updates:
+        with conn.cursor() as cur:
+            cur.executemany("""
+                UPDATE bsjp_signals
+                   SET entry = %s, tp1 = %s, tp2 = %s, sl = %s, lot_size = %s
+                 WHERE date = %s AND ticker = %s AND universe = %s
+            """, updates)
+        conn.commit()
+
+    skipped = len(pending) - len(updates)
+    log.info(f"[BSJP] pricing pass: {len(updates)} sinyal diberi harga"
+             f"{f', {skipped} ditunda (close belum ada)' if skipped else ''}.")
+    return len(updates)
 
 
 # ── Syariah backfill (additive — never touches existing 'full' rows) ─────────
@@ -651,6 +752,7 @@ async def scraper_main():
 
         midday_pass_done = first_pass_done = second_pass_done = backtest_done_today = False
         bsjp_prefetch_done = bsjp_15m_done = bsjp_scan_done = corp_action_done_today = False
+        bsjp_pricing_done = False
         last_check_date = None
         last_weekly_yw  = None  # (iso_year, iso_week) of last weekly maintenance run
         last_ds_correction_yw = None  # (iso_year, iso_week) of last DataSectors OHLCV correction
@@ -665,6 +767,7 @@ async def scraper_main():
             if today_str != last_check_date:
                 midday_pass_done = first_pass_done = second_pass_done = backtest_done_today = False
                 bsjp_prefetch_done = bsjp_15m_done = bsjp_scan_done = corp_action_done_today = False
+                bsjp_pricing_done = False
                 last_check_date = today_str
 
             if not midday_pass_done and (now_wib.hour > MIDDAY_HOUR or (now_wib.hour == MIDDAY_HOUR and now_wib.minute >= MIDDAY_MINUTE)):
@@ -729,15 +832,38 @@ async def scraper_main():
                 finally:
                     bsjp_15m_done = True
 
-            # 15:48 — BSJP Signal
+            # 15:48 — BSJP Signal. Selection only: the pre-closing auction has not
+            # run yet, so the close this signal will be entered at does not exist.
+            # Prices land in the 16:45 pass below.
             if not bsjp_scan_done and now_wib.hour == BSJP_HOUR and now_wib.minute >= BSJP_MINUTE:
                 try:
                     log.info("📊 BSJP scan (15:48)")
-                    run_bsjp_scan(conn)
+                    run_bsjp_scan(conn, defer_pricing=True)
                 except Exception as e:
                     log.error(f"❌ BSJP scan: {e}")
                 finally:
                     bsjp_scan_done = True
+
+            # 16:45 — attach entry/TP/SL now that RECOMPUTE (16:30) has rebuilt
+            # eod_summary off the settled close. Gated on second_pass_done so it
+            # can never read a half-built EOD, and on `>=` rather than `==` (the
+            # midday pattern) so an afternoon restart still finishes the day
+            # instead of leaving it at NULL until tomorrow.
+            if second_pass_done and not bsjp_pricing_done and (
+                now_wib.hour > BSJP_PRICING_HOUR
+                or (now_wib.hour == BSJP_PRICING_HOUR and now_wib.minute >= BSJP_PRICING_MINUTE)
+            ):
+                try:
+                    log.info("💰 BSJP pricing pass (16:45)")
+                    run_bsjp_pricing_pass(conn)
+                except Exception as e:
+                    log.error(f"❌ BSJP pricing pass: {e}")
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
+                finally:
+                    bsjp_pricing_done = True
 
             # Corporate-action detector — runs once the day's OHLCV is settled,
             # and strictly before the portfolio sim below so an approval made
