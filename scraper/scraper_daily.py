@@ -9,6 +9,7 @@ import os
 import logging
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone, timedelta
 
 from config import (
@@ -190,6 +191,31 @@ def process_message(conn, message) -> int:
     return saved
 
 
+def _process_one_message(conn_box: list, message) -> int:
+    """Runs on the single-worker message executor (see scraper_main) — never on
+    the asyncio event loop thread.
+
+    process_message()'s DB calls are synchronous psycopg2 (blocking) inside an
+    `async def` handler. Called directly, a single message freezes the WHOLE
+    event loop until it returns — including the scheduler while-loop's
+    `await asyncio.wait_for(_request_event.wait(), timeout=5)`, which shares
+    that loop. A burst of Telegram messages (heaviest right before market close,
+    15:45-16:00 WIB — exactly BSJP's signal window) can therefore starve the
+    scheduler long enough to miss its 15:46/15:48 gates entirely: confirmed via
+    Railway logs on 2026-07-29, dense message traffic through the whole window,
+    a 20-minute stretch with no scheduler activity at all, and zero BSJP signals
+    that day despite qualifying candidates existing.
+
+    conn_box is a 1-item list (mutable box) holding this worker's OWN
+    connection — deliberately never the scheduler loop's `conn`, since a
+    psycopg2 connection is not safe for concurrent use across threads. Reusing
+    _ensure_conn here is safe: it only touches conn_box[0], which only this
+    worker thread ever touches.
+    """
+    conn_box[0] = _ensure_conn(conn_box[0])
+    return process_message(conn_box[0], message)
+
+
 # ── Backfill + request queue ───────────────────────────────────────────────────
 _backfill_request      = {"days": None, "status": "idle", "result": None}
 _rebuild_request       = {"status": "idle", "result": None}
@@ -204,10 +230,66 @@ _scraper_thread   = None
 _request_event: asyncio.Event | None = None
 
 
-async def run_backfill(client, conn):
-    """Scan today's messages in all 4 topics and fill any gaps."""
+def _run_backfill_tail(conn_box: list, today_wib: str):
+    """The aggregate/analytics pass run_backfill does once per topic-scan.
+    Runs on the message-worker executor, on conn_box[0] — see run_backfill's
+    docstring for why this and every other eod_summary/analytics write now
+    share one connection and one worker thread."""
+    conn_box[0] = _ensure_conn(conn_box[0])
+    conn = conn_box[0]
+    with transaction(conn):
+        rebuild_summary_for_date(conn, today_wib)
+    with transaction(conn):
+        enrich_daily_ohlcv(conn, today_wib)
+    with transaction(conn):
+        seed_eod_from_price_history(conn, today_wib, today_wib)
+    with transaction(conn):
+        compute_analytics_for_date(conn, today_wib)
+    with transaction(conn):
+        compute_bsjp_for_date(conn, today_wib)
+
+
+async def run_backfill(client, msg_executor, msg_conn_box):
+    """Scan today's messages in all 4 topics and fill any gaps.
+
+    Every eod_summary/analytics write THIS FUNCTION triggers — both the
+    per-message rebuild inside process_message() and this function's own
+    post-scan tail (_run_backfill_tail) — is routed through msg_executor /
+    msg_conn_box: the SAME single-worker executor and connection
+    on_new_message uses for live Telegram messages. This closes the race
+    against the scheduler's own automatic daily passes (midday/first/second),
+    which is what actually runs unattended every trading day.
+
+    Why: before the on_new_message starvation fix, process_message's blocking
+    DB calls ran directly on the shared asyncio event loop, which made it
+    structurally impossible for a live message and this function's own
+    scan/tail to ever execute concurrently — one had to finish before the
+    other could even start. Fixing that starvation (offloading live messages
+    to a dedicated OS thread) removed that ACCIDENTAL serialization too: this
+    function used to run its rebuild/analytics calls on the scheduler's own
+    'conn', which a genuinely concurrent message-worker thread could now race
+    against on the same (date, ticker) rows — both do a full
+    recompute-then-overwrite, so whichever commits last silently wins,
+    possibly with staler data. Routing both paths through one single-worker
+    executor restores strict serialization without reintroducing blocking:
+    'await loop.run_in_executor(...)' never blocks the event loop itself, so
+    the scheduler's own gate-checking stays fully responsive throughout.
+
+    NOT covered by this: the admin-triggered request handlers below
+    (do_rebuild/do_recompute/do_fix_all, driven by routes/routes_admin.py)
+    still write eod_summary/analytics on the scheduler's raw 'conn', and
+    routes_admin.py's per-date endpoints open their own separate connection
+    on the Flask request thread — neither goes through msg_executor. Those
+    can still race against a live message if an operator manually triggers
+    one during market hours. Left alone deliberately: those paths require an
+    explicit manual trigger rather than running unattended every day, and
+    closing them needs cross-thread/cross-process coordination (the Flask
+    request thread can't reach into the scraper daemon's msg_executor) that
+    is out of scope for the daily-automatic-collision this fix targets.
+    """
     today_wib = datetime.now(WIB).strftime("%d-%m-%Y")
     log.info(f"🔄 BACKFILL {today_wib}")
+    loop = asyncio.get_running_loop()
 
     total_saved = 0
     for topic_id in ALL_TOPICS:
@@ -226,21 +308,13 @@ async def run_backfill(client, conn):
                     break
                 continue
             scanned += 1
-            saved += process_message(conn, message)
+            saved += await loop.run_in_executor(
+                msg_executor, _process_one_message, msg_conn_box, message)
         log.info(f"  {label}: scanned={scanned}, new={saved}")
         total_saved += saved
 
     try:
-        with transaction(conn):
-            rebuild_summary_for_date(conn, today_wib)
-        with transaction(conn):
-            enrich_daily_ohlcv(conn, today_wib)
-        with transaction(conn):
-            seed_eod_from_price_history(conn, today_wib, today_wib)
-        with transaction(conn):
-            compute_analytics_for_date(conn, today_wib)
-        with transaction(conn):
-            compute_bsjp_for_date(conn, today_wib)
+        await loop.run_in_executor(msg_executor, _run_backfill_tail, msg_conn_box, today_wib)
     except Exception as e:
         log.warning("Post-backfill analytics failed: %s", e)
 
@@ -721,11 +795,28 @@ async def scraper_main():
     global _request_event
     _request_event = asyncio.Event()
 
-    conn = get_scraper_db()
-    log.info("📦 DB: PostgreSQL connected")
-
-    client = TelegramClient(session_file, TG_API_ID, TG_API_HASH)
+    # All below are acquired INSIDE the try so the finally below can always
+    # clean up whatever got as far as opening — initialized to None/empty
+    # here only so an early failure can't hit a NameError in that finally.
+    conn = None
+    msg_conn_box = [None]
+    msg_executor = None
+    client = None
     try:
+        conn = get_scraper_db()
+        log.info("📦 DB: PostgreSQL connected")
+
+        # Dedicated connection + single-worker executor for incoming Telegram
+        # messages — deliberately isolated from `conn` above (the scheduler
+        # loop's connection). See _process_one_message's docstring for why: an
+        # in-process message burst must never be able to starve the scheduler's
+        # while-loop again. max_workers=1 keeps messages processed strictly in
+        # arrival order (no reordering) while fully decoupling their blocking DB
+        # calls from the asyncio event loop the scheduler shares with Telethon.
+        msg_conn_box[0] = get_scraper_db()
+        msg_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="tg-msg")
+
+        client = TelegramClient(session_file, TG_API_ID, TG_API_HASH)
         await client.connect()
         if not await client.is_user_authorized():
             log.error("❌ Session not authorized")
@@ -736,10 +827,10 @@ async def scraper_main():
 
         @client.on(events.NewMessage(chats=GROUP_ID))
         async def on_new_message(event):
-            nonlocal conn
             try:
-                conn = _ensure_conn(conn)
-                n = process_message(conn, event.message)
+                loop = asyncio.get_running_loop()
+                n = await loop.run_in_executor(
+                    msg_executor, _process_one_message, msg_conn_box, event.message)
                 if n > 0:
                     label = TOPIC_LABELS.get(get_message_topic_id(event.message), "?")
                     log.info(f"📩 {label} msg={event.message.id} → {n} row(s)")
@@ -771,7 +862,7 @@ async def scraper_main():
             if not midday_pass_done and (now_wib.hour > MIDDAY_HOUR or (now_wib.hour == MIDDAY_HOUR and now_wib.minute >= MIDDAY_MINUTE)):
                 try:
                     log.info("🌤️ Midday pass (12:10)")
-                    await run_backfill(client, conn)
+                    await run_backfill(client, msg_executor, msg_conn_box)
                 except Exception as e:
                     log.error(f"❌ Midday pass: {e}")
                 finally:
@@ -781,7 +872,7 @@ async def scraper_main():
             if not first_pass_done and now_wib.hour >= BACKFILL_HOUR and now_wib.minute >= BACKFILL_MINUTE:
                 try:
                     log.info("🔔 First pass (15:30)")
-                    await run_backfill(client, conn)
+                    await run_backfill(client, msg_executor, msg_conn_box)
                 except Exception as e:
                     log.error(f"❌ First pass: {e}")
                 finally:
@@ -791,7 +882,7 @@ async def scraper_main():
             if first_pass_done and not second_pass_done and now_wib.hour >= RECOMPUTE_HOUR and now_wib.minute >= RECOMPUTE_MINUTE:
                 try:
                     log.info("🔄 Second pass (16:30)")
-                    await run_backfill(client, conn)
+                    await run_backfill(client, msg_executor, msg_conn_box)
                 except Exception as e:
                     log.error(f"❌ Second pass: {e}")
                 finally:
@@ -1171,14 +1262,32 @@ async def scraper_main():
         log.error(f"❌ Fatal: {e}")
         raise  # signal wrapper: transient failure, restart needed
     finally:
-        try:
-            await client.disconnect()
-        except Exception:
-            pass
-        try:
-            conn.close()
-        except Exception:
-            pass
+        # Every acquisition above now happens inside the try this finally
+        # guards, so any of these can legitimately still be None/unset if an
+        # earlier step failed — check explicitly rather than relying on
+        # AttributeError happening to get swallowed by each bare except.
+        if client is not None:
+            try:
+                await client.disconnect()
+            except Exception:
+                pass
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        if msg_executor is not None:
+            try:
+                # wait=True + cancel_futures=False: let any already-queued
+                # messages finish rather than dropping them on shutdown/restart.
+                msg_executor.shutdown(wait=True, cancel_futures=False)
+            except Exception:
+                pass
+        if msg_conn_box[0] is not None:
+            try:
+                msg_conn_box[0].close()
+            except Exception:
+                pass
         log.info("🔌 Disconnected")
 
 
