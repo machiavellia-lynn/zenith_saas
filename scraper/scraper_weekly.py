@@ -180,11 +180,24 @@ async def run_weekly_backfill(client=None, conn=None, days=DAYS_BACK, dates=None
     return {"scanned": total_scanned, "saved": total_saved}
 
 
-async def run_weekly_maintenance(client=None, conn=None):
+async def run_weekly_maintenance(client=None, conn=None, ds_executor=None, ds_conn_box=None):
     """Full weekly sweep — triggered Monday 03:00 WIB by the scraper loop.
     Covers the 7 calendar days ending yesterday (last week's trading days).
     Steps: Telegram → rebuild → OHLCV → analytics → 15m intraday → BSJP → backtest.
     All steps run unconditionally (not gated on new Telegram rows).
+
+    ds_executor / ds_conn_box: the SAME dedicated single-worker executor and
+    connection scraper_daily.py's 12:30/15:46 BSJP passes use to offload
+    fetch_intraday_15m_datasectors — see that module's _fetch_ds_15m
+    docstring for why calling it inline freezes the caller's event loop.
+    Step 3 below does the identical fetch, over up to ~800 tickers x 7
+    trading days; called from the scheduler while-loop (as this function
+    normally is), it would starve that loop for however long the fetch
+    takes, the same bug just on Mondays instead of every trading day.
+    Optional and defaulting to None so this function stays callable on its
+    own (CLI / an admin route with no scheduler-owned executor to hand in) —
+    in that case Step 3 falls back to the old inline blocking call, which is
+    fine there since nothing else needs that event loop responsive.
     """
     from data.price_fetch import backfill_price_history_ohlcv, fetch_intraday_15m_datasectors
     from algo.analytics_bsjp import compute_bsjp_for_date
@@ -246,8 +259,13 @@ async def run_weekly_maintenance(client=None, conn=None):
         "SELECT ticker FROM ticker_universe WHERE is_active = TRUE")]
     for d in trading:
         try:
-            res = fetch_intraday_15m_datasectors(conn, tickers, d)
-            conn.commit()
+            if ds_executor is not None and ds_conn_box is not None:
+                from scraper.scraper_daily import _fetch_ds_15m
+                loop = asyncio.get_running_loop()
+                res = await loop.run_in_executor(ds_executor, _fetch_ds_15m, ds_conn_box, tickers, d)
+            else:
+                res = fetch_intraday_15m_datasectors(conn, tickers, d)
+                conn.commit()
             log.info("  15m %s: %d rows", d, res.get("rows_inserted", 0))
         except Exception as e:
             log.error("  15m %s: %s", d, e)

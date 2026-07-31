@@ -216,6 +216,32 @@ def _process_one_message(conn_box: list, message) -> int:
     return process_message(conn_box[0], message)
 
 
+def _fetch_ds_15m(conn_box: list, tickers: list, date_dmy: str) -> dict:
+    """Runs on the single-worker DataSectors executor (see scraper_main) —
+    never on the asyncio event loop thread.
+
+    fetch_intraday_15m_datasectors() is a synchronous, rate-limited (1 req/sec)
+    HTTP client — one blocking request per ticker. Called directly inside the
+    scheduler while-loop (as it used to be), it freezes the event loop for the
+    same reason _process_one_message's docstring describes for Telegram
+    messages: the 15:46 candidate-only enrich alone took 2m39s for 86 tickers
+    on 2026-07-31, during which the scheduler could not reach its own 15:48
+    BSJP-scan gate — the scan ran 5 minutes late as a direct result, confirmed
+    via Railway logs. Same fix, same reason: offload to a dedicated OS thread
+    with its own connection so the scheduler's gate-checking stays responsive
+    regardless of how long the fetch takes.
+
+    conn_box is this worker's own connection — never the scheduler's `conn`
+    or the message-worker's msg_conn_box, for the same thread-safety reason
+    (a psycopg2 connection can't be used concurrently from multiple threads).
+    """
+    from data.price_fetch import fetch_intraday_15m_datasectors
+    conn_box[0] = _ensure_conn(conn_box[0])
+    res = fetch_intraday_15m_datasectors(conn_box[0], tickers, date_dmy)
+    conn_box[0].commit()
+    return res
+
+
 # ── Backfill + request queue ───────────────────────────────────────────────────
 _backfill_request      = {"days": None, "status": "idle", "result": None}
 _rebuild_request       = {"status": "idle", "result": None}
@@ -801,6 +827,8 @@ async def scraper_main():
     conn = None
     msg_conn_box = [None]
     msg_executor = None
+    ds_conn_box = [None]
+    ds_executor = None
     client = None
     try:
         conn = get_scraper_db()
@@ -815,6 +843,14 @@ async def scraper_main():
         # calls from the asyncio event loop the scheduler shares with Telethon.
         msg_conn_box[0] = get_scraper_db()
         msg_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="tg-msg")
+
+        # Same pattern, separate executor: the DataSectors 15m fetch (12:30
+        # prefetch, 15:46 candidate enrich) is a blocking, rate-limited HTTP
+        # client — see _fetch_ds_15m's docstring. A SEPARATE executor (not
+        # msg_executor) so a slow multi-minute fetch never delays Telegram
+        # message processing, and vice versa.
+        ds_conn_box[0] = get_scraper_db()
+        ds_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ds-fetch")
 
         client = TelegramClient(session_file, TG_API_ID, TG_API_HASH)
         await client.connect()
@@ -845,6 +881,7 @@ async def scraper_main():
         last_check_date = None
         last_weekly_yw  = None  # (iso_year, iso_week) of last weekly maintenance run
         last_ds_correction_yw = None  # (iso_year, iso_week) of last DataSectors OHLCV correction
+        loop = asyncio.get_running_loop()  # used to offload the DataSectors 15m fetches below
 
         while True:
             conn = _ensure_conn(conn)
@@ -890,31 +927,41 @@ async def scraper_main():
                     trim_memory()
 
             # 12:30 — Pre-fetch 15m candles for all tickers (09:00–12:xx stored in DB)
+            # Offloaded to ds_executor: this is a blocking, rate-limited HTTP
+            # fetch (1 req/sec, ~800 tickers) that used to run directly on
+            # this loop and could take well over ten minutes — see
+            # _fetch_ds_15m's docstring. The gates below in THIS iteration
+            # still wait for this await to return before they run (they share
+            # this one coroutine, same as before) — what actually stays
+            # responsive during the wait is every OTHER independently-scheduled
+            # coroutine, chiefly on_new_message, which no longer has to wait
+            # behind this fetch to get its own turn on the event loop.
             if not bsjp_prefetch_done and now_wib.hour == BSJP_PREFETCH_HOUR and now_wib.minute >= BSJP_PREFETCH_MINUTE:
                 try:
                     log.info("📡 BSJP 15m prefetch (12:30) — all active tickers")
-                    from data.price_fetch import fetch_intraday_15m_datasectors
                     today_dmy   = now_wib.strftime("%d-%m-%Y")
                     all_tickers = [r["ticker"] for r in fetchall(conn,
                         "SELECT ticker FROM ticker_universe WHERE is_active = TRUE")]
-                    res = fetch_intraday_15m_datasectors(conn, all_tickers, today_dmy)
-                    conn.commit()
+                    res = await loop.run_in_executor(
+                        ds_executor, _fetch_ds_15m, ds_conn_box, all_tickers, today_dmy)
                     log.info(f"📡 15m prefetch done: {res.get('rows_inserted', 0)} rows for {res.get('tickers', 0)} tickers")
                 except Exception as e:
                     log.error(f"❌ BSJP 15m prefetch: {e}")
                 finally:
                     bsjp_prefetch_done = True
 
-            # 15:46 — Fetch 15m candles for BSJP candidates only (15:45 candle must be ready)
+            # 15:46 — Fetch 15m candles for BSJP candidates only (15:45 candle
+            # must be ready). Same offload as above — this specific call, for
+            # 86 candidates, measured 2m39s on 2026-07-31 and pushed the 15:48
+            # scan gate 5 minutes late while it ran inline on this loop.
             if not bsjp_15m_done and now_wib.hour == BSJP_15M_HOUR and now_wib.minute >= BSJP_15M_MINUTE:
                 try:
                     log.info("📡 BSJP 15m enrich (15:46)")
-                    from data.price_fetch import fetch_intraday_15m_datasectors
                     today_dmy  = now_wib.strftime("%d-%m-%Y")
                     candidates = pre_filter_bsjp_candidates(conn, today_dmy)
                     log.info(f"📡 BSJP candidates: {len(candidates)} tickers")
-                    res = fetch_intraday_15m_datasectors(conn, candidates, today_dmy)
-                    conn.commit()
+                    res = await loop.run_in_executor(
+                        ds_executor, _fetch_ds_15m, ds_conn_box, candidates, today_dmy)
                     log.info(f"📡 15m enrich done: {res.get('rows_inserted', 0)} rows for {len(candidates)} tickers")
                 except Exception as e:
                     log.error(f"❌ BSJP 15m enrich: {e}")
@@ -999,7 +1046,7 @@ async def scraper_main():
                 try:
                     log.info("📅 Weekly maintenance triggered (Mon 03:00)")
                     from scraper.scraper_weekly import run_weekly_maintenance
-                    await run_weekly_maintenance(client, conn)
+                    await run_weekly_maintenance(client, conn, ds_executor=ds_executor, ds_conn_box=ds_conn_box)
                 except Exception as e:
                     log.error(f"❌ Weekly maintenance: {e}")
                 finally:
@@ -1286,6 +1333,16 @@ async def scraper_main():
         if msg_conn_box[0] is not None:
             try:
                 msg_conn_box[0].close()
+            except Exception:
+                pass
+        if ds_executor is not None:
+            try:
+                ds_executor.shutdown(wait=True, cancel_futures=False)
+            except Exception:
+                pass
+        if ds_conn_box[0] is not None:
+            try:
+                ds_conn_box[0].close()
             except Exception:
                 pass
         log.info("🔌 Disconnected")
