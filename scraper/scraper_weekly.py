@@ -190,10 +190,11 @@ async def run_weekly_maintenance(client=None, conn=None, ds_executor=None, ds_co
     connection scraper_daily.py's 12:30/15:46 BSJP passes use to offload
     fetch_intraday_15m_datasectors — see that module's _fetch_ds_15m
     docstring for why calling it inline freezes the caller's event loop.
-    Step 3 below does the identical fetch, over up to ~800 tickers x 7
-    trading days; called from the scheduler while-loop (as this function
-    normally is), it would starve that loop for however long the fetch
-    takes, the same bug just on Mondays instead of every trading day.
+    Step 3 below does the identical fetch, one request per ticker (up to
+    ~800) covering the whole trading-day range; called from the scheduler
+    while-loop (as this function normally is), it would starve that loop
+    for however long the fetch takes, the same bug just on Mondays instead
+    of every trading day.
     Optional and defaulting to None so this function stays callable on its
     own (CLI / an admin route with no scheduler-owned executor to hand in) —
     in that case Step 3 falls back to the old inline blocking call, which is
@@ -254,21 +255,26 @@ async def run_weekly_maintenance(client=None, conn=None, ds_executor=None, ds_co
             conn.rollback()
 
     # ── Step 3: 15m intraday backfill ─────────────────────────────────────
+    # One request per ticker covers the whole trading-day range (see
+    # fetch_intraday_15m_datasectors's docstring) — do NOT loop per day here,
+    # that would multiply DataSectors calls (and this step's wall-clock,
+    # which matters since it runs inline on ds_executor's single worker
+    # thread) by len(trading) for no benefit.
     log.info("  [3/5] 15m intraday backfill")
     tickers = [r["ticker"] for r in fetchall(conn,
         "SELECT ticker FROM ticker_universe WHERE is_active = TRUE")]
-    for d in trading:
-        try:
-            if ds_executor is not None and ds_conn_box is not None:
-                from scraper.scraper_daily import _fetch_ds_15m
-                loop = asyncio.get_running_loop()
-                res = await loop.run_in_executor(ds_executor, _fetch_ds_15m, ds_conn_box, tickers, d)
-            else:
-                res = fetch_intraday_15m_datasectors(conn, tickers, d)
-                conn.commit()
-            log.info("  15m %s: %d rows", d, res.get("rows_inserted", 0))
-        except Exception as e:
-            log.error("  15m %s: %s", d, e)
+    try:
+        if ds_executor is not None and ds_conn_box is not None:
+            from scraper.scraper_daily import _fetch_ds_15m
+            loop = asyncio.get_running_loop()
+            res = await loop.run_in_executor(
+                ds_executor, _fetch_ds_15m, ds_conn_box, tickers, trading[0], trading[-1])
+        else:
+            res = fetch_intraday_15m_datasectors(conn, tickers, trading[0], trading[-1])
+            conn.commit()
+        log.info("  15m %s→%s: %d rows", trading[0], trading[-1], res.get("rows_inserted", 0))
+    except Exception as e:
+        log.error("  15m %s→%s: %s", trading[0], trading[-1], e)
 
     # ── Step 4: BSJP indicators + signals ─────────────────────────────────
     log.info("  [4/5] BSJP indicators + signals")
