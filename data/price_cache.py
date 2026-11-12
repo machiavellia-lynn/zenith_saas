@@ -11,7 +11,7 @@ import logging
 import requests
 from datetime import datetime
 
-from config import WIB, YF_HEADERS, SECTORS
+from config import WIB, YF_HEADERS, YF_PROXIES, SECTORS
 from core.cache import TTLCache
 
 log = logging.getLogger("zenith.price_cache")
@@ -43,7 +43,7 @@ def _fetch_ihsg() -> dict:
     try:
         resp = requests.get(
             "https://query1.finance.yahoo.com/v8/finance/chart/%5EJKSE",
-            headers=YF_HEADERS,
+            headers=YF_HEADERS, proxies=YF_PROXIES,
             params={"interval": "1d", "range": "5d"},
             timeout=5,
         )
@@ -101,7 +101,7 @@ def get_ihsg_history(range_: str = "2y") -> dict:
     try:
         resp = requests.get(
             "https://query1.finance.yahoo.com/v8/finance/chart/%5EJKSE",
-            headers=YF_HEADERS,
+            headers=YF_HEADERS, proxies=YF_PROXIES,
             params={"interval": "1d", "range": range_},
             timeout=8,
         )
@@ -125,17 +125,51 @@ def get_ihsg_history(range_: str = "2y") -> dict:
 
 # ── Stocks ─────────────────────────────────────────────────────────────────────
 
+_crumb_lock = threading.Lock()
+_yf_auth: dict = {"session": None, "crumb": None, "at": 0.0}
+_CRUMB_TTL = 3600
+
+
+def _yf_session_crumb(force: bool = False):
+    """Cookie + crumb pair that /v7/finance/quote now requires (401 without it)."""
+    with _crumb_lock:
+        fresh = time.time() - _yf_auth["at"] < _CRUMB_TTL
+        if not force and _yf_auth["crumb"] and fresh:
+            return _yf_auth["session"], _yf_auth["crumb"]
+        s = requests.Session()
+        s.headers.update(YF_HEADERS)
+        if YF_PROXIES:
+            s.proxies.update(YF_PROXIES)
+        s.get("https://fc.yahoo.com", timeout=10)  # sets the cookie; body/404 is irrelevant
+        # getcrumb answers 406 to "Accept: application/json" (set in YF_HEADERS).
+        r = s.get("https://query2.finance.yahoo.com/v1/test/getcrumb",
+                  headers={"Accept": "*/*"}, timeout=10)
+        crumb = r.text.strip()
+        if r.status_code != 200 or not crumb or "<" in crumb or " " in crumb:
+            raise RuntimeError(f"getcrumb failed: HTTP {r.status_code}")
+        _yf_auth.update(session=s, crumb=crumb, at=time.time())
+        return s, crumb
+
+
 def _fetch_batch_quotes(batch: list) -> dict:
     """Yahoo /v7/finance/quote for up to 100 IDX tickers. Returns {ticker: {price, gain_pct}}."""
     symbols = ",".join(f"{t}.JK" for t in batch)
     try:
-        resp = requests.get(
-            "https://query1.finance.yahoo.com/v7/finance/quote",
-            headers=YF_HEADERS,
-            params={"symbols": symbols},
-            timeout=10,
-        )
-        quotes = resp.json().get("quoteResponse", {}).get("result", [])
+        for attempt in (0, 1):
+            session, crumb = _yf_session_crumb(force=attempt == 1)
+            resp = session.get(
+                "https://query1.finance.yahoo.com/v7/finance/quote",
+                params={"symbols": symbols, "crumb": crumb},
+                timeout=10,
+            )
+            if resp.status_code not in (401, 403):
+                break
+        body = resp.json()
+        if "quoteResponse" not in body:
+            log.warning("Batch quote rejected (batch of %d): HTTP %s %s",
+                        len(batch), resp.status_code, str(body.get("finance", {}).get("error"))[:120])
+            return {}
+        quotes = body["quoteResponse"].get("result", [])
         result = {}
         for q in quotes:
             ticker   = q.get("symbol", "").replace(".JK", "")

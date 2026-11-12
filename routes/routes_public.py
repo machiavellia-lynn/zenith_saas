@@ -7,6 +7,8 @@ Yahoo endpoint price_cache._fetch_ihsg() uses for the live quote.
 """
 import os
 import requests
+
+from config import YF_PROXIES
 from flask import Blueprint, jsonify, request
 
 bp_public = Blueprint("public", __name__)
@@ -26,6 +28,7 @@ def _fetch_ihsg_history(range_: str = "2y") -> dict:
         resp = requests.get(
             "https://query1.finance.yahoo.com/v8/finance/chart/%5EJKSE",
             headers={"User-Agent": "Mozilla/5.0"},
+            proxies=YF_PROXIES,
             params={"interval": "1d", "range": range_},
             timeout=8,
         )

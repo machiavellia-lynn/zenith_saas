@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 
 import requests
 
-from config import WIB, YF_HEADERS, GAIN_CACHE_TTL
+from config import WIB, YF_HEADERS, YF_PROXIES, GAIN_CACHE_TTL
 from core.utils import parse_date
 from core.db import fetchall, execute, get_db
 
@@ -42,7 +42,7 @@ def fetch_gain_range(ticker: str, date_from: str, date_to: str):
 
         resp = requests.get(
             f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
-            headers=YF_HEADERS,
+            headers=YF_HEADERS, proxies=YF_PROXIES,
             params={"interval": "1d", "period1": p1, "period2": p2, "includeAdjustedClose": "false"},
             timeout=10,
         )
@@ -159,7 +159,7 @@ def _fetch_close(ticker: str, target_date: str = None):
 
         resp = requests.get(
             f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
-            headers=YF_HEADERS, params=params, timeout=8,
+            headers=YF_HEADERS, proxies=YF_PROXIES, params=params, timeout=8,
         )
         r = resp.json().get("chart", {}).get("result", [None])[0]
         if not r:
@@ -185,11 +185,7 @@ def _fetch_close(ticker: str, target_date: str = None):
 
 
 def _fetch_ohlcv_history(ticker: str, date_from: datetime = None, date_to: datetime = None):
-    """Fetch daily OHLCV history for a ticker from Yahoo Finance. Restored
-    2026-07-20 — see fetch_daily_yahoo's docstring for why Yahoo is back as the
-    default daily-OHLCV source (was removed 2026-07-18 in favor of DataSectors,
-    which fixed a real back-adjustment accuracy issue but made daily consumption
-    ~3x the ticker universe per fetch, burning the DataSectors quota in ~2 days)."""
+    """Fetch daily OHLCV history for a ticker from Yahoo Finance."""
     symbol = f"{ticker}.JK"
     try:
         params = {"interval": "1d", "includeAdjustedClose": "false"}
@@ -200,7 +196,7 @@ def _fetch_ohlcv_history(ticker: str, date_from: datetime = None, date_to: datet
             params["range"] = "1y"
         resp = requests.get(
             f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
-            headers=YF_HEADERS,
+            headers=YF_HEADERS, proxies=YF_PROXIES,
             params=params,
             timeout=10,
         )
@@ -233,25 +229,16 @@ def _fetch_ohlcv_history(ticker: str, date_from: datetime = None, date_to: datet
 
 
 def fetch_daily_yahoo(conn, tickers: list, date_from: str, date_to: str = None, progress_cb=None) -> dict:
-    """Fetch daily OHLCV from Yahoo Finance for given tickers — the frequent/cheap
-    default path for daily OHLCV (restored 2026-07-20).
+    """Fetch daily OHLCV from Yahoo Finance for given tickers.
 
-    Yahoo retroactively back-adjusts historical closes across a ticker's stock
-    split / rights issue, which can silently corrupt price_history for tickers
-    that later have a CA (see incident_datasectors_15m_price_corruption) — that
-    accuracy problem is real and is why fetch_daily_datasectors exists. But
-    calling DataSectors for the full active universe on every automatic daily
-    pass (enrich_daily_ohlcv ran 3x/day) burned a whole month's quota in about
-    two days. The fix: Yahoo (free, no meaningful rate limit) for the frequent
-    automatic path, and a weekly DataSectors backfill (Sunday 02:00 WIB — see
-    scraper_daily.py's SUNDAY_DS_CORRECTION_HOUR/MINUTE) to self-heal whatever
-    Yahoo back-adjusted during the week. fetch_daily_datasectors is unchanged
-    and still used by that weekly job, corporate-action investigation, and the
-    admin "Price History (Daily)" manual button.
+    Caveat: Yahoo retroactively back-adjusts historical closes across a ticker's
+    stock split / rights issue, which can silently drift price_history for
+    tickers that later have a corporate action. Nothing re-corrects that
+    automatically; verify suspicious tickers against the corporate-actions
+    workflow.
 
     date_from / date_to in DD-MM-YYYY. date_to defaults to date_from.
-    Parallel fetch (unlike the DataSectors path, Yahoo doesn't need per-call
-    throttling — matches the pre-2026-07-18 implementation).
+    Parallel fetch; Yahoo needs no per-call throttling.
     progress_cb(done, total, current_ticker, inserted, failed) — called per
     ticker as it completes (order not guaranteed; fetch is parallel).
     Caller is responsible for commit."""
@@ -330,7 +317,7 @@ def fetch_ohlcv(ticker: str, tf: str, interval_map: dict) -> dict:
     try:
         resp = requests.get(
             f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
-            headers=YF_HEADERS,
+            headers=YF_HEADERS, proxies=YF_PROXIES,
             params={"interval": p["interval"], "period1": period1, "period2": period2,
                     "includePrePost": "false", "includeAdjustedClose": "false"},
             timeout=20,
@@ -394,103 +381,6 @@ def fetch_ohlcv(ticker: str, tf: str, interval_map: dict) -> dict:
         return {"error": str(e)}
 
 
-# DataSectors interval mapping: tf → (ds_interval, days_back)
-_DS_TF_MAP = {
-    "5m":  ("5m",     10),
-    "15m": ("15m",    30),
-    "30m": ("30m",    60),
-    "1h":  ("1h",    180),
-    "1d":  ("daily", 730),
-}
-
-
-def fetch_ohlcv_datasectors(ticker: str, tf: str) -> dict:
-    """Fetch OHLCV candles from DataSectors. Returns same format as fetch_ohlcv.
-    Intraday datetimes are UTC from DS — converted to WIB before returning.
-    Daily uses 'date' field (YYYY-MM-DD) and 'unixdate' (WIB midnight unix)."""
-    from config import DS_API_KEY, DS_BASE_URL
-    from datetime import timezone as _tz
-
-    if tf not in _DS_TF_MAP:
-        return {"error": f"Timeframe tidak valid: {tf}"}
-
-    interval_str, days_back = _DS_TF_MAP[tf]
-    now_wib   = datetime.now(WIB)
-    date_to   = now_wib.strftime("%Y-%m-%d")
-    date_from = (now_wib - timedelta(days=days_back)).strftime("%Y-%m-%d")
-
-    try:
-        r = requests.get(
-            f"{DS_BASE_URL}/api/chart-saham/{ticker}/{interval_str}",
-            headers={"Authorization": f"Bearer {DS_API_KEY}"},
-            params={"from": date_from, "to": date_to},
-            timeout=20,
-        )
-        if r.status_code != 200:
-            return {"error": f"DataSectors HTTP {r.status_code} for {ticker}"}
-
-        # DS returns nested data.data.data.chartbit (intraday) or data.data.data.chartbit (daily)
-        chartbit = (r.json()
-                    .get("data", {})
-                    .get("data", {})
-                    .get("data", {})
-                    .get("chartbit", []))
-
-        if not chartbit:
-            return {"error": f"No data for {ticker} {tf}"}
-
-        candles = []
-        is_daily = (tf == "1d")
-
-        # DS returns newest-first — reverse to oldest-first
-        for c in reversed(chartbit):
-            try:
-                o = c.get("open")
-                h = c.get("high")
-                l = c.get("low")
-                cl = c.get("close")
-                if not (o and cl):
-                    continue
-
-                if is_daily:
-                    dt_wib = datetime.strptime(c["date"], "%Y-%m-%d").replace(tzinfo=WIB)
-                    time_val    = int(dt_wib.timestamp())
-                    datetime_wib = c["date"]
-                else:
-                    dt_utc   = datetime.strptime(c["datetime"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=_tz.utc)
-                    dt_wib   = dt_utc.astimezone(WIB)
-                    time_val    = int(dt_wib.timestamp())
-                    datetime_wib = dt_wib.strftime("%Y-%m-%d %H:%M")
-
-                candles.append({
-                    "time":         time_val,
-                    "open":         int(o),
-                    "high":         int(h),
-                    "low":          int(l),
-                    "close":        int(cl),
-                    "volume":       int(c.get("volume") or 0),
-                    "datetime_wib": datetime_wib,
-                })
-            except Exception:
-                continue
-
-        if not candles:
-            return {"error": f"No valid candles for {ticker} {tf}"}
-
-        return {
-            "ticker":     ticker,
-            "tf":         tf,
-            "candles":    candles,
-            "count":      len(candles),
-            "name":       ticker,
-            "price":      candles[-1]["close"],
-            "data_range": f"{candles[0]['datetime_wib']} → {candles[-1]['datetime_wib']} WIB",
-        }
-    except Exception as e:
-        log.warning("fetch_ohlcv_datasectors %s %s: %s", ticker, tf, e)
-        return {"error": str(e)}
-
-
 def enrich_daily_prices(conn, date_str: str) -> int:
     """Fetch close prices for all tickers in eod_summary for a given date.
     Caller is responsible for commit."""
@@ -537,9 +427,9 @@ def sync_price_history_from_eod(conn, date_str: str) -> int:
 
 
 def backfill_prices(conn, days: int = 30, date_from: str = None, date_to: str = None, delay_ms: int = 0):
-    """Backfill price_close in eod_summary for a date range, via DataSectors:
+    """Backfill price_close in eod_summary for a date range via Yahoo:
     fetch price_history (backfill_price_history_ohlcv) then copy into eod_summary
-    (sync_eod_prices_from_history) — no separate Yahoo call needed.
+    (sync_eod_prices_from_history) — no separate price call needed.
     delay_ms kept for API compatibility (unused).
     Caller is responsible for commit."""
     try:
@@ -580,13 +470,9 @@ def backfill_prices(conn, days: int = 30, date_from: str = None, date_to: str = 
         return 0
 
 
-def backfill_price_history_ohlcv(conn, date_from: str = None, date_to: str = None,
-                                  provider: str = "yahoo"):
+def backfill_price_history_ohlcv(conn, date_from: str = None, date_to: str = None):
     """Backfill price_history with full OHLCV for all active tickers in ticker_universe.
     date_from / date_to in DD-MM-YYYY or None for last 210 days.
-    provider: "yahoo" (default, cheap/frequent) or "datasectors" (accurate,
-    un-adjusted — pass explicitly for the weekly correction job; see
-    fetch_daily_yahoo's docstring for why Yahoo is the default here).
     Caller is responsible for commit."""
     tickers = [r["ticker"] for r in fetchall(conn,
         "SELECT ticker FROM ticker_universe WHERE is_active = TRUE")]
@@ -594,16 +480,15 @@ def backfill_price_history_ohlcv(conn, date_from: str = None, date_to: str = Non
         tickers = [r["ticker"] for r in fetchall(conn, "SELECT DISTINCT ticker FROM eod_summary")]
 
     if date_from and date_to:
-        log.info("Backfilling price_history OHLCV %s → %s for %d tickers via %s",
-                 date_from, date_to, len(tickers), provider)
+        log.info("Backfilling price_history OHLCV %s → %s for %d tickers",
+                 date_from, date_to, len(tickers))
     else:
         now       = datetime.now(WIB)
         date_from = (now - timedelta(days=210)).strftime("%d-%m-%Y")
         date_to   = now.strftime("%d-%m-%Y")
-        log.info("Backfilling price_history OHLCV 210d for %d tickers via %s", len(tickers), provider)
+        log.info("Backfilling price_history OHLCV 210d for %d tickers", len(tickers))
 
-    fetch_fn = fetch_daily_datasectors if provider == "datasectors" else fetch_daily_yahoo
-    res = fetch_fn(conn, tickers, date_from, date_to)
+    res = fetch_daily_yahoo(conn, tickers, date_from, date_to)
     return res.get("rows_inserted", 0)
 
 
@@ -615,12 +500,8 @@ def backfill_price_history_200d(conn):
 def enrich_daily_ohlcv(conn, date_str: str) -> int:
     """Fetch today's OHLCV from Yahoo for all active tickers in ticker_universe.
     Stores full OHLCV in price_history AND updates eod_summary.price_close when row exists.
-    Runs 3x/day (midday/first/second pass, via run_backfill) — always Yahoo, never
-    DataSectors: at 821 active tickers that's ~2,463 DataSectors requests/day if it
-    were DataSectors, which burned a whole month's quota in about two days when this
-    briefly ran on DataSectors 2026-07-18 to 2026-07-20. Accuracy correction for
-    whatever Yahoo back-adjusts happens separately, weekly, via DataSectors — see
-    fetch_daily_yahoo's docstring.
+    Runs 3x/day (midday/first/second pass, via run_backfill), always via Yahoo —
+    see fetch_daily_yahoo's docstring for the back-adjustment caveat.
     Caller is responsible for commit."""
     tickers = [r["ticker"] for r in fetchall(conn,
         "SELECT ticker FROM ticker_universe WHERE is_active = TRUE")]
@@ -686,7 +567,7 @@ def _fetch_ohlcv_intraday_15m(ticker: str, dt_f: datetime, dt_t: datetime):
     try:
         resp = requests.get(
             f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
-            headers=YF_HEADERS,
+            headers=YF_HEADERS, proxies=YF_PROXIES,
             params={
                 "interval": "15m",
                 "period1": int(dt_f.timestamp()),
@@ -780,76 +661,32 @@ def backfill_intraday_15m(conn, date_from: str, date_to: str) -> dict:
     }
 
 
-def fetch_intraday_15m_datasectors(conn, tickers: list, date_from: str, date_to: str = None, progress_cb=None) -> dict:
-    """Fetch 15m OHLCV from DataSectors for given tickers.
+def fetch_intraday_15m_yahoo(conn, tickers: list, date_from: str, date_to: str = None, progress_cb=None) -> dict:
+    """Fetch 15m OHLCV from Yahoo for the given tickers and upsert into price_history_15m.
     date_from / date_to in DD-MM-YYYY. date_to defaults to date_from (single day).
-    Supports multi-day ranges — one request per ticker covers the full range.
-    Rate-limited to 1 req/sec. Converts UTC→WIB before storing.
+    One request per ticker covers the whole range. Yahoo only serves ~59 days of
+    15m history, so ranges older than that come back empty and count as failed.
+    Network fetches run on a small thread pool; DB writes stay on the caller's
+    thread because a psycopg2 connection is not safe to share across threads.
     progress_cb(done, total, current_ticker, inserted, failed) — called per ticker.
     Caller is responsible for commit."""
-    from config import DS_API_KEY, DS_BASE_URL
-    from datetime import timezone as _tz
-
-    if not DS_API_KEY:
-        log.error("fetch_intraday_15m_datasectors: DATASECTORS_API_KEY not set")
-        return {"ok": False, "error": "DS_API_KEY not set"}
-
     if not tickers:
-        return {"ok": True, "tickers": 0, "rows_inserted": 0, "failed_count": 0}
+        return {"ok": True, "tickers": 0, "rows_inserted": 0, "failed_count": 0, "failed": []}
 
-    def _to_ymd(dmy: str) -> str:
-        d, m, y = dmy.split("-")
-        return f"{y}-{m}-{d}"
+    fmt  = "%d-%m-%Y"
+    dt_f = datetime.strptime(date_from, fmt).replace(tzinfo=WIB)
+    dt_t = datetime.strptime(date_to or date_from, fmt).replace(tzinfo=WIB) + timedelta(days=1)
 
-    date_ymd_from = _to_ymd(date_from)
-    date_ymd_to   = _to_ymd(date_to) if date_to else date_ymd_from
-    headers       = {"Authorization": f"Bearer {DS_API_KEY}"}
-    inserted      = 0
-    failed        = []
+    inserted = 0
+    failed   = []
 
-    for i, ticker in enumerate(tickers):
-        if i > 0:
-            time.sleep(1)
-        try:
-            r = requests.get(
-                f"{DS_BASE_URL}/api/chart-saham/{ticker}/15m",
-                headers=headers,
-                params={"from": date_ymd_from, "to": date_ymd_to},
-                timeout=20,
-            )
-            if r.status_code == 500:
-                time.sleep(3)
-                r = requests.get(
-                    f"{DS_BASE_URL}/api/chart-saham/{ticker}/15m",
-                    headers=headers,
-                    params={"from": date_ymd_from, "to": date_ymd_to},
-                    timeout=20,
-                )
-            if r.status_code != 200:
-                log.warning("DS 15m %s: HTTP %s", ticker, r.status_code)
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        results = ex.map(lambda t: _fetch_ohlcv_intraday_15m(t, dt_f, dt_t), tickers)
+        for i, (ticker, rows) in enumerate(results):
+            if not rows:
                 failed.append(ticker)
-                continue
-
-            candles = (r.json()
-                       .get("data", {})
-                       .get("data", {})
-                       .get("data", {})
-                       .get("chartbit", []))
-
-            for c in candles:
-                # Skip candles with missing price data to avoid aborted transaction state
-                if not (c.get("open") and c.get("close")):
-                    continue
+            for r in rows:
                 try:
-                    raw_dt = c.get("datetime", "")
-                    try:
-                        dt_utc = datetime.strptime(raw_dt, "%Y-%m-%d %H:%M:%S").replace(tzinfo=_tz.utc)
-                    except ValueError:
-                        dt_utc = datetime.strptime(raw_dt[:16], "%Y-%m-%d %H:%M").replace(tzinfo=_tz.utc)
-                    # Store without seconds — all queries use RIGHT(datetime,5)='15:45' pattern
-                    dt_wib = dt_utc.astimezone(WIB).strftime("%Y-%m-%d %H:%M")
-                    vol    = int(c.get("volume") or 0)
-
                     execute(conn, """
                         INSERT INTO price_history_15m (datetime, ticker, open, high, low, close, volume)
                         VALUES (%s, %s, %s, %s, %s, %s, %s)
@@ -857,125 +694,21 @@ def fetch_intraday_15m_datasectors(conn, tickers: list, date_from: str, date_to:
                             open = EXCLUDED.open, high = EXCLUDED.high,
                             low  = EXCLUDED.low,  close = EXCLUDED.close,
                             volume = EXCLUDED.volume
-                    """, [dt_wib, ticker, c["open"], c["high"], c["low"], c["close"], vol])
+                    """, [r["datetime"], ticker, r["open"], r["high"], r["low"], r["close"], r["volume"]])
                     inserted += 1
                 except Exception as e:
-                    log.warning("DS 15m insert fail ticker=%s dt=%s: %s", ticker, c.get("datetime"), e)
+                    log.warning("15m insert fail ticker=%s dt=%s: %s", ticker, r["datetime"], e)
                     try:
                         conn.rollback()
                     except Exception:
                         pass
-
-        except Exception as e:
-            log.warning("DS 15m fetch fail ticker=%s: %s", ticker, e)
-            failed.append(ticker)
-
-        if progress_cb:
-            try:
-                progress_cb(i + 1, len(tickers), ticker, inserted, len(failed))
-            except Exception:
-                pass
-
-    log.info("fetch_intraday_15m_datasectors %s→%s: %d rows, %d tickers, %d failed",
-             date_from, date_to or date_from, inserted, len(tickers), len(failed))
-    return {
-        "ok":            True,
-        "tickers":       len(tickers),
-        "rows_inserted": inserted,
-        "failed_count":  len(failed),
-        "failed":        failed[:20],
-    }
-
-
-def fetch_daily_datasectors(conn, tickers: list, date_from: str, date_to: str = None, progress_cb=None) -> dict:
-    """Fetch daily OHLCV from DataSectors for given tickers — replaces the old
-    Yahoo-based daily fetch (Yahoo was found to retroactively back-adjust
-    historical closes across stock splits/rights issues, corrupting price_history;
-    see incident_datasectors_15m_price_corruption).
-    date_from / date_to in DD-MM-YYYY. date_to defaults to date_from (single day).
-    One request per ticker covers the full range. Rate-limited to 1 req/sec.
-    progress_cb(done, total, current_ticker, inserted, failed) — called per ticker.
-    Caller is responsible for commit."""
-    from config import DS_API_KEY, DS_BASE_URL
-
-    if not DS_API_KEY:
-        log.error("fetch_daily_datasectors: DATASECTORS_API_KEY not set")
-        return {"ok": False, "error": "DS_API_KEY not set"}
-
-    if not tickers:
-        return {"ok": True, "tickers": 0, "rows_inserted": 0, "failed_count": 0}
-
-    def _to_ymd(dmy: str) -> str:
-        d, m, y = dmy.split("-")
-        return f"{y}-{m}-{d}"
-
-    date_ymd_from = _to_ymd(date_from)
-    date_ymd_to   = _to_ymd(date_to) if date_to else date_ymd_from
-    headers       = {"Authorization": f"Bearer {DS_API_KEY}"}
-    inserted      = 0
-    failed        = []
-
-    for i, ticker in enumerate(tickers):
-        if i > 0:
-            time.sleep(1)
-        try:
-            r = requests.get(
-                f"{DS_BASE_URL}/api/chart-saham/{ticker}/daily",
-                headers=headers,
-                params={"from": date_ymd_from, "to": date_ymd_to},
-                timeout=20,
-            )
-            if r.status_code == 500:
-                time.sleep(3)
-                r = requests.get(
-                    f"{DS_BASE_URL}/api/chart-saham/{ticker}/daily",
-                    headers=headers,
-                    params={"from": date_ymd_from, "to": date_ymd_to},
-                    timeout=20,
-                )
-            if r.status_code != 200:
-                log.warning("DS daily %s: HTTP %s", ticker, r.status_code)
-                failed.append(ticker)
-                continue
-
-            candles = (r.json()
-                       .get("data", {})
-                       .get("data", {})
-                       .get("data", {})
-                       .get("chartbit", []))
-
-            for c in candles:
-                if not (c.get("open") and c.get("close")):
-                    continue
+            if progress_cb:
                 try:
-                    vol = int(c.get("volume") or 0)
-                    execute(conn, """
-                        INSERT INTO price_history (date, ticker, open, high, low, close, volume)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
-                        ON CONFLICT (date, ticker) DO UPDATE SET
-                            open = EXCLUDED.open, high = EXCLUDED.high,
-                            low  = EXCLUDED.low,  close = EXCLUDED.close,
-                            volume = EXCLUDED.volume
-                    """, [c["date"], ticker, c["open"], c["high"], c["low"], c["close"], vol])
-                    inserted += 1
-                except Exception as e:
-                    log.warning("DS daily insert fail ticker=%s date=%s: %s", ticker, c.get("date"), e)
-                    try:
-                        conn.rollback()
-                    except Exception:
-                        pass
+                    progress_cb(i + 1, len(tickers), ticker, inserted, len(failed))
+                except Exception:
+                    pass
 
-        except Exception as e:
-            log.warning("DS daily fetch fail ticker=%s: %s", ticker, e)
-            failed.append(ticker)
-
-        if progress_cb:
-            try:
-                progress_cb(i + 1, len(tickers), ticker, inserted, len(failed))
-            except Exception:
-                pass
-
-    log.info("fetch_daily_datasectors %s→%s: %d rows, %d tickers, %d failed",
+    log.info("fetch_intraday_15m_yahoo %s→%s: %d rows, %d tickers, %d failed",
              date_from, date_to or date_from, inserted, len(tickers), len(failed))
     return {
         "ok":            True,

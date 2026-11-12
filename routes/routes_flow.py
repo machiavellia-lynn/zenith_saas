@@ -11,7 +11,7 @@ from config import WIB, YF_HEADERS, INTERVAL_MAP, SECTORS
 from core.utils import parse_date, date_range, syariah_tickers
 from core.db import get_db, fetchall
 from core.cache import TTLCache
-from data.price_fetch import fetch_ohlcv, fetch_ohlcv_datasectors
+from data.price_fetch import fetch_ohlcv
 from algo.algo_wyckoff import (
     classify_zenith_v3_1, get_action, get_watch_flag,
     get_ma_structure, get_phase_narrative, detect_trade_detail_gate,
@@ -413,14 +413,7 @@ def ohlcv():
     ticker = request.args.get("ticker", "BBRI").upper().strip()
     tf     = request.args.get("tf", "15m")
 
-    from config import DS_ENABLED
-    if DS_ENABLED:
-        result = fetch_ohlcv_datasectors(ticker, tf)
-        if "error" in result:
-            log.warning("DS ohlcv failed %s %s: %s — fallback Yahoo", ticker, tf, result["error"])
-            result = fetch_ohlcv(ticker, tf, INTERVAL_MAP)
-    else:
-        result = fetch_ohlcv(ticker, tf, INTERVAL_MAP)
+    result = fetch_ohlcv(ticker, tf, INTERVAL_MAP)
 
     if "error" in result:
         return jsonify(result), 404

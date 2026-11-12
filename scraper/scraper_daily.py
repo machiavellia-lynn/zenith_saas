@@ -20,7 +20,7 @@ from config import (
     TG_TOPIC_MF_PLUS as TOPIC_MF_PLUS,
     TG_TOPIC_MF_MINUS as TOPIC_MF_MINUS,
     MIDDAY_HOUR, MIDDAY_MINUTE, BACKFILL_HOUR, BACKFILL_MINUTE,
-    RECOMPUTE_HOUR, RECOMPUTE_MINUTE,
+    RECOMPUTE_HOUR, RECOMPUTE_MINUTE, BSJP_ENABLED,
 )
 from core.db import get_scraper_db, transaction, fetchall
 from core.utils import trim_memory
@@ -112,15 +112,6 @@ BSJP_LOT_BUDGET      = 10_000_000
 # comment for why. Must match algo_backtest.py's TOP_N (no shared constant
 # between the live scanner and the backtest engine).
 TOP_N_BSJP = 5
-
-# 2026-07-20: weekly accuracy correction. enrich_daily_ohlcv (the 3x/day
-# automatic path) uses Yahoo for cost, but Yahoo retroactively back-adjusts
-# historical closes across a stock split/rights issue — this window re-pulls
-# the full active universe from DataSectors (un-adjusted, but rate/quota
-# limited, hence weekly not daily) to self-heal whatever drifted during the
-# week. Sunday 02:00 WIB: market closed, quiet off-hours.
-SUNDAY_DS_CORRECTION_HOUR   = 2
-SUNDAY_DS_CORRECTION_MINUTE = 0
 
 # ── Analytics throttle — recompute at most once per 60s per date ───────────────
 _analytics_throttle: dict = {}
@@ -216,12 +207,12 @@ def _process_one_message(conn_box: list, message) -> int:
     return process_message(conn_box[0], message)
 
 
-def _fetch_ds_15m(conn_box: list, tickers: list, date_dmy: str) -> dict:
-    """Runs on the single-worker DataSectors executor (see scraper_main) —
+def _fetch_intraday_15m(conn_box: list, tickers: list, date_dmy: str, date_to_dmy: str = None) -> dict:
+    """Runs on the single-worker intraday executor (see scraper_main) —
     never on the asyncio event loop thread.
 
-    fetch_intraday_15m_datasectors() is a synchronous, rate-limited (1 req/sec)
-    HTTP client — one blocking request per ticker. Called directly inside the
+    fetch_intraday_15m_yahoo() is a synchronous HTTP client — blocking
+    requests, one per ticker, over a small thread pool. Called directly inside the
     scheduler while-loop (as it used to be), it freezes the event loop for the
     same reason _process_one_message's docstring describes for Telegram
     messages: the 15:46 candidate-only enrich alone took 2m39s for 86 tickers
@@ -235,9 +226,9 @@ def _fetch_ds_15m(conn_box: list, tickers: list, date_dmy: str) -> dict:
     or the message-worker's msg_conn_box, for the same thread-safety reason
     (a psycopg2 connection can't be used concurrently from multiple threads).
     """
-    from data.price_fetch import fetch_intraday_15m_datasectors
+    from data.price_fetch import fetch_intraday_15m_yahoo
     conn_box[0] = _ensure_conn(conn_box[0])
-    res = fetch_intraday_15m_datasectors(conn_box[0], tickers, date_dmy)
+    res = fetch_intraday_15m_yahoo(conn_box[0], tickers, date_dmy, date_to_dmy)
     conn_box[0].commit()
     return res
 
@@ -786,7 +777,7 @@ def get_syariah_backfill_status() -> dict:
 
 def pre_filter_bsjp_candidates(conn, date_dmy: str) -> list:
     """Return tickers that pass the BSJP SM gate from eod_summary.
-    date_dmy in DD-MM-YYYY. Used to minimize DataSectors API calls at 15:46."""
+    date_dmy in DD-MM-YYYY. Used to limit the 15:46 15m fetch to plausible candidates."""
     from algo.corporate_actions import excluded_tickers
     excluded = excluded_tickers(conn)
     rows = fetchall(conn, """
@@ -827,8 +818,8 @@ async def scraper_main():
     conn = None
     msg_conn_box = [None]
     msg_executor = None
-    ds_conn_box = [None]
-    ds_executor = None
+    intraday_conn_box = [None]
+    intraday_executor = None
     client = None
     try:
         conn = get_scraper_db()
@@ -844,13 +835,13 @@ async def scraper_main():
         msg_conn_box[0] = get_scraper_db()
         msg_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="tg-msg")
 
-        # Same pattern, separate executor: the DataSectors 15m fetch (12:30
-        # prefetch, 15:46 candidate enrich) is a blocking, rate-limited HTTP
-        # client — see _fetch_ds_15m's docstring. A SEPARATE executor (not
+        # Same pattern, separate executor: the Yahoo 15m fetch (12:30
+        # prefetch, 15:46 candidate enrich) is a blocking HTTP
+        # client — see _fetch_intraday_15m's docstring. A SEPARATE executor (not
         # msg_executor) so a slow multi-minute fetch never delays Telegram
         # message processing, and vice versa.
-        ds_conn_box[0] = get_scraper_db()
-        ds_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ds-fetch")
+        intraday_conn_box[0] = get_scraper_db()
+        intraday_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="intraday-15m")
 
         client = TelegramClient(session_file, TG_API_ID, TG_API_HASH)
         await client.connect()
@@ -880,8 +871,7 @@ async def scraper_main():
         bsjp_pricing_done = False
         last_check_date = None
         last_weekly_yw  = None  # (iso_year, iso_week) of last weekly maintenance run
-        last_ds_correction_yw = None  # (iso_year, iso_week) of last DataSectors OHLCV correction
-        loop = asyncio.get_running_loop()  # used to offload the DataSectors 15m fetches below
+        loop = asyncio.get_running_loop()  # used to offload the 15m fetches below
 
         while True:
             conn = _ensure_conn(conn)
@@ -895,6 +885,11 @@ async def scraper_main():
                 bsjp_prefetch_done = bsjp_15m_done = bsjp_scan_done = corp_action_done_today = False
                 bsjp_pricing_done = False
                 last_check_date = today_str
+
+            if not BSJP_ENABLED:
+                # BSJP off: skip the 12:30/15:46 15m fetches, the 15:48 scan and the
+                # 16:45 pricing pass. Daily-bar BSJP indicators still compute.
+                bsjp_prefetch_done = bsjp_15m_done = bsjp_scan_done = bsjp_pricing_done = True
 
             if not midday_pass_done and (now_wib.hour > MIDDAY_HOUR or (now_wib.hour == MIDDAY_HOUR and now_wib.minute >= MIDDAY_MINUTE)):
                 try:
@@ -927,10 +922,10 @@ async def scraper_main():
                     trim_memory()
 
             # 12:30 — Pre-fetch 15m candles for all tickers (09:00–12:xx stored in DB)
-            # Offloaded to ds_executor: this is a blocking, rate-limited HTTP
-            # fetch (1 req/sec, ~800 tickers) that used to run directly on
+            # Offloaded to intraday_executor: this is a blocking HTTP
+            # fetch (~800 tickers) that used to run directly on
             # this loop and could take well over ten minutes — see
-            # _fetch_ds_15m's docstring. The gates below in THIS iteration
+            # _fetch_intraday_15m's docstring. The gates below in THIS iteration
             # still wait for this await to return before they run (they share
             # this one coroutine, same as before) — what actually stays
             # responsive during the wait is every OTHER independently-scheduled
@@ -943,7 +938,7 @@ async def scraper_main():
                     all_tickers = [r["ticker"] for r in fetchall(conn,
                         "SELECT ticker FROM ticker_universe WHERE is_active = TRUE")]
                     res = await loop.run_in_executor(
-                        ds_executor, _fetch_ds_15m, ds_conn_box, all_tickers, today_dmy)
+                        intraday_executor, _fetch_intraday_15m, intraday_conn_box, all_tickers, today_dmy)
                     log.info(f"📡 15m prefetch done: {res.get('rows_inserted', 0)} rows for {res.get('tickers', 0)} tickers")
                 except Exception as e:
                     log.error(f"❌ BSJP 15m prefetch: {e}")
@@ -961,7 +956,7 @@ async def scraper_main():
                     candidates = pre_filter_bsjp_candidates(conn, today_dmy)
                     log.info(f"📡 BSJP candidates: {len(candidates)} tickers")
                     res = await loop.run_in_executor(
-                        ds_executor, _fetch_ds_15m, ds_conn_box, candidates, today_dmy)
+                        intraday_executor, _fetch_intraday_15m, intraday_conn_box, candidates, today_dmy)
                     log.info(f"📡 15m enrich done: {res.get('rows_inserted', 0)} rows for {len(candidates)} tickers")
                 except Exception as e:
                     log.error(f"❌ BSJP 15m enrich: {e}")
@@ -1046,38 +1041,11 @@ async def scraper_main():
                 try:
                     log.info("📅 Weekly maintenance triggered (Mon 03:00)")
                     from scraper.scraper_weekly import run_weekly_maintenance
-                    await run_weekly_maintenance(client, conn, ds_executor=ds_executor, ds_conn_box=ds_conn_box)
+                    await run_weekly_maintenance(client, conn, intraday_executor=intraday_executor, intraday_conn_box=intraday_conn_box)
                 except Exception as e:
                     log.error(f"❌ Weekly maintenance: {e}")
                 finally:
                     last_weekly_yw = iso_yw
-                    trim_memory()
-
-            # ── Weekly DataSectors OHLCV accuracy correction: Sunday 02:00 WIB ──
-            # See SUNDAY_DS_CORRECTION_HOUR's comment: enrich_daily_ohlcv runs on
-            # Yahoo for cost every day, this self-heals whatever Yahoo
-            # back-adjusted during the week using DataSectors' un-adjusted data.
-            iso_yw_ds = now_wib.isocalendar()[:2]
-            if (now_wib.weekday() == 6
-                    and now_wib.hour >= SUNDAY_DS_CORRECTION_HOUR
-                    and now_wib.minute >= SUNDAY_DS_CORRECTION_MINUTE
-                    and iso_yw_ds != last_ds_correction_yw):
-                try:
-                    log.info("🛰️ DataSectors OHLCV correction (Sun 02:00) — full active universe, last 210d")
-                    from data.price_fetch import backfill_price_history_ohlcv, sync_eod_prices_from_history
-                    rows    = backfill_price_history_ohlcv(conn, provider="datasectors")
-                    updated = sync_eod_prices_from_history(conn)
-                    conn.commit()
-                    log.info(f"🛰️ DS correction done: {rows} price_history rows written, "
-                             f"{updated} eod_summary rows synced")
-                except Exception as e:
-                    log.error(f"❌ DS OHLCV correction: {e}")
-                    try:
-                        conn.rollback()
-                    except Exception:
-                        pass
-                finally:
-                    last_ds_correction_yw = iso_yw_ds
                     trim_memory()
 
             with _backfill_lock:
@@ -1335,14 +1303,14 @@ async def scraper_main():
                 msg_conn_box[0].close()
             except Exception:
                 pass
-        if ds_executor is not None:
+        if intraday_executor is not None:
             try:
-                ds_executor.shutdown(wait=True, cancel_futures=False)
+                intraday_executor.shutdown(wait=True, cancel_futures=False)
             except Exception:
                 pass
-        if ds_conn_box[0] is not None:
+        if intraday_conn_box[0] is not None:
             try:
-                ds_conn_box[0].close()
+                intraday_conn_box[0].close()
             except Exception:
                 pass
         log.info("🔌 Disconnected")

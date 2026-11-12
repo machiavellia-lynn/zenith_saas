@@ -20,12 +20,12 @@ def ensure_schema():
     _create_ticker_universe(conn)
     _create_backtest_cache(conn)
     _create_price_history_15m(conn)
-    _create_ohlcv_cache(conn)
     _create_corporate_events(conn)
-    _create_inst_flow_cache(conn)
     _create_bsjp_signals(conn)
     _create_bsjp_results(conn)
     _create_api_keys(conn)
+    _create_broker_summary(conn)
+    _create_broker_accumulation(conn)
     conn.commit()
     log.info("Schema ensured OK")
 
@@ -264,23 +264,7 @@ def _create_backtest_cache(conn):
     """)
 
 
-# ── DataSectors cache tables (Tier 1-4 — not yet active) ─────────────────────
-
-def _create_ohlcv_cache(conn):
-    conn.cursor().execute("""
-        CREATE TABLE IF NOT EXISTS ohlcv_cache (
-            ticker     TEXT NOT NULL,
-            date       TEXT NOT NULL,
-            open       REAL,
-            high       REAL,
-            low        REAL,
-            close      REAL,
-            volume     BIGINT,
-            fetched_at BIGINT,
-            PRIMARY KEY (ticker, date)
-        )
-    """)
-
+# ── Corporate events ───────────────────────────────────────────────────────────
 
 def _create_corporate_events(conn):
     conn.cursor().execute("""
@@ -308,16 +292,6 @@ def _create_corporate_events(conn):
     conn.cursor().execute(
         "UPDATE corporate_events SET status = 'confirmed' WHERE status IS NULL"
     )
-
-
-def _create_inst_flow_cache(conn):
-    conn.cursor().execute("""
-        CREATE TABLE IF NOT EXISTS inst_flow_cache (
-            ticker     TEXT PRIMARY KEY,
-            signal     TEXT,
-            fetched_at BIGINT
-        )
-    """)
 
 
 def _create_bsjp_signals(conn):
@@ -380,6 +354,55 @@ def _create_bsjp_results(conn):
         )
     """)
     conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_bsjp_res_date ON bsjp_results(date)")
+
+
+def _create_broker_summary(conn):
+    """Daily per-broker buy/sell breakdown for a ticker (ARJUM /api/broker-summary/{code}).
+    That endpoint only ever returns the LATEST snapshot (no historical lookup),
+    so this table only grows forward, one row-set per ticker per trading day."""
+    conn.cursor().execute("""
+        CREATE TABLE IF NOT EXISTS broker_summary (
+            id          SERIAL PRIMARY KEY,
+            date        TEXT NOT NULL,
+            ticker      TEXT NOT NULL,
+            broker_code TEXT NOT NULL,
+            broker_name TEXT,
+            bval        REAL,
+            bvol        BIGINT,
+            sval        REAL,
+            svol        BIGINT,
+            nval        REAL,
+            nvol        BIGINT,
+            fetched_at  TIMESTAMP DEFAULT NOW(),
+            UNIQUE(date, ticker, broker_code)
+        )
+    """)
+    conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_broker_summary_date ON broker_summary(date)")
+    conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_broker_summary_ticker ON broker_summary(ticker, date)")
+
+
+def _create_broker_accumulation(conn):
+    """Historical per-broker net-flow series for a ticker (ARJUM /api/broker-accumulation/{code}).
+    Unlike broker_summary, this endpoint returns several months of daily points
+    in a single request, so it's the one backfillable retroactively."""
+    conn.cursor().execute("""
+        CREATE TABLE IF NOT EXISTS broker_accumulation (
+            id          SERIAL PRIMARY KEY,
+            date        TEXT NOT NULL,
+            ticker      TEXT NOT NULL,
+            broker_code TEXT NOT NULL,
+            broker_name TEXT,
+            nval        REAL,
+            nvol        BIGINT,
+            cum_nval    REAL,
+            bavg        REAL,
+            savg        REAL,
+            fetched_at  TIMESTAMP DEFAULT NOW(),
+            UNIQUE(date, ticker, broker_code)
+        )
+    """)
+    conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_broker_accum_date ON broker_accumulation(date)")
+    conn.cursor().execute("CREATE INDEX IF NOT EXISTS idx_broker_accum_ticker ON broker_accumulation(ticker, date)")
 
 
 def _create_api_keys(conn):

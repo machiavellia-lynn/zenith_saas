@@ -279,20 +279,7 @@ def api_backtest_cache():
     return _envelope(rows, limit, offset)
 
 
-# ── ohlcv_cache (DataSectors Tier 1 — inactive) ──────────────────────────────
-@bp_api.route("/ohlcv-cache")
-def api_ohlcv_cache():
-    ticker = request.args.get("ticker")
-    limit, offset = _pagination()
-    where, params = [], []
-    if ticker:
-        where.append("ticker = %s")
-        params.append(ticker.upper())
-    rows = _fetch("ohlcv_cache", "ticker, date DESC", where, params, limit, offset)
-    return _envelope(rows, limit, offset)
-
-
-# ── corporate_events (DataSectors Tier 2 — inactive) ─────────────────────────
+# ── corporate_events ──────────────────────────────────────────────────────────
 @bp_api.route("/corporate-events")
 def api_corporate_events():
     ticker = request.args.get("ticker")
@@ -306,19 +293,6 @@ def api_corporate_events():
         where.append("event_type = %s")
         params.append(event_type)
     rows = _fetch("corporate_events", "ticker, event_date DESC", where, params, limit, offset)
-    return _envelope(rows, limit, offset)
-
-
-# ── inst_flow_cache (DataSectors Tier 3 — inactive) ──────────────────────────
-@bp_api.route("/inst-flow-cache")
-def api_inst_flow_cache():
-    ticker = request.args.get("ticker")
-    limit, offset = _pagination()
-    where, params = [], []
-    if ticker:
-        where.append("ticker = %s")
-        params.append(ticker.upper())
-    rows = _fetch("inst_flow_cache", "ticker", where, params, limit, offset)
     return _envelope(rows, limit, offset)
 
 
@@ -359,15 +333,9 @@ _TABLES = [
     {"path": "/api/v1/backtest-cache", "table": "backtest_cache",
      "description": "Cached backtest run results.",
      "filters": ["run_id", "limit", "offset"]},
-    {"path": "/api/v1/ohlcv-cache", "table": "ohlcv_cache",
-     "description": "DataSectors OHLCV cache (Tier 1, currently inactive).",
-     "filters": ["ticker", "limit", "offset"]},
     {"path": "/api/v1/corporate-events", "table": "corporate_events",
-     "description": "DataSectors corporate events cache (Tier 2, currently inactive).",
+     "description": "Corporate action events with review status (confirmed / suspected / rejected).",
      "filters": ["ticker", "event_type", "limit", "offset"]},
-    {"path": "/api/v1/inst-flow-cache", "table": "inst_flow_cache",
-     "description": "DataSectors institutional flow cache (Tier 3, currently inactive).",
-     "filters": ["ticker", "limit", "offset"]},
 ]
 
 

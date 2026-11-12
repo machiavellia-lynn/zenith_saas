@@ -265,8 +265,8 @@ def admin_backfill_prices():
     def _run():
         conn = get_scraper_db()
         try:
-            # Phase 1: prices (fetches price_history via DataSectors, then syncs
-            # into eod_summary.price_close — one DataSectors call per ticker, not two)
+            # Phase 1: prices (fetches price_history via Yahoo, then syncs
+            # into eod_summary.price_close — one fetch per ticker, not two)
             _prices_progress["step"] = "prices"
             prices_updated = backfill_prices(conn, days=days, date_from=date_from, date_to=date_to)
             _prices_progress["prices_updated"] = prices_updated
@@ -365,7 +365,7 @@ def admin_backfill_intraday():
         return jsonify({"ok": False, "error": "date_from and date_to required (DD-MM-YYYY)"}), 400
 
     import threading
-    from data.price_fetch import fetch_intraday_15m_datasectors
+    from data.price_fetch import fetch_intraday_15m_yahoo
     from core.db import get_scraper_db, fetchall
     import logging as _logging
     _log = _logging.getLogger("zenith.admin")
@@ -392,21 +392,21 @@ def admin_backfill_intraday():
                 tickers = [r["ticker"] for r in fetchall(conn,
                     "SELECT DISTINCT ticker FROM eod_summary")]
             _intraday_progress["total"] = len(tickers)
-            _log.info("backfill intraday DS: %d tickers, %s s/d %s", len(tickers), date_from, date_to)
-            res = fetch_intraday_15m_datasectors(conn, tickers, date_from, date_to, progress_cb=_progress_cb)
+            _log.info("backfill intraday 15m: %d tickers, %s s/d %s", len(tickers), date_from, date_to)
+            res = fetch_intraday_15m_yahoo(conn, tickers, date_from, date_to, progress_cb=_progress_cb)
             conn.commit()
             _intraday_progress["status"] = "done"
-            _log.info("backfill intraday DS done: %s rows, %s failed",
+            _log.info("backfill intraday 15m done: %s rows, %s failed",
                       res.get("rows_inserted"), res.get("failed_count"))
         except Exception as e:
             conn.rollback()
             _intraday_progress.update({"status": "error", "error": str(e)})
-            _log.error("backfill intraday DS failed: %s", e)
+            _log.error("backfill intraday 15m failed: %s", e)
         finally:
             conn.close()
 
     threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"ok": True, "message": f"Intraday 15m backfill via DataSectors started ({date_from} to {date_to})."})
+    return jsonify({"ok": True, "message": f"Intraday 15m backfill via Yahoo started ({date_from} to {date_to})."})
 
 
 @bp_admin.route("/admin/intraday-progress")
@@ -541,7 +541,7 @@ def admin_backfill_ohlcv_daily():
 
     import threading
     from datetime import datetime
-    from data.price_fetch import fetch_daily_datasectors
+    from data.price_fetch import fetch_daily_yahoo
     from core.db import get_scraper_db, fetchall
     import logging as _logging
     _log = _logging.getLogger("zenith.admin")
@@ -584,7 +584,7 @@ def admin_backfill_ohlcv_daily():
         _log.info("ohlcv_daily_all: %d tickers, %s → %s", len(tickers), date_from, date_to)
 
         try:
-            fetch_daily_datasectors(conn, tickers, date_from, date_to, progress_cb=_progress_cb)
+            fetch_daily_yahoo(conn, tickers, date_from, date_to, progress_cb=_progress_cb)
             conn.commit()
         except Exception as e:
             conn.rollback()

@@ -3,6 +3,8 @@
 Read-only REST API for pulling data out of the Zenith 2.0 database from any external
 tool (script, spreadsheet, another app), gated by a single API key.
 
+web = https://zenithsaas-production.up.railway.app/
+
 ## Auth
 
 Set an environment variable on the server:

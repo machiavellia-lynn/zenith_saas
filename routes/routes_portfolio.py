@@ -55,7 +55,7 @@ def api_portfolio():
 
     # Capital/allocation are NOT client-configurable — they're fixed in config.py
     # (PF_BSJP_INITIAL_EQUITY, PF_BSJP_ALLOC, ...) and only change via a code deploy,
-    # since the underlying simulation is what actually calls the paid DataSectors API.
+    # since the underlying simulation is expensive to run.
     # The only request-driven knob here is the date range, which is a free in-memory
     # slice of the one dev-configured cached result — never a new simulation.
     # Any "what-if my own budget" recalculation happens client-side in the browser,

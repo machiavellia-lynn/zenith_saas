@@ -8,7 +8,10 @@ from datetime import timezone, timedelta
 
 # ── Environment Detection ──────────────────────────────────────────────────────
 IS_RAILWAY = bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT_ID"))
-IS_LOCAL   = not IS_RAILWAY
+# Set ZENITH_PRODUCTION=1 on any non-Railway server (e.g. the VPS) to get the
+# server profile: long cache TTL and quiet logging.
+IS_PRODUCTION = IS_RAILWAY or os.getenv("ZENITH_PRODUCTION", "") == "1"
+IS_LOCAL   = not IS_PRODUCTION
 
 # ── Database ───────────────────────────────────────────────────────────────────
 DATABASE_URL = os.environ.get(
@@ -27,12 +30,12 @@ SESSION_TYPE     = "filesystem"
 SESSION_DIR      = os.environ.get("SESSION_DIR", "/tmp/zenith_2_0_sessions/")
 
 # ── Caching ────────────────────────────────────────────────────────────────────
-CACHE_TTL      = 86400 if IS_RAILWAY else 300   # 24h server | 5min local
+CACHE_TTL      = 86400 if IS_PRODUCTION else 300   # 24h server | 5min local
 FLOW_CACHE_TTL = 60                              # route-level cache, seconds
 GAIN_CACHE_TTL = 300                             # price gain cache, seconds
 
 # ── Logging ────────────────────────────────────────────────────────────────────
-LOG_LEVEL = "WARNING" if IS_RAILWAY else "DEBUG"
+LOG_LEVEL = "WARNING" if IS_PRODUCTION else "DEBUG"
 
 # ── Timezone ───────────────────────────────────────────────────────────────────
 WIB = timezone(timedelta(hours=7))
@@ -46,10 +49,13 @@ TG_SESSION_PATH = os.environ.get("TG_SESSION_PATH", "/data/session_joker_2")
 
 # Telegram group & topic IDs (BST group)
 TG_GROUP_ID       = -1002717915373
-TG_TOPIC_SMART    = 192528
-TG_TOPIC_BAD      = 219042
-TG_TOPIC_MF_PLUS  = 1025256
-TG_TOPIC_MF_MINUS = 1025260
+# Topics were recreated on 2026-10-31 (old IDs 192528/219042/1025256/1025260 no
+# longer exist). Mapping: "Trigger Smart Money", "Trigger Bad Money", "Live MF+",
+# "Live MF-". Overridable via env so a future re-creation needs no code change.
+TG_TOPIC_SMART    = int(os.environ.get("TG_TOPIC_SMART", 2612196))
+TG_TOPIC_BAD      = int(os.environ.get("TG_TOPIC_BAD", 2613921))
+TG_TOPIC_MF_PLUS  = int(os.environ.get("TG_TOPIC_MF_PLUS", 2612286))
+TG_TOPIC_MF_MINUS = int(os.environ.get("TG_TOPIC_MF_MINUS", 2610972))
 
 # ── Scraper Schedule ───────────────────────────────────────────────────────────
 MIDDAY_HOUR      = 12
@@ -68,6 +74,11 @@ YF_HEADERS = {
     "Accept-Language": "en-US,en;q=0.9",
     "Referer": "https://finance.yahoo.com",
 }
+
+# Optional proxy for Yahoo calls only (e.g. socks5h://127.0.0.1:40000 for Cloudflare
+# WARP on a datacenter VPS whose IP range Yahoo rate-blocks). Unset = direct.
+_YF_PROXY = os.getenv("YAHOO_PROXY", "").strip()
+YF_PROXIES = {"http": _YF_PROXY, "https": _YF_PROXY} if _YF_PROXY else None
 
 INTERVAL_MAP = {
     "5m":  {"interval": "5m",  "days": 59},
@@ -132,12 +143,13 @@ PF_LOT_SIZE            = 100          # IDX: 1 lot = 100 shares
 # all-setups baseline of +11.84%, because each disabled setup is individually
 # net-negative, not just weaker.
 BSJP_ENABLED_SETUPS = {"SMA5_BREAKOUT_V13", "POWER_BREAK_V21"}
+# Master switch for the intraday BSJP jobs (needs 15m bars). BSJP_ENABLED=0 turns them off.
+BSJP_ENABLED = os.getenv("BSJP_ENABLED", "1").strip() != "0"
 
-# ── DataSectors API (Tier 1-4 integration — not yet active) ───────────────────
-DS_API_KEY    = os.environ.get("DATASECTORS_API_KEY", "")
-DS_BASE_URL   = "https://api.datasectors.com"
-DS_ENABLED    = bool(DS_API_KEY)
-DS_CACHE_TTL  = 86400  # 1 hari
+# ── ARJUM API (broker summary / broker accumulation — free tier, 1000 req quota) ─
+ARJUM_API_KEY = os.environ.get("ARJUM_API_KEY", "")
+ARJUM_BASE_URL = "https://stock.arjum.com"
+ARJUM_ENABLED = bool(ARJUM_API_KEY)
 
 # ── Sector Mapping ─────────────────────────────────────────────────────────────
 SECTORS = {
