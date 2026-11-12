@@ -27,6 +27,14 @@ body.sidebar-layout { overflow: hidden; }
 {% include 'sidebar.html' %}
 
 <div class="main-content">
+  <div class="mobile-bar">
+    <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/>
+      </svg>
+    </button>
+    <span class="mobile-bar-title">Money Flow</span>
+  </div>
   <div class="page-header">
     <div>
       <div class="page-subtitle">SM · BM · Clean Money · RSM</div>
@@ -77,9 +85,9 @@ body.sidebar-layout { overflow: hidden; }
 
     <div class="toolbar">
       <div class="toolbar-search">
-        <span class="toolbar-search-icon">⌕</span>
+        <span class="toolbar-search-icon" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="6" cy="6" r="4.5"/><path d="M9.5 9.5L13 13"/></svg></span>
         <input type="text" id="tickerSearch" placeholder="Search ticker..." autocomplete="off"/>
-        <button id="searchClear" style="display:none;background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0">✕</button>
+        <button id="searchClear" aria-label="Clear search" style="display:none;background:none;border:none;color:var(--muted);cursor:pointer;padding:0;align-items:center"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 1l8 8M9 1L1 9"/></svg></button>
       </div>
       <div class="toolbar-divider"></div>
       <div id="datePicker"></div>
@@ -137,7 +145,7 @@ fetchLastDate(function(iso){S.liveDate=iso;S.dateFrom=iso;S.dateTo=iso;sdp.setDa
 setTimeout(function(){if(!S.liveDate){S.liveDate=today;load();}},1500);
 window.loadIHSGBadge(document.getElementById('ihsgPrice'),document.getElementById('ihsgGain'));
 var sEl=document.getElementById('tickerSearch'),cBtn=document.getElementById('searchClear');
-sEl.addEventListener('input',function(){S.q=this.value.toUpperCase().trim();cBtn.style.display=S.q?'inline':'none';filter();});
+sEl.addEventListener('input',function(){S.q=this.value.toUpperCase().trim();cBtn.style.display=S.q?'inline-flex':'none';filter();});
 cBtn.addEventListener('click',function(){sEl.value='';S.q='';cBtn.style.display='none';filter();});
 var _colLabels={ticker:'Ticker',tx:'TX',clean_money:'Clean Money',sm_val:'SM',bm_val:'BM',rsm:'RSM',mf_plus:'MF+',mf_minus:'MF−',net_mf:'Net MF',gain_pct:'Last'};
 document.querySelectorAll('.th-sortable').forEach(function(th){th.addEventListener('click',function(){var col=th.dataset.col;S.sortCol===col?S.sortAsc=!S.sortAsc:(S.sortCol=col,S.sortAsc=false);document.querySelectorAll('.th-sortable').forEach(function(e){e.classList.remove('active');e.querySelector('.sort-arrow').textContent='↓';});th.classList.add('active');th.querySelector('.sort-arrow').textContent=S.sortAsc?'↑':'↓';filter();});});

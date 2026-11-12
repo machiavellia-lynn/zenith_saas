@@ -21,9 +21,9 @@ body.sidebar-layout { overflow: hidden; }
 /* Rank | Ticker | Setup | Entry | TP1 | TP2 | SL | Score | Last */
 .bsjp-cols { grid-template-columns: 32px 0.85fr 1.5fr 0.75fr 0.7fr 0.7fr 0.7fr 0.6fr 0.85fr; column-gap: 8px; }
 .market-warn {
-  background: rgba(200,99,58,.1); border: 1px solid rgba(200,99,58,.3);
+  background: var(--down-soft); border: 1px solid color-mix(in srgb, var(--down) 30%, transparent);
   border-radius: 8px; padding: 8px 14px; display: flex; align-items: center; gap: 8px;
-  font-size: 12.5px; color: #c8633a; margin-bottom: 8px;
+  font-size: 12.5px; color: var(--down); margin-bottom: 8px;
 }
 </style>
 </head>
@@ -31,6 +31,14 @@ body.sidebar-layout { overflow: hidden; }
 {% include 'sidebar.html' %}
 
 <div class="main-content">
+  <div class="mobile-bar">
+    <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/>
+      </svg>
+    </button>
+    <span class="mobile-bar-title">BSJP Algo</span>
+  </div>
   <div class="page-header">
     <div>
       <div class="page-subtitle">Breakout · Sideways · Trending · Pullback Scanner</div>
@@ -48,7 +56,8 @@ body.sidebar-layout { overflow: hidden; }
   <div class="page-body">
     <!-- IHSG market warning (shown when IHSG down > 1.5%) -->
     <div class="market-warn" id="marketWarn" style="display:none">
-      ⚠️ <strong>Market Weakening</strong> — IHSG is down more than 1.5% today. Consider skipping BSJP signals.
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 1.5L13 12H1L7 1.5z"/><path d="M7 5.5v3"/><circle cx="7" cy="10.3" r=".5" fill="currentColor"/></svg>
+      <strong>Market Weakening</strong> — IHSG is down more than 1.5% today. Consider skipping BSJP signals.
     </div>
 
     <div class="stat-cards-4">
@@ -76,9 +85,9 @@ body.sidebar-layout { overflow: hidden; }
 
     <div class="toolbar">
       <div class="toolbar-search">
-        <span class="toolbar-search-icon">⌕</span>
+        <span class="toolbar-search-icon" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="6" cy="6" r="4.5"/><path d="M9.5 9.5L13 13"/></svg></span>
         <input type="text" id="tickerSearch" placeholder="Search ticker..." autocomplete="off"/>
-        <button id="searchClear" style="display:none;background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0">✕</button>
+        <button id="searchClear" aria-label="Clear search" style="display:none;background:none;border:none;color:var(--muted);cursor:pointer;padding:0;align-items:center"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 1l8 8M9 1L1 9"/></svg></button>
       </div>
       <div class="toolbar-divider"></div>
       <div id="datePicker"></div>
@@ -163,7 +172,7 @@ SETUPS.forEach(function(s) {
 
 /* Search */
 var sEl = document.getElementById('tickerSearch'), cBtn = document.getElementById('searchClear');
-sEl.addEventListener('input', function() { S.q = this.value.toUpperCase().trim(); cBtn.style.display = S.q?'inline':'none'; filter(); });
+sEl.addEventListener('input', function() { S.q = this.value.toUpperCase().trim(); cBtn.style.display = S.q?'inline-flex':'none'; filter(); });
 cBtn.addEventListener('click', function() { sEl.value=''; S.q=''; cBtn.style.display='none'; filter(); });
 
 /* Sort */

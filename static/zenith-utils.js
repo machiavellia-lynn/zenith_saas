@@ -41,6 +41,24 @@ window.loadIHSGBadge = function(priceEl, gainEl) {
   }).catch(()=>{});
 };
 
+/* ── Sortable header accessibility ─────────────────────────────────── */
+/* Pages attach click handlers to .th-sortable cells; this upgrades the same
+   cells so keyboard users can sort too (Enter/Space trigger a click). */
+window.initSortableHeaders = function() {
+  document.querySelectorAll('.th-sortable').forEach(function(th) {
+    th.setAttribute('tabindex', '0');
+    th.setAttribute('role', 'button');
+    th.setAttribute('aria-label', 'Sort by ' + (th.textContent.replace(/[↓↑]/g, '').trim() || 'column'));
+    th.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        th.click();
+      }
+    });
+  });
+};
+document.addEventListener('DOMContentLoaded', function() { window.initSortableHeaders(); });
+
 /* ── Phase helpers ─────────────────────────────────────────────────── */
 window.phaseClass = function(phase) {
   const map = {

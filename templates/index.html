@@ -1,9 +1,15 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="light">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Zenith — Chart Preview</title>
+<title>Zenith — Chart</title>
+<script>
+(function(){
+  var t = localStorage.getItem('zenith-theme') || 'light';
+  document.documentElement.setAttribute('data-theme', t);
+})();
+</script>
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <script>
   // Fallback jika unpkg gagal
@@ -12,34 +18,17 @@
   }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/tokens.css">
 <style>
-  :root {
-    --bg:        #080c10;
-    --surface:   #0e1318;
-    --surface2:  #121920;
-    --border:    #1a2230;
-    --border2:   #243040;
-    --accent:    #00e8a2;
-    --accent2:   #4d9fff;
-    --danger:    #ff4d6a;
-    --text:      #c8d8e8;
-    --muted:     #bfcbd4;
-    --up:        #00e8a2;
-    --down:      #ff4d6a;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
-  ::-webkit-scrollbar { width: 5px; height: 5px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 10px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scrollbar-gutter: stable; }
 
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-sans);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -52,22 +41,19 @@
     gap: 16px;
     padding: 14px 24px;
     border-bottom: 1px solid var(--border);
-    background: rgba(8,12,16,.88);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: var(--surface);
     position: sticky; top: 0; z-index: 100;
   }
 
   .logo {
-    font-family: 'Space Mono', monospace;
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.15em;
-    color: var(--accent);
-    text-transform: uppercase;
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    color: var(--ink);
   }
 
-  .logo span { color: var(--muted); }
+  .logo span { color: var(--muted); font-weight: 400; font-size: 12.5px; }
 
   .divider { width: 1px; height: 20px; background: var(--border); }
 
@@ -76,9 +62,9 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
     padding: 6px 12px;
     flex: 1; max-width: 260px;
     transition: border-color .2s;
@@ -86,18 +72,18 @@
   .search-wrap:focus-within { border-color: var(--accent); }
   .search-wrap input {
     background: none; border: none; outline: none;
-    color: var(--text); font-family: 'Space Mono', monospace;
-    font-size: 13px; font-weight: 700; letter-spacing: .08em;
+    color: var(--ink); font-family: var(--font-mono);
+    font-size: 13px; font-weight: 600; letter-spacing: .04em;
     text-transform: uppercase; width: 100%;
   }
-  .search-wrap input::placeholder { color: var(--muted); text-transform: none; font-weight: 400; }
+  .search-wrap input::placeholder { color: var(--muted); text-transform: none; font-weight: 400; letter-spacing: 0; }
 
   .search-btn {
-    background: var(--accent); color: var(--bg);
-    border: none; border-radius: 4px; padding: 6px 14px;
-    font-family: 'Space Mono', monospace; font-size: 11px;
-    font-weight: 700; letter-spacing: .1em; cursor: pointer;
-    text-transform: uppercase; transition: opacity .15s;
+    background: var(--ink); color: var(--bg);
+    border: none; border-radius: 8px; padding: 6px 14px;
+    font-family: var(--font-sans); font-size: 12.5px;
+    font-weight: 500; cursor: pointer;
+    transition: opacity .15s;
   }
   .search-btn:hover { opacity: .85; }
 
@@ -106,10 +92,10 @@
     display: flex; align-items: center; gap: 16px;
     margin-left: auto;
   }
-  .t-name { font-size: 12px; color: var(--muted); }
+  .t-name { font-size: 12px; color: var(--text-dim); }
   .t-price {
-    font-family: 'Space Mono', monospace; font-size: 18px;
-    font-weight: 700; color: var(--text);
+    font-family: var(--font-mono); font-size: 18px;
+    font-weight: 700; color: var(--ink);
   }
   .t-price.up { color: var(--up); }
   .t-price.down { color: var(--down); }
@@ -118,31 +104,30 @@
     width: 7px; height: 7px; border-radius: 50%;
     background: var(--muted);
   }
-  .status-dot.live { background: var(--accent); box-shadow: 0 0 6px var(--accent); animation: pulse 2s infinite; }
+  .status-dot.live { background: var(--up); animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
 
   /* ── MAIN ─────────────────────────────────── */
   main { flex: 1; display: flex; flex-direction: column; padding: 20px 24px; gap: 16px; }
 
   /* timeframe tabs */
-  .tf-row { display: flex; align-items: center; gap: 8px; }
-  .tf-label { font-size: 11px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-right: 4px; }
+  .tf-row { display: flex; align-items: center; gap: 6px; }
+  .tf-label { font-size: 11px; color: var(--text-dim); letter-spacing: .04em; text-transform: uppercase; margin-right: 4px; }
 
   .tf-btn {
     background: none; border: 1px solid var(--border);
-    color: var(--muted); border-radius: 4px;
-    padding: 4px 12px; font-family: 'Space Mono', monospace;
-    font-size: 11px; cursor: pointer; transition: all .15s;
-    letter-spacing: .06em;
+    color: var(--text-dim); border-radius: 7px;
+    padding: 4px 12px; font-family: var(--font-mono);
+    font-size: 11.5px; cursor: pointer; transition: all .15s;
   }
-  .tf-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .tf-btn.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  .tf-btn:hover { border-color: var(--border2); color: var(--ink); }
+  .tf-btn.active { background: var(--ink); border-color: var(--ink); color: var(--bg); }
 
   /* chart container */
   .chart-card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 12px;
     overflow: hidden;
     position: relative;
     height: 500px;
@@ -152,13 +137,15 @@
 
   .chart-overlay-title {
     position: absolute; top: 16px; left: 16px; z-index: 10;
-    font-family: 'Space Mono', monospace; font-size: 13px;
-    color: var(--text); letter-spacing: .06em;
-    display: flex; align-items: center; gap: 10px;
+    font-family: var(--font-display); font-size: 13px;
+    color: var(--ink); font-weight: 600; letter-spacing: .02em;
+    display: flex; align-items: center; gap: 8px;
   }
   .tf-badge {
-    font-size: 10px; background: var(--border);
-    padding: 2px 7px; border-radius: 3px; color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 10px; background: var(--surface2);
+    padding: 2px 7px; border-radius: 4px; color: var(--text-dim);
+    border: 1px solid var(--border);
   }
 
   /* loading / error state */
@@ -178,7 +165,7 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .state-msg { font-size: 13px; color: var(--muted); }
+  .state-msg { font-size: 13px; color: var(--text-dim); }
   .state-err { font-size: 13px; color: var(--danger); }
 
   /* footer note */
@@ -186,7 +173,7 @@
     text-align: center; font-size: 11px; color: var(--muted);
     padding-bottom: 16px;
   }
-  .footer-note span { color: var(--accent); }
+  .footer-note span { color: var(--text-dim); }
 
   /* ── HOVER TOOLTIP ───────────────────────── */
   .hover-tooltip {
@@ -194,37 +181,43 @@
     top: 14px; left: 50%;
     transform: translateX(-50%);
     z-index: 15;
-    display: flex; align-items: center; gap: 16px;
-    background: rgba(14,19,24,0.92);
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    display: flex; align-items: center; gap: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
     padding: 6px 14px;
-    font-family: 'Space Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.08);
     pointer-events: none;
     opacity: 0;
     transition: opacity .15s;
     white-space: nowrap;
   }
   .hover-tooltip.visible { opacity: 1; }
-  .ht-date { color: var(--muted); font-size: 10px; letter-spacing: .05em; }
+  .ht-date { color: var(--text-dim); font-size: 10px; }
   .ht-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-  .ht-label { font-size:10px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
-  .ht-val { font-size: 12px; font-weight: 700; color: var(--text); }
+  .ht-label { font-size:9px; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; }
+  .ht-val { font-size: 12px; font-weight: 600; color: var(--ink); }
   .ht-val.up   { color: var(--up); }
   .ht-val.down { color: var(--down); }
   .ht-sep { width: 1px; height: 28px; background: var(--border); }
+
+  @media (max-width: 768px) {
+    header { padding: 12px 16px; gap: 10px; flex-wrap: wrap; }
+    main { padding: 16px; }
+    .ticker-info { display: none; }
+    .divider { display: none; }
+  }
 </style>
-  <link rel="stylesheet" href="/static/tokens.css">
 </head>
 <body>
 <a href="#main" class="skip-link">Skip to main content</a>
-<main id="main">
 <header>
-  <div class="logo">ZENITH <span>/ chart test</span></div>
+  <div class="logo">Zenith <span>/ chart</span></div>
   <div class="divider"></div>
   <div class="search-wrap">
-    <input type="text" id="tickerInput" placeholder="Cari ticker... (BBRI, EMAS, BBCA)" value="BBRI" maxlength="8"/>
+    <input type="text" id="tickerInput" placeholder="Cari ticker... (BBRI, EMAS, BBCA)" value="BBRI" maxlength="8" aria-label="Ticker symbol"/>
   </div>
   <button class="search-btn" onclick="loadChart()">Load</button>
   <div class="divider"></div>
@@ -237,7 +230,7 @@
   </div>
 </header>
 
-<main>
+<main id="main">
   <div class="tf-row">
     <span class="tf-label">Timeframe</span>
     <button class="tf-btn" data-tf="5m"  onclick="setTF('5m')">5m</button>
@@ -283,31 +276,51 @@
 </main>
 
 <script>
+// Baca warna dari design tokens (tokens.css) agar chart ikut light/dark theme
+function themeColors() {
+  var s = getComputedStyle(document.documentElement);
+  function v(name, fallback) { return s.getPropertyValue(name).trim() || fallback; }
+  return {
+    surface:  v('--surface',  '#ffffff'),
+    border:   v('--border',   '#e7e5dc'),
+    border2:  v('--border2',  '#d4d2c7'),
+    textDim:  v('--text-dim', '#6e6c63'),
+    muted:    v('--muted',    '#a3a097'),
+    up:       v('--up',       '#3a6b58'),
+    down:     v('--down',     '#c8633a'),
+    ink:      v('--ink',      '#1c1c1a'),
+  };
+}
+
 let chart = null;
 let candleSeries = null;
 let volumeSeries = null;
 let currentTF = '15m';
 let currentTicker = 'BBRI';
+let upColor = null, downColor = null;
 
 function initChart() {
+  const tc = themeColors();
+  upColor = tc.up; downColor = tc.down;
   const container = document.getElementById('chart');
   chart = LightweightCharts.createChart(container, {
     layout: {
-      background:  { color: '#0e1318' },
-      textColor:   '#4a6070',
+      background:  { color: tc.surface },
+      textColor:   tc.textDim,
+      fontFamily: "'Geist Mono', ui-monospace, monospace",
     },
     grid: {
-      vertLines: { color: '#1a2230' },
-      horzLines: { color: '#1a2230' },
+      vertLines: { color: tc.border },
+      horzLines: { color: tc.border },
     },
     crosshair: {
       mode: LightweightCharts.CrosshairMode.Normal,
-      vertLine: { color: '#4a6070', labelBackgroundColor: '#1a2230' },
-      horzLine: { color: '#4a6070', labelBackgroundColor: '#1a2230' },
+      vertLine: { color: tc.border2, labelBackgroundColor: tc.ink },
+      horzLine: { color: tc.border2, labelBackgroundColor: tc.ink },
     },
-    rightPriceScale: { borderColor: '#1a2230' },
+    rightPriceScale: { borderColor: tc.border },
     timeScale: {
-      borderColor: '#1a2230',
+      borderColor: tc.border,
       timeVisible: true,
       secondsVisible: false,
       tickMarkFormatter: (t) => {
@@ -332,17 +345,17 @@ function initChart() {
 
   // Candlestick series
   candleSeries = chart.addCandlestickSeries({
-    upColor:   '#00e8a2',
-    downColor: '#ff4d6a',
-    borderUpColor:   '#00e8a2',
-    borderDownColor: '#ff4d6a',
-    wickUpColor:   '#00e8a2',
-    wickDownColor: '#ff4d6a',
+    upColor:   tc.up,
+    downColor: tc.down,
+    borderUpColor:   tc.up,
+    borderDownColor: tc.down,
+    wickUpColor:   tc.up,
+    wickDownColor: tc.down,
   });
 
   // Volume series (scaled at bottom 20%)
   volumeSeries = chart.addHistogramSeries({
-    color: '#1a2230',
+    color: tc.border,
     priceFormat: { type: 'volume' },
     priceScaleId: 'volume',
     scaleMargins: { top: 0.85, bottom: 0 },
@@ -480,7 +493,7 @@ async function loadChart() {
     volumeSeries.setData(candles.map(c => ({
       time:  c.time,
       value: c.volume,
-      color: c.close >= c.open ? '#00e8a240' : '#ff4d6a40',
+      color: c.close >= c.open ? upColor + '40' : downColor + '40',
     })));
 
     // Tampilkan 181 candle terakhir saat pertama load

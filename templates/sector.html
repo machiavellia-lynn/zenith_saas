@@ -46,6 +46,14 @@ body.sidebar-layout { overflow: hidden; }
 {% include 'sidebar.html' %}
 
 <div class="main-content">
+  <div class="mobile-bar">
+    <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/>
+      </svg>
+    </button>
+    <span class="mobile-bar-title">Sector Rotation</span>
+  </div>
   <div class="page-header">
     <div>
       <div class="page-subtitle">Rotation map · Industry accumulation</div>

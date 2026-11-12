@@ -32,6 +32,14 @@ body.sidebar-layout { overflow: hidden; }
 <div class="main-content">
 
   <!-- Page Header -->
+  <div class="mobile-bar">
+    <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/>
+      </svg>
+    </button>
+    <span class="mobile-bar-title">Wyckoff Algo</span>
+  </div>
   <div class="page-header">
     <div>
       <div class="page-subtitle">Smart Money · Bad Money · Clean Money</div>
@@ -77,9 +85,9 @@ body.sidebar-layout { overflow: hidden; }
     <div class="toolbar">
       <!-- Search -->
       <div class="toolbar-search">
-        <span class="toolbar-search-icon">⌕</span>
+        <span class="toolbar-search-icon" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="6" cy="6" r="4.5"/><path d="M9.5 9.5L13 13"/></svg></span>
         <input type="text" id="tickerSearch" placeholder="Search ticker..." autocomplete="off" spellcheck="false"/>
-        <button id="searchClear" style="display:none;background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0">✕</button>
+        <button id="searchClear" aria-label="Clear search" style="display:none;background:none;border:none;color:var(--muted);cursor:pointer;padding:0;align-items:center"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 1l8 8M9 1L1 9"/></svg></button>
       </div>
 
       <div class="toolbar-divider"></div>
@@ -197,7 +205,7 @@ var searchEl = document.getElementById('tickerSearch');
 var clearBtn = document.getElementById('searchClear');
 searchEl.addEventListener('input', function() {
   state.q = this.value.toUpperCase().trim();
-  clearBtn.style.display = state.q ? 'inline' : 'none';
+  clearBtn.style.display = state.q ? 'inline-flex' : 'none';
   applyFilter();
 });
 clearBtn.addEventListener('click', function() {

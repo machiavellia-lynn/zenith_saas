@@ -205,7 +205,7 @@ body.sidebar-layout { overflow: hidden; }
     <!-- Ticker row -->
     <div style="display:flex;align-items:center;gap:12px">
       <div class="chart-ticker-input-wrap" id="tickerWrap" style="position:relative">
-        <span style="color:var(--muted);font-size:13px">⌕</span>
+        <span aria-hidden="true" style="color:var(--muted);display:flex;align-items:center"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="6" cy="6" r="4.5"/><path d="M9.5 9.5L13 13"/></svg></span>
         <input type="text" class="chart-ticker-input" id="tickerInput" value="BBRI" placeholder="Search ticker or company name..." maxlength="40" autocomplete="off"/>
         <div id="tickerSuggest" style="display:none;position:absolute;top:calc(100% + 6px);left:0;min-width:260px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.1);z-index:40;overflow:hidden"></div>
       </div>

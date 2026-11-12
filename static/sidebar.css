@@ -437,3 +437,27 @@ body.sidebar-layout {
   .sidebar-toggle  { display: flex; }
   .sidebar-overlay { display: block; }
 }
+
+/* ── MOBILE BAR on data pages ────────────────────────────────────── */
+/* Same pattern hub uses: a slim bar with the menu trigger, visible only
+   when the sidebar is collapsed. */
+.mobile-bar {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+.mobile-bar .mobile-bar-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+  letter-spacing: -.01em;
+}
+@media (max-width: 768px) {
+  .mobile-bar { display: flex; }
+  .main-content { overflow-y: auto; }
+}
