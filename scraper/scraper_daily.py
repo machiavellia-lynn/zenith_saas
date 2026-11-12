@@ -222,6 +222,10 @@ def _fetch_intraday_15m(conn_box: list, tickers: list, date_dmy: str, date_to_dm
     with its own connection so the scheduler's gate-checking stays responsive
     regardless of how long the fetch takes.
 
+    date_to_dmy: optional end of range (DD-MM-YYYY), for multi-day callers
+    like run_weekly_maintenance's Step 3 — one request per ticker covers the
+    whole range, see fetch_intraday_15m_yahoo's docstring.
+
     conn_box is this worker's own connection — never the scheduler's `conn`
     or the message-worker's msg_conn_box, for the same thread-safety reason
     (a psycopg2 connection can't be used concurrently from multiple threads).
@@ -931,7 +935,7 @@ async def scraper_main():
             # responsive during the wait is every OTHER independently-scheduled
             # coroutine, chiefly on_new_message, which no longer has to wait
             # behind this fetch to get its own turn on the event loop.
-            if not bsjp_prefetch_done and now_wib.hour == BSJP_PREFETCH_HOUR and now_wib.minute >= BSJP_PREFETCH_MINUTE:
+            if not bsjp_prefetch_done and (now_wib.hour > BSJP_PREFETCH_HOUR or (now_wib.hour == BSJP_PREFETCH_HOUR and now_wib.minute >= BSJP_PREFETCH_MINUTE)):
                 try:
                     log.info("📡 BSJP 15m prefetch (12:30) — all active tickers")
                     today_dmy   = now_wib.strftime("%d-%m-%Y")
@@ -949,7 +953,7 @@ async def scraper_main():
             # must be ready). Same offload as above — this specific call, for
             # 86 candidates, measured 2m39s on 2026-07-31 and pushed the 15:48
             # scan gate 5 minutes late while it ran inline on this loop.
-            if not bsjp_15m_done and now_wib.hour == BSJP_15M_HOUR and now_wib.minute >= BSJP_15M_MINUTE:
+            if not bsjp_15m_done and (now_wib.hour > BSJP_15M_HOUR or (now_wib.hour == BSJP_15M_HOUR and now_wib.minute >= BSJP_15M_MINUTE)):
                 try:
                     log.info("📡 BSJP 15m enrich (15:46)")
                     today_dmy  = now_wib.strftime("%d-%m-%Y")
@@ -966,7 +970,7 @@ async def scraper_main():
             # 15:48 — BSJP Signal. Selection only: the pre-closing auction has not
             # run yet, so the close this signal will be entered at does not exist.
             # Prices land in the 16:45 pass below.
-            if not bsjp_scan_done and now_wib.hour == BSJP_HOUR and now_wib.minute >= BSJP_MINUTE:
+            if not bsjp_scan_done and (now_wib.hour > BSJP_HOUR or (now_wib.hour == BSJP_HOUR and now_wib.minute >= BSJP_MINUTE)):
                 try:
                     log.info("📊 BSJP scan (15:48)")
                     run_bsjp_scan(conn, defer_pricing=True)

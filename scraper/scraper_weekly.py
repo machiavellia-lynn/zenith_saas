@@ -190,10 +190,11 @@ async def run_weekly_maintenance(client=None, conn=None, intraday_executor=None,
     connection scraper_daily.py's 12:30/15:46 BSJP passes use to offload
     fetch_intraday_15m_yahoo — see that module's _fetch_intraday_15m
     docstring for why calling it inline freezes the caller's event loop.
-    Step 3 below does the identical fetch, over up to ~800 tickers (one
-    request per ticker covers the whole week); called from the scheduler while-loop (as this function
-    normally is), it would starve that loop for however long the fetch
-    takes, the same bug just on Mondays instead of every trading day.
+    Step 3 below does the identical fetch, one request per ticker (up to
+    ~800) covering the whole trading-day range; called from the scheduler
+    while-loop (as this function normally is), it would starve that loop
+    for however long the fetch takes, the same bug just on Mondays instead
+    of every trading day.
     Optional and defaulting to None so this function stays callable on its
     own (CLI / an admin route with no scheduler-owned executor to hand in) —
     in that case Step 3 falls back to the old inline blocking call, which is
@@ -254,6 +255,11 @@ async def run_weekly_maintenance(client=None, conn=None, intraday_executor=None,
             conn.rollback()
 
     # ── Step 3: 15m intraday backfill ─────────────────────────────────────
+    # One request per ticker covers the whole trading-day range (see
+    # fetch_intraday_15m_yahoo's docstring) — do NOT loop per day here,
+    # that would multiply Yahoo calls (and this step's wall-clock,
+    # which matters since it runs inline on intraday_executor's single worker
+    # thread) by len(trading) for no benefit.
     log.info("  [3/5] 15m intraday backfill")
     tickers = [r["ticker"] for r in fetchall(conn,
         "SELECT ticker FROM ticker_universe WHERE is_active = TRUE")]
