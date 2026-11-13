@@ -107,3 +107,24 @@ def ihsg():
     except Exception:
         closes = []
     return jsonify({"price": data["price"], "gain_pct": data["gain_pct"], "closes": closes})
+
+
+@bp_main.route("/api/session-check")
+def session_check():
+    """Auth gate for the Caddy forward_auth in front of the Stockbit chart
+    app (the Node service served under /chart on the production domain —
+    Resi's decision 2026-11-13: the Stockbit MCP page IS the Chart page).
+    Caddy subrequests this endpoint with the original URI in
+    X-Forwarded-Uri:
+      - authed -> 200, Caddy proxies through to the chart app;
+      - not authed, page navigation -> 302 to / (the login page);
+      - not authed, /chart/api/* call -> 401 JSON, so the page's fetches
+        fail cleanly instead of receiving login HTML.
+    A direct call without the forwarded header behaves like a navigation.
+    """
+    if is_authed():
+        return jsonify({"ok": True})
+    forwarded = request.headers.get("X-Forwarded-Uri", "")
+    if "/api/" in forwarded:
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    return redirect("/")
