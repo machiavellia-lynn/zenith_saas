@@ -1,0 +1,257 @@
+{# Sidebar v2 — faithful port of the approved mockup sidebar
+   (~/workspace/ts-spaces/zenith-hub-mockup/index.html, aside.sidebar)
+   onto the production shell: fixed 220px geometry from sidebar.css,
+   session-driven account block, real routes, production theme key.
+   Deviations from the mockup (all logged in review-notes.md):
+   - Wyckoff nav badge omitted (mockup's "31" is sample data; no live
+     count endpoint exists).
+   - "Login" nav item omitted (meaningless when authenticated; the
+     account block carries Sign out → /logout as in production).
+   - "Data guide" item kept from the production sidebar — it is the only
+     trigger for hub_v2's __showZenithHelp modal.
+   - Syariah crescent kept from the production sidebar (session mode).
+   - ≤768px follows production's off-canvas drawer (the v2 pages' own
+     mobile-bar calls sidebarOpen()); the mockup's ≤680px top-bar layout
+     is not used. The mockup's ≤900px icon rail IS implemented (769–900px).
+#}
+<aside class="sidebar sb2" id="sidebar">
+  <div class="brand">
+    <div class="brand-mark">Z</div>
+    <div class="brand-text">
+      <div class="brand-name">Zenith{% if session.get('mode') == 'syariah' %}<svg class="sb2-syariah" viewBox="0 0 24 24" role="img" aria-label="Syariah mode"><title>Syariah mode — only stocks on OJK's Syariah Securities List</title><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>{% endif %}</div>
+      <div class="brand-sub">IDX · Money Flow</div>
+    </div>
+  </div>
+
+  <div class="nav-label">Workspace</div>
+  <nav class="nav" aria-label="Main">
+    <span class="nav-glide" aria-hidden="true"></span>
+    <a href="/hub" class="{% if request.path == '/hub' %}active{% endif %}" {% if request.path == '/hub' %}aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>
+      <span>Hub</span>
+    </a>
+    <a href="/chart" class="{% if request.path == '/chart' %}active{% endif %}" {% if request.path == '/chart' %}aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17.5 8.5 11l3.5 3L18.5 6.5"/><path d="M15 6.5h3.5V10"/><path d="M3 21h18"/></svg>
+      <span>Chart</span>
+    </a>
+    <a href="/flow" class="{% if request.path == '/flow' %}active{% endif %}" {% if request.path == '/flow' %}aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13"/><path d="m14 3.5 3.5 3.5L14 10.5"/><path d="M20 17H7"/><path d="m10 13.5-3.5 3.5 3.5 3.5"/></svg>
+      <span>Flow</span>
+    </a>
+    <a href="/wyckoff" class="{% if request.path == '/wyckoff' %}active{% endif %}" {% if request.path == '/wyckoff' %}aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 15c2.5 0 2.5-6 5-6s2.5 9 5 9 2.5-12 5-12 2.5 4 4 4"/></svg>
+      <span>Wyckoff</span>
+    </a>
+    <a href="/bsjp" class="{% if request.path == '/bsjp' %}active{% endif %}" {% if request.path == '/bsjp' %}aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2.5 4.5 13.5H11L9.8 21.5 18.5 10H12l1-7.5Z"/></svg>
+      <span>BSJP</span>
+    </a>
+    <a href="/portfolio" class="{% if request.path == '/portfolio' %}active{% endif %}" {% if request.path == '/portfolio' %}aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8.5 7V5.5A1.5 1.5 0 0 1 10 4h4a1.5 1.5 0 0 1 1.5 1.5V7"/><path d="M3 12.5h18"/></svg>
+      <span>Portfolio</span>
+    </a>
+    <a href="/sector" class="{% if request.path == '/sector' %}active{% endif %}" {% if request.path == '/sector' %}aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg>
+      <span>Sector</span>
+    </a>
+    <a href="/admin" class="{% if request.path == '/admin' %}active{% endif %}" {% if request.path == '/admin' %}aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.06-.4.1-.8.1-1.2Z"/></svg>
+      <span>Admin</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-spacer"></div>
+
+  <a href="#" class="sb2-guide" id="sidebarHelpBtn" onclick="if(window.__showZenithHelp){window.__showZenithHelp();} return false;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.3A2.6 2.6 0 0 1 12 7.5c1.4 0 2.5 1 2.5 2.2 0 1.7-2.4 1.9-2.4 3.3"/><circle cx="12" cy="16.8" r=".4" fill="currentColor"/></svg>
+    <span>Data guide</span>
+  </a>
+
+  <div class="theme-control">
+    <div class="tc-label"><span>Theme</span></div>
+    <div class="theme-seg theme-seg-icons" role="group" aria-label="Theme mode">
+      <span class="seg-thumb" aria-hidden="true"></span>
+      <button type="button" data-theme-mode="light" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.2 5.2l1.7 1.7M17.1 17.1l1.7 1.7M18.8 5.2l-1.7 1.7M6.9 17.1l-1.7 1.7"/></svg><span class="ts-label">Light</span></button>
+      <button type="button" data-theme-mode="dark" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.2 13.8A8.2 8.2 0 1 1 10.2 3.8a6.6 6.6 0 0 0 10 10Z"/></svg><span class="ts-label">Dark</span></button>
+    </div>
+  </div>
+
+  <div class="account">
+    <div class="account-row">
+      <div class="avatar">{{ (session.get('user','U') or 'U')[0].upper() }}</div>
+      <div>
+        <div class="account-name">{{ session.get('user', 'User') | capitalize }}</div>
+        <div class="account-role">{{ session.get('role', '') | capitalize }}</div>
+      </div>
+    </div>
+    <div class="account-links">
+      {% if session.get('role') == 'admin' %}
+      <a href="/admin" aria-label="Admin">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.06-.4.1-.8.1-1.2Z"/></svg>
+        <span>Admin</span>
+      </a>
+      {% endif %}
+      <a href="/logout" aria-label="Sign out">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+        <span>Sign out</span>
+      </a>
+    </div>
+  </div>
+</aside>
+
+<!-- Mobile overlay (production shell contract) -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="sidebarClose()"></div>
+
+<style>
+  /* ── Sidebar v2 — mockup rules, scoped to the v2 UI + this component ── */
+  html[data-ui="v2"] .sb2{
+    background:var(--sidebar-bg);padding:20px 14px 16px;font-family:var(--sans);
+    overflow-y:auto;overflow-x:hidden;
+  }
+  html[data-theme="light"] .sb2{--text-3:var(--text-3-tint)}
+  html[data-ui="v2"] .sb2 .brand{display:flex;align-items:center;gap:11px;padding:2px 8px 20px;border-bottom:1px solid var(--border);margin-bottom:16px}
+  html[data-ui="v2"] .sb2 .brand-mark{width:34px;height:34px;border-radius:8px;flex:0 0 34px;background:var(--green);color:var(--on-green);display:grid;place-items:center;font-weight:700;font-size:18px;letter-spacing:-.02em;border:1px solid var(--green-border)}
+  html[data-ui="v2"] .sb2 .brand-name{font-size:19px;font-weight:700;letter-spacing:-.01em;line-height:1;color:var(--text)}
+  html[data-ui="v2"] .sb2 .brand-sub{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin-top:4px}
+  html[data-ui="v2"] .sb2 .sb2-syariah{width:14px;height:14px;margin-left:6px;vertical-align:-2px;fill:var(--amber-text)}
+  html[data-ui="v2"] .sb2 .nav-label{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-3);padding:4px 10px 8px}
+  html[data-ui="v2"] .sb2 .nav{display:flex;flex-direction:column;gap:2px;position:relative}
+  html[data-ui="v2"] .sb2 .nav a{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:8px;min-height:40px;font-size:14px;font-weight:500;color:var(--text-2);border:1px solid transparent;transition:all .15s ease;position:relative;z-index:1;text-decoration:none}
+  html[data-ui="v2"] .sb2 .nav a svg{width:18px;height:18px;flex:0 0 18px;opacity:.85}
+  html[data-ui="v2"] .sb2 .nav a:hover{color:var(--text);background:var(--hover)}
+  html[data-ui="v2"] .sb2 .nav a.active{color:#eef5f0;background:var(--green-dim);border-color:rgba(127,195,156,.22)}
+  html[data-theme="light"] .sb2 .nav a.active{color:var(--green-bright);border-color:var(--green-border)}
+  html[data-ui="v2"] .sb2 .nav a.active svg{opacity:1;color:var(--green-bright)}
+  html[data-ui="v2"] .sb2 .nav-glide{position:absolute;z-index:0;pointer-events:none;opacity:0;background:var(--green-dim);border:1px solid var(--green-border);border-radius:8px;transition:top .42s var(--ease-fluid),left .42s var(--ease-fluid),width .42s var(--ease-fluid),height .42s var(--ease-fluid),opacity .3s var(--ease-fluid),background-color .48s var(--ease-fluid),border-color .48s var(--ease-fluid)}
+  html[data-ui="v2"] .sb2 .nav.glide-on a.active{background:transparent;border-color:transparent}
+  html[data-ui="v2"] .sb2 .sidebar-spacer{flex:1}
+  html[data-ui="v2"] .sb2 .sb2-guide{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:8px;min-height:40px;font-size:14px;font-weight:500;color:var(--text-2);border:1px solid transparent;transition:all .15s ease;text-decoration:none;margin-bottom:6px}
+  html[data-ui="v2"] .sb2 .sb2-guide svg{width:18px;height:18px;flex:0 0 18px;opacity:.85}
+  html[data-ui="v2"] .sb2 .sb2-guide:hover{color:var(--text);background:var(--hover)}
+  html[data-ui="v2"] .sb2 .theme-control{border-top:1px solid var(--border);padding:12px 6px 4px;margin-bottom:10px}
+  html[data-ui="v2"] .sb2 .theme-control .tc-label{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-3);padding:0 4px 8px;display:flex;justify-content:space-between;align-items:center}
+  html[data-ui="v2"] .sb2 .theme-seg{display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:3px;gap:2px;width:100%;position:relative}
+  html[data-ui="v2"] .sb2 .theme-seg button{border:none;background:transparent;color:var(--text-2);font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;padding:5px 10px;border-radius:5px;cursor:pointer;min-height:28px;transition:color .28s var(--ease-fluid),background-color .28s var(--ease-fluid),box-shadow .28s var(--ease-fluid)}
+  html[data-ui="v2"] .sb2 .theme-seg button:hover{color:var(--text)}
+  html[data-ui="v2"] .sb2 .theme-control .theme-seg .seg-thumb{position:absolute;top:3px;bottom:3px;left:3px;z-index:0;pointer-events:none;box-sizing:border-box;width:calc((100% - 8px)/2);max-width:calc((100% - 8px)/2);border-radius:6px;background:rgba(200,99,58,.16);box-shadow:inset 0 0 0 1px rgba(200,99,58,.45);transition:left .42s var(--ease-fluid),background-color .48s var(--ease-fluid),box-shadow .48s var(--ease-fluid)}
+  html[data-theme="dark"] .sb2 .theme-control .theme-seg .seg-thumb{background:var(--green-dim);box-shadow:inset 0 0 0 1px var(--green-border)}
+  html[data-ui="v2"] .sb2 .theme-control .theme-seg:has(> button.on[data-theme-mode="dark"]) .seg-thumb{left:calc(100% - 3px - ((100% - 8px)/2))}
+  html[data-ui="v2"] .sb2 .theme-control .theme-seg button{position:relative;z-index:1;flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:5px 6px;border-radius:6px}
+  html[data-ui="v2"] .sb2 .theme-control .theme-seg button.on{background:transparent;box-shadow:none;color:var(--accent-text-tint)}
+  html[data-theme="dark"] .sb2 .theme-control .theme-seg button.on{background:transparent;box-shadow:none;color:var(--green-bright)}
+  html[data-ui="v2"] .sb2 .theme-control .theme-seg button svg{width:15px;height:15px;flex:0 0 15px}
+  html[data-ui="v2"] .sb2 .account{border-top:1px solid var(--border);padding-top:14px}
+  html[data-ui="v2"] .sb2 .account-row{display:flex;align-items:center;gap:10px;padding:2px 6px 10px}
+  html[data-ui="v2"] .sb2 .avatar{width:32px;height:32px;border-radius:50%;background:var(--green-dim);border:1px solid var(--green-border);display:grid;place-items:center;font-size:13px;font-weight:700;color:var(--green-bright);flex:0 0 32px}
+  html[data-ui="v2"] .sb2 .account-name{font-size:13.5px;font-weight:600;line-height:1.15;color:var(--text)}
+  html[data-ui="v2"] .sb2 .account-role{font-family:var(--mono);font-size:10px;color:var(--text-3);letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
+  html[data-ui="v2"] .sb2 .account-links{display:flex;gap:6px}
+  html[data-ui="v2"] .sb2 .account-links a{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12.5px;font-weight:500;color:var(--text-2);padding:8px 6px;border-radius:8px;border:1px solid var(--border);background:var(--hover);min-height:36px;transition:background-color .24s var(--ease-fluid),border-color .24s var(--ease-fluid),color .24s var(--ease-fluid);text-decoration:none}
+  html[data-ui="v2"] .sb2 .account-links a:hover{color:var(--text);border-color:var(--border-strong)}
+
+  /* Icon rail — mockup ≤900px band, kept clear of production's ≤768 drawer */
+  @media (min-width:769px) and (max-width:900px){
+    html[data-ui="v2"] .sb2{width:70px;padding:16px 10px 14px;align-items:center}
+    html[data-ui="v2"] .main-content{margin-left:70px}
+    html[data-ui="v2"] .sb2 .brand{padding:2px 0 16px;border-bottom:none;margin-bottom:8px}
+    html[data-ui="v2"] .sb2 .brand-text,
+    html[data-ui="v2"] .sb2 .nav-label,
+    html[data-ui="v2"] .sb2 .nav a span,
+    html[data-ui="v2"] .sb2 .sb2-guide span,
+    html[data-ui="v2"] .sb2 .theme-control .tc-label,
+    html[data-ui="v2"] .sb2 .theme-seg .ts-label,
+    html[data-ui="v2"] .sb2 .account-name,
+    html[data-ui="v2"] .sb2 .account-role,
+    html[data-ui="v2"] .sb2 .account-links a span{display:none}
+    html[data-ui="v2"] .sb2 .nav a,
+    html[data-ui="v2"] .sb2 .sb2-guide{justify-content:center;padding:10px}
+    html[data-ui="v2"] .sb2 .theme-control{padding:12px 0 4px;width:100%}
+    html[data-ui="v2"] .sb2 .theme-seg{flex-direction:column}
+    html[data-ui="v2"] .sb2 .theme-seg .seg-thumb{display:none}
+    html[data-ui="v2"] .sb2 .theme-seg button.on{background:var(--accent-dim);box-shadow:inset 0 0 0 1px var(--accent)}
+    html[data-theme="dark"] .sb2 .theme-seg button.on{background:var(--green-dim);box-shadow:inset 0 0 0 1px var(--green-border)}
+    html[data-ui="v2"] .sb2 .account{width:100%;display:flex;flex-direction:column;align-items:center}
+    html[data-ui="v2"] .sb2 .account-row{padding:2px 0 10px}
+    html[data-ui="v2"] .sb2 .account-links{flex-direction:column;width:100%}
+    html[data-ui="v2"] .sb2 .account-links a{padding:8px 0}
+  }
+
+  /* Drawer — production ≤768px mechanics, mockup width (232px) */
+  @media (max-width:768px){
+    html[data-ui="v2"] .sb2{width:232px;transform:translateX(-232px)}
+    html[data-ui="v2"] .sb2.open{transform:translateX(0)}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    html[data-ui="v2"] .sb2 .nav-glide,
+    html[data-ui="v2"] .sb2 .theme-seg .seg-thumb{transition:none !important}
+  }
+</style>
+
+<script>
+(function () {
+  var sb = document.getElementById('sidebar');
+
+  /* ── Mobile drawer (production shell contract: pages call sidebarOpen()) ── */
+  function sidebarOpen() {
+    var ov = document.getElementById('sidebarOverlay');
+    if (sb) sb.classList.add('open');
+    if (ov) {
+      ov.style.display = 'block';
+      requestAnimationFrame(function () { ov.classList.add('visible'); });
+    }
+    document.body.style.overflow = 'hidden';
+  }
+  function sidebarClose() {
+    var ov = document.getElementById('sidebarOverlay');
+    if (sb) sb.classList.remove('open');
+    if (ov) {
+      ov.classList.remove('visible');
+      setTimeout(function () { ov.style.display = 'none'; }, 250);
+    }
+    document.body.style.overflow = '';
+  }
+  window.sidebarOpen = sidebarOpen;
+  window.sidebarClose = sidebarClose;
+
+  /* ── Nav glide (mockup): pill slides to the active item ── */
+  function positionGlide() {
+    if (!sb) return;
+    var glide = sb.querySelector('.nav-glide');
+    var active = sb.querySelector('.nav a.active');
+    if (!glide || !active || active.offsetParent === null) {
+      if (glide) glide.style.opacity = '0';
+      return;
+    }
+    glide.style.top = active.offsetTop + 'px';
+    glide.style.left = active.offsetLeft + 'px';
+    glide.style.width = active.offsetWidth + 'px';
+    glide.style.height = active.offsetHeight + 'px';
+    glide.style.opacity = '1';
+    glide.parentElement.classList.add('glide-on');
+  }
+  window.addEventListener('resize', positionGlide);
+  window.addEventListener('load', positionGlide);
+  positionGlide();
+
+  /* ── Theme seg (mockup) on the production theme contract:
+        data-theme on <html> + localStorage 'zenith-theme' ── */
+  function applyThemeSeg() {
+    var cur = document.documentElement.getAttribute('data-theme') || 'light';
+    sb.querySelectorAll('button[data-theme-mode]').forEach(function (btn) {
+      var on = btn.getAttribute('data-theme-mode') === cur;
+      btn.classList.toggle('on', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+  sb.querySelectorAll('button[data-theme-mode]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var next = btn.getAttribute('data-theme-mode');
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem('zenith-theme', next); } catch (e) {}
+      applyThemeSeg();
+    });
+  });
+  applyThemeSeg();
+})();
+</script>
