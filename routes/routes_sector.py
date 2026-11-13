@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from flask import Blueprint, render_template, jsonify, request, redirect
 from core.auth import is_authed
-from config import WIB, SECTORS
+from config import WIB, SECTORS, ZENITH_UI_V2
 from core.utils import parse_date, date_range
 from core.db import get_db, fetchall
 
@@ -18,7 +18,7 @@ log = logging.getLogger("zenith.routes.sector")
 def sector_page():
     if not is_authed():
         return redirect("/")
-    return render_template("sector.html")
+    return render_template("sector_v2.html" if ZENITH_UI_V2 else "sector.html")
 
 
 @bp_sector.route("/api/sector")

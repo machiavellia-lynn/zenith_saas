@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-ui="v2">
+<head>
+<meta charset="UTF-8"/>
+<script>(function(){var t=localStorage.getItem('zenith-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Zenith — Wyckoff Algo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/tokens.css">
+<link rel="stylesheet" href="/static/sidebar.css">
+<link rel="stylesheet" href="/static/ui-v2.css">
+<style>
+html, body { height: 100%; }
+body.sidebar-layout { overflow: hidden; }
+.v2 .main-content { overflow: hidden; display: flex; flex-direction: column; }
+.v2 .v2-body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 22px 32px 12px; }
+
+/* ── Page head (mockup) ── */
+.v2 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 14px; flex: 0 0 auto; }
+.v2 .page-head h1 { font-size: clamp(26px,3.4vw,36px); line-height: 1.05; letter-spacing: -.025em; margin: 0; font-weight: 700; color: var(--text); }
+.v2 .page-head-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.v2 .head-period { display: flex; align-items: center; gap: 9px; }
+.v2 .pf-period-label { font-family: var(--mono); font-size: 9.5px; font-weight: 600; letter-spacing: .13em; text-transform: uppercase; color: var(--text-3); }
+.v2 .date-line { font-family: var(--mono); font-size: 11px; color: var(--text-3); letter-spacing: .02em; }
+
+/* ── Stockbit date picker (production component CSS, from components.css) ── */
+.v2 .sdp-strip { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); height: 34px; flex-shrink: 0; }
+.v2 .sdp-arrow { width: 30px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-dim); font-size: 15px; background: none; border: none; flex-shrink: 0; transition: color .1s; line-height: 1; padding: 0; }
+.v2 .sdp-arrow:hover { color: var(--ink); }
+.v2 .sdp-arrow-left { border-right: 1px solid var(--border); }
+.v2 .sdp-arrow-right { border-left: 1px solid var(--border); }
+.v2 .sdp-label { display: flex; align-items: center; gap: 7px; padding: 0 12px; min-width: 120px; justify-content: center; position: relative; }
+.v2 .sdp-text { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); white-space: nowrap; user-select: none; }
+.v2 .sdp-cal-btn { display: flex; align-items: center; justify-content: center; color: var(--muted); cursor: pointer; background: none; border: none; padding: 0; transition: color .1s; flex-shrink: 0; line-height: 1; }
+.v2 .sdp-cal-btn:hover { color: var(--accent); }
+.v2 .sdp-cal-popup { display: none; position: fixed; z-index: 9000; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,.15); padding: 16px; min-width: 272px; }
+.v2 .sdp-cal-popup.open { display: block; }
+.v2 .sdp-cal-hint { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); text-align: center; margin-bottom: 10px; }
+.v2 .sdp-cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.v2 .sdp-cal-nav-btn { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-dim); font-size: 14px; background: none; transition: color .1s, border-color .1s; }
+.v2 .sdp-cal-nav-btn:hover { color: var(--ink); border-color: var(--border2); }
+.v2 .sdp-cal-month { font-size: 13px; font-weight: 600; color: var(--ink); }
+.v2 .sdp-cal-wdays { display: grid; grid-template-columns: repeat(7,1fr); margin-bottom: 4px; }
+.v2 .sdp-cal-wday { text-align: center; font-size: 10px; color: var(--muted); font-family: var(--font-mono); padding: 2px 0; }
+.v2 .sdp-cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; }
+.v2 .sdp-cal-day { height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; cursor: pointer; font-size: 12.5px; font-weight: 400; color: var(--text); transition: background .08s; }
+.v2 .sdp-cal-day:hover:not(.selected) { background: var(--surface2); }
+.v2 .sdp-cal-day.selected { background: var(--ink); color: var(--bg); font-weight: 600; }
+.v2 .sdp-cal-day.in-range { background: var(--surface3); color: var(--ink); border-radius: 0; }
+.v2 .sdp-cal-day.range-start { border-radius: 8px 0 0 8px; }
+.v2 .sdp-cal-day.range-end { border-radius: 0 8px 8px 0; }
+.v2 .sdp-cal-foot { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.v2 .sdp-cal-foot-label { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
+.v2 .sdp-cal-reset { font-size: 11.5px; color: var(--accent); cursor: pointer; font-weight: 500; background: none; border: none; }
+.v2 .sdp-cal-reset:hover { text-decoration: underline; }
+
+/* ── KPI strip (mockup) ── */
+.v2 .kpi-strip { display: grid; grid-template-columns: repeat(auto-fit,minmax(170px,1fr)); gap: 12px; margin-bottom: 12px; flex: 0 0 auto; }
+.v2 .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 13px 14px 12px; overflow: hidden; position: relative; }
+.v2 .kpi-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
+.v2 .kpi-label { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .15em; text-transform: uppercase; color: var(--text-3); display: flex; align-items: center; gap: 7px; }
+.v2 .kpi-label i { width: 6px; height: 6px; border-radius: 2px; background: var(--text-3); display: block; }
+.v2 .kpi-label.green i { background: var(--green); }
+.v2 .kpi-label.rose i { background: var(--rose); }
+.v2 .kpi-value { font-family: var(--mono); font-size: 20px; font-weight: 700; letter-spacing: -.03em; line-height: 1; white-space: nowrap; color: var(--text); }
+.v2 .kpi-value .unit { font-size: 13px; color: var(--text-3); font-weight: 500; letter-spacing: 0; }
+.v2 .kpi-value.pos { color: var(--green-bright); }
+.v2 .kpi-value.neg { color: var(--neg-text); }
+.v2 .kpi-sub { font-size: 11.5px; color: var(--text-2); margin-top: 5px; line-height: 1.45; }
+
+/* ── Toolbar — search only (mockup) ── */
+.v2 .toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; flex: 0 0 auto; }
+.v2 .search-box { display: flex; align-items: center; gap: 9px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0 12px; height: 38px; min-width: 240px; }
+.v2 .search-box:focus-within { border-color: var(--focus); outline: 2px solid var(--focus); outline-offset: 0; }
+.v2 .search-box svg { width: 16px; height: 16px; color: var(--text-3); flex: 0 0 16px; }
+.v2 .search-box input { background: none; border: none; outline: none; color: var(--text); font-family: var(--mono); font-size: 13.5px; width: 100%; letter-spacing: .04em; }
+.v2 .search-box input::placeholder { color: var(--text-3); }
+
+/* ── Card + table (mockup) ── */
+.v2 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.v2 .table-wrap { flex: 1 1 auto; overflow-x: auto; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+.v2 .table-wrap::-webkit-scrollbar { width: 8px; height: 8px; }
+.v2 .table-wrap::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; }
+.v2 .table-wrap::-webkit-scrollbar-track { background: transparent; }
+.v2 table.tbl { width: 100%; border-collapse: collapse; min-width: 640px; }
+.v2 table.tbl th { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .13em; text-transform: uppercase; color: var(--text-3); text-align: left; padding: 8px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.v2 table.tbl thead th { position: sticky; top: 0; background: var(--surface); z-index: 2; }
+.v2 table.tbl.sortable th[data-col] { cursor: pointer; }
+.v2 table.tbl.sortable th[data-col]:hover { color: var(--text); }
+.v2 table.tbl th .sort-ind { color: var(--accent-text); font-size: 9px; margin-left: 4px; }
+.v2 table.tbl td { font-family: var(--mono); font-size: 13px; padding: 9px 14px; border-bottom: 1px solid var(--hairline); white-space: nowrap; color: var(--text-2); }
+.v2 table.tbl tbody tr { transition: background .12s; }
+.v2 table.tbl tbody tr:hover { background: var(--hover); }
+.v2 table.tbl tbody tr:last-child td { border-bottom: none; }
+.v2 table.tbl .num { text-align: right; }
+.v2 table.tbl th.num { text-align: right; }
+.v2 table.tbl td.tk { font-weight: 700; color: var(--text); font-size: 13.5px; }
+.v2 table.tbl td.pos { color: var(--green-bright); font-weight: 600; }
+.v2 table.tbl td.neg { color: var(--neg-text); font-weight: 600; }
+.v2 table.tbl td.tbl-empty { text-align: center; color: var(--text-3); font-family: var(--sans); font-size: 13px; padding: 48px 14px; }
+.v2 .cell-bar { height: 4px; border-radius: 99px; background: var(--track); margin-top: 5px; overflow: hidden; min-width: 74px; }
+.v2 .cell-bar i { display: block; height: 100%; border-radius: 99px; background: var(--green); }
+.v2 .cell-bar.neg i { background: var(--rose); }
+.v2 .pill { display: inline-flex; align-items: center; font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 99px; border: 1px solid var(--border); color: var(--text-2); white-space: nowrap; }
+.v2 .pill.hot { color: var(--green-bright); background: var(--green-dim); border-color: rgba(127,195,156,.3); }
+.v2 .pill.cold { color: var(--neg-text); background: var(--rose-dim); border-color: rgba(217,138,152,.28); }
+
+/* ── Phase badges + actions (mockup) ── */
+.v2 .phase { display: inline-flex; font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: .07em; padding: 4px 9px; border-radius: 6px; white-space: nowrap; }
+.v2 .phase.sos { color: var(--on-green); background: var(--green); }
+html[data-theme="light"] .v2 .phase.sos { color: #ffffff; }
+.v2 .phase.spring { color: var(--amber-text); background: var(--amber-dim); border: 1px solid rgba(227,179,86,.35); }
+.v2 .phase.accum { color: var(--green-bright); background: var(--green-dim); border: 1px solid rgba(127,195,156,.3); }
+.v2 .phase.distri { color: var(--neg-text); background: var(--rose-dim); border: 1px solid rgba(217,138,152,.3); }
+.v2 .phase.markup { color: var(--text); background: var(--hover); border: 1px solid var(--border-strong); }
+.v2 .act { font-family: var(--sans); font-size: 13px; font-weight: 600; }
+.v2 .act.buy { color: var(--green-bright); }
+.v2 .act.watch { color: var(--amber-text); }
+.v2 .act.avoid { color: var(--neg-text); }
+
+/* ── Footer (mockup) ── */
+.v2 footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; color: var(--text-3); font-size: 12px; flex: 0 0 auto; }
+.v2 footer .ver { font-family: var(--mono); font-size: 11.5px; font-weight: 600; letter-spacing: .06em; color: var(--text-2); }
+.v2 footer .ver i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--green); margin-right: 7px; }
+.v2 footer .foot-meta { font-family: var(--mono); font-size: 11px; color: var(--text-3); display: flex; gap: 14px; }
+
+@media (max-width: 900px) {
+  body.sidebar-layout { overflow: auto; }
+  .v2 .main-content { overflow: visible; }
+  .v2 .v2-body { overflow: visible; padding: 20px 16px 12px; }
+  .v2 .card { flex: none; }
+  .v2 .table-wrap { flex: none; max-height: 62vh; }
+  .v2 .page-head-right { align-items: flex-start; }
+}
+@media (max-width: 680px) {
+  .v2 table.tbl .hidesm { display: none; }
+}
+</style>
+</head>
+<body class="sidebar-layout v2" data-page="wyckoff">
+{% include 'sidebar.html' %}
+
+<div class="main-content">
+  <div class="mobile-bar">
+    <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/>
+      </svg>
+    </button>
+    <span class="mobile-bar-title">Wyckoff Algo</span>
+  </div>
+
+  <div class="v2-body" id="main">
+
+    <!-- Header -->
+    <header class="page-head">
+      <div>
+        <h1>Wyckoff Algo</h1>
+        <p class="subline">Smart Money · Bad Money · Clean Money</p>
+      </div>
+      <div class="page-head-right">
+        <div class="head-period"><span class="pf-period-label">Period</span><div id="datePicker"></div></div>
+        <div class="date-line" id="wyckDateLine">—</div>
+      </div>
+    </header>
+
+    <!-- Tape · Top 10 gainers / losers from /api/flow gain_pct -->
+    <div class="tape" aria-label="Top gainers and losers tape" style="flex:0 0 auto"><div class="tape-track" id="tapeTrack"></div></div>
+
+    <!-- KPI strip -->
+    <section class="kpi-strip" aria-label="Wyckoff key metrics">
+      <article class="kpi sm">
+        <div class="kpi-head"><div class="kpi-label green"><i></i> IHSG</div><div class="delta up" id="ihsgDelta">—</div></div>
+        <div class="kpi-value" id="ihsgValue">—</div>
+      </article>
+      <article class="kpi sm">
+        <div class="kpi-head"><div class="kpi-label green"><i></i> SM total</div></div>
+        <div class="kpi-value pos" id="kpiSM">—</div>
+        <div class="kpi-sub" id="kpiSMSub">— stocks</div>
+      </article>
+      <article class="kpi sm">
+        <div class="kpi-head"><div class="kpi-label rose"><i></i> BM total</div></div>
+        <div class="kpi-value neg" id="kpiBM">—</div>
+        <div class="kpi-sub" id="kpiBMSub">— stocks</div>
+      </article>
+      <article class="kpi sm">
+        <div class="kpi-head"><div class="kpi-label green"><i></i> Clean Money</div></div>
+        <div class="kpi-value pos" id="kpiCM">—</div>
+        <div class="kpi-sub">SM − BM</div>
+      </article>
+    </section>
+
+    <!-- Toolbar · search only -->
+    <div class="toolbar">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg>
+        <input type="text" id="tickerSearch" placeholder="Search ticker…" aria-label="Search ticker" autocomplete="off" spellcheck="false" />
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+      <div class="table-wrap">
+        <table class="tbl sortable" aria-label="Wyckoff phase scanner">
+          <thead><tr>
+            <th scope="col">#</th>
+            <th scope="col" data-col="ticker">Ticker<span class="sort-ind"></span></th>
+            <th scope="col" class="num hidesm" data-col="tx">TX<span class="sort-ind"></span></th>
+            <th scope="col" class="num" data-col="clean_money">Clean Money<span class="sort-ind"></span></th>
+            <th scope="col" class="num" data-col="sm_val">SM<span class="sort-ind"></span></th>
+            <th scope="col" class="num hidesm" data-col="bm_val">BM<span class="sort-ind"></span></th>
+            <th scope="col" class="num" data-col="rsm">RSM<span class="sort-ind"></span></th>
+            <th scope="col" class="num hidesm">Last</th>
+            <th scope="col" data-col="phase">Phase<span class="sort-ind"></span></th>
+            <th scope="col" data-col="action">Action<span class="sort-ind"></span></th>
+          </tr></thead>
+          <tbody id="wyckoffBody">
+            <tr><td colspan="10" class="tbl-empty">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <footer>
+      <div><span class="ver"><i></i>zenith v2.0</span> &nbsp;·&nbsp; Wyckoff Algo</div>
+      <div class="foot-meta"><span id="rowCount">—</span><span id="liveTs"></span></div>
+    </footer>
+
+  </div><!-- /v2-body -->
+</div><!-- /main-content -->
+
+<script src="/static/focus-trap.js" defer></script>
+<script src="/static/animations.js" defer></script>
+<script src="/static/shortcuts.js" defer></script>
+<script src="/static/zenith-utils.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ── Formatters (id-ID: decimal comma, hub_v2 style) ── */
+  function fmtVal(v) {
+    if (v === null || v === undefined) return '—';
+    var s = v > 0 ? '+' : (v < 0 ? '−' : '');
+    return s + Math.abs(v).toLocaleString('id-ID', { maximumFractionDigits: 1 });
+  }
+  function fmtPct1(v) {
+    if (v === null || v === undefined) return '—';
+    var s = v > 0 ? '+' : (v < 0 ? '−' : '');
+    return s + Math.abs(v).toFixed(1).replace('.', ',') + '%';
+  }
+  function fmtRsm(v) {
+    if (v === null || v === undefined) return '—';
+    return Number(v).toLocaleString('id-ID', { maximumFractionDigits: 1 }) + '%';
+  }
+  function fmtDateLong(iso) {
+    if (!iso) return '—';
+    return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  }
+  function fmtDateShort(iso) {
+    if (!iso) return '—';
+    return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  /* ── Phase / action badges — API vocabulary verified in algo_wyckoff.py:
+        phases SOS · SPRING · ACCUM · DISTRI · ABSORB · UPTHRUST · NEUTRAL
+        actions BUY · HOLD · SELL, watch flag ARB_SPRING ── */
+  var PHASE_MAP = { SOS: 'sos', SPRING: 'spring', ACCUM: 'accum', DISTRI: 'distri' };
+  function phaseBadge(p) {
+    if (!p) return '';
+    var cls = PHASE_MAP[(p || '').toUpperCase()];
+    if (cls) return '<span class="phase ' + cls + '">' + (p || '').toUpperCase() + '</span>';
+    return '<span class="phase markup">' + p + '</span>';
+  }
+  function actionBadge(r) {
+    var a = (r.action || '').toUpperCase();
+    if (a === 'BUY') return '<span class="act buy">Buy</span>';
+    if (a === 'SELL') return '<span class="act avoid">Sell</span>';
+    if (a === 'HOLD' && r.watch === 'ARB_SPRING') return '<span class="act watch">Watch</span>';
+    if (a === 'HOLD') return '<span class="act watch">Hold</span>';
+    if (!a) return '';
+    return '<span class="act">' + r.action + '</span>';
+  }
+  function rsmPill(rsm) {
+    if (rsm === null || rsm === undefined) return '—';
+    return '<span class="pill' + (rsm >= 70 ? ' hot' : (rsm <= 30 ? ' cold' : '')) + '">' + fmtRsm(rsm) + '</span>';
+  }
+  function cmCell(r, maxCm) {
+    var cm = r.clean_money;
+    if (cm === null || cm === undefined) return '<td class="num">—</td>';
+    return '<td class="num ' + (cm >= 0 ? 'pos' : 'neg') + '">' + fmtVal(cm) +
+      '<div class="cell-bar' + (cm < 0 ? ' neg' : '') + '"><i style="width:' + Math.round(Math.abs(cm) / maxCm * 100) + '%"></i></div></td>';
+  }
+
+  /* ── State (production wyckoff semantics, minus the removed filters) ── */
+  var state = {
+    rows: [], filtered: [], dateFrom: '', dateTo: '',
+    sortCol: 'clean_money', sortAsc: false, q: '', liveDate: null
+  };
+
+  var today = window.todayLocal();
+  state.dateFrom = today;
+  state.dateTo = today;
+
+  /* ── Date picker (production StockbitDatePicker pattern) ── */
+  var sdp = new window.StockbitDatePicker('datePicker', {
+    from: today, to: today,
+    onChange: function (from, to) {
+      state.dateFrom = from;
+      state.dateTo = to;
+      loadData();
+    }
+  });
+  function fetchLastDate(cb) {
+    fetch('/api/last-date', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.date) { var iso = window.DD_MM_YYYYtoISO(d.date.replace(/\//g, '-')); cb(iso); }
+    }).catch(function () {});
+  }
+  fetchLastDate(function (iso) { state.liveDate = iso; state.dateFrom = iso; state.dateTo = iso; sdp.setDates(iso, iso); loadData(); });
+  setTimeout(function () { if (!state.liveDate) { state.liveDate = today; loadData(); } }, 1500);
+
+  /* ── IHSG KPI ── */
+  fetch('/api/ihsg').then(function (r) { return r.json(); }).then(function (di) {
+    if (di.price) {
+      document.getElementById('ihsgValue').textContent =
+        di.price.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      var g = di.gain_pct;
+      if (g !== null && g !== undefined) {
+        var dEl = document.getElementById('ihsgDelta');
+        dEl.textContent = (g >= 0 ? '▲ ' : '▼ ') + Math.abs(g).toFixed(2).replace('.', ',') + '%';
+        dEl.className = 'delta ' + (g >= 0 ? 'up' : 'down');
+      }
+    }
+  }).catch(function () {});
+
+  /* ── Search (production: ticker prefix) ── */
+  var searchEl = document.getElementById('tickerSearch');
+  searchEl.addEventListener('input', function () {
+    state.q = this.value.toUpperCase().trim();
+    applyFilter();
+  });
+
+  /* ── Sort headers ── */
+  document.querySelectorAll('table.tbl th[data-col]').forEach(function (th) {
+    th.addEventListener('click', function () {
+      var col = th.dataset.col;
+      if (state.sortCol === col) { state.sortAsc = !state.sortAsc; }
+      else { state.sortCol = col; state.sortAsc = false; }
+      document.querySelectorAll('table.tbl th .sort-ind').forEach(function (s) { s.textContent = ''; });
+      th.querySelector('.sort-ind').textContent = state.sortAsc ? '↑' : '↓';
+      applyFilter();
+    });
+  });
+
+  /* ── Filter + sort + render ── */
+  function applyFilter() {
+    var rows = state.rows.slice();
+    if (state.q) rows = rows.filter(function (r) { return r.ticker.startsWith(state.q); });
+    var col = state.sortCol;
+    rows.sort(function (a, b) {
+      if (col === 'ticker' || col === 'phase' || col === 'action') {
+        var av = a[col] || '', bv = b[col] || '';
+        return state.sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      var av2 = a[col] != null ? a[col] : -999999;
+      var bv2 = b[col] != null ? b[col] : -999999;
+      return state.sortAsc ? av2 - bv2 : bv2 - av2;
+    });
+    state.filtered = rows;
+    renderTable();
+  }
+
+  function renderTable() {
+    var body = document.getElementById('wyckoffBody');
+    var rows = state.filtered;
+    document.getElementById('rowCount').textContent = rows.length + ' of ' + state.rows.length + ' stocks';
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="10" class="tbl-empty">No data for this filter.</td></tr>';
+      return;
+    }
+    var maxCm = state.rows.reduce(function (m, r) { return Math.max(m, Math.abs(r.clean_money || 0)); }, 1);
+    var lastLabel = fmtDateShort(state.dateTo);
+    body.innerHTML = rows.map(function (r, i) {
+      return '<tr data-ticker="' + r.ticker + '">' +
+        '<td>' + (i + 1) + '</td>' +
+        '<td class="tk">' + r.ticker + '</td>' +
+        '<td class="num hidesm">' + (r.tx || '—') + '</td>' +
+        cmCell(r, maxCm) +
+        '<td class="num">' + (r.sm_val != null ? fmtVal(r.sm_val) : '—') + '</td>' +
+        '<td class="num hidesm">' + (r.bm_val != null ? fmtVal(-Math.abs(r.bm_val)) : '—') + '</td>' +
+        '<td class="num">' + rsmPill(r.rsm) + '</td>' +
+        '<td class="num hidesm">' + lastLabel + '</td>' +
+        '<td>' + phaseBadge(r.phase) + '</td>' +
+        '<td>' + actionBadge(r) + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  /* ── Tape (same builder as Hub v2) ── */
+  function tapeSetHTML(gainers, losers) {
+    var h = '<span class="tape-item tape-group g"><span class="tl">TOP GAINERS</span></span>';
+    gainers.forEach(function (t) { h += '<span class="tape-item"><span class="tl">' + t.ticker + '</span><span class="pos">' + fmtPct1(t.gain_pct) + '</span></span>'; });
+    h += '<span class="tape-item tape-group l"><span class="tl">TOP LOSERS</span></span>';
+    losers.forEach(function (t) { h += '<span class="tape-item"><span class="tl">' + t.ticker + '</span><span class="neg">' + fmtPct1(t.gain_pct) + '</span></span>'; });
+    return h;
+  }
+
+  /* ── Load data ── */
+  function fetchData(silent) {
+    var body = document.getElementById('wyckoffBody');
+    if (!silent) body.innerHTML = '<tr><td colspan="10" class="tbl-empty">Loading...</td></tr>';
+
+    var from = window.isoToDD_MM_YYYY(state.dateFrom);
+    var to = window.isoToDD_MM_YYYY(state.dateTo);
+    var url = '/api/flow?date_from=' + encodeURIComponent(from) + '&date_to=' + encodeURIComponent(to);
+
+    fetch(url).then(function (r) { return r.json(); }).then(function (d) {
+      state.rows = d.tickers || [];
+      var totals = d.totals || {};
+
+      var smEl = document.getElementById('kpiSM');
+      smEl.innerHTML = fmtVal(totals.sm || 0) + ' <span class="unit">M</span>';
+      document.getElementById('kpiSMSub').textContent =
+        state.rows.filter(function (r) { return (r.sm_val || 0) > 0; }).length + ' stocks';
+      var bmEl = document.getElementById('kpiBM');
+      bmEl.innerHTML = fmtVal(-Math.abs(totals.bm || 0)) + ' <span class="unit">M</span>';
+      document.getElementById('kpiBMSub').textContent =
+        state.rows.filter(function (r) { return (r.bm_val || 0) > 0; }).length + ' stocks';
+      var cmTotal = totals.net_cm || 0;
+      var cmEl = document.getElementById('kpiCM');
+      cmEl.innerHTML = fmtVal(cmTotal) + ' <span class="unit">M</span>';
+      cmEl.classList.toggle('pos', cmTotal >= 0);
+      cmEl.classList.toggle('neg', cmTotal < 0);
+
+      document.getElementById('wyckDateLine').textContent =
+        state.dateFrom === state.dateTo
+          ? fmtDateLong(state.dateTo)
+          : fmtDateShort(state.dateFrom) + ' – ' + fmtDateShort(state.dateTo);
+
+      if (state.rows.length > 0) {
+        var withGain = state.rows.filter(function (t) { return t.gain_pct !== null && t.gain_pct !== undefined; });
+        var gainers = withGain.slice().sort(function (a, b) { return b.gain_pct - a.gain_pct; }).slice(0, 10);
+        var losers = withGain.slice().sort(function (a, b) { return a.gain_pct - b.gain_pct; }).slice(0, 10);
+        var setHTML = tapeSetHTML(gainers, losers);
+        document.getElementById('tapeTrack').innerHTML =
+          '<div class="tape-set">' + setHTML + '</div><div class="tape-set dup" aria-hidden="true">' + setHTML + '</div>';
+      }
+
+      var liveEl = document.getElementById('liveTs');
+      if (liveEl) {
+        var now = new Date();
+        liveEl.textContent = 'Update ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0') + ':' + String(now.getSeconds()).padStart(2, '0');
+      }
+
+      applyFilter();
+    }).catch(function () {
+      if (!silent) body.innerHTML = '<tr><td colspan="10" class="tbl-empty">Failed to load data.</td></tr>';
+    });
+  }
+  function loadData() { fetchData(false); }
+
+  /* ── Live-date polling (production: 60s) ── */
+  setInterval(function () {
+    fetchLastDate(function (iso) {
+      var wasLive = (state.dateFrom === state.liveDate);
+      if (iso !== state.liveDate && wasLive) {
+        state.liveDate = iso;
+        state.dateFrom = iso;
+        state.dateTo = iso;
+        sdp.setDates(iso, iso);
+      } else {
+        state.liveDate = iso;
+      }
+      if (state.dateFrom === state.liveDate) fetchData(true);
+    });
+  }, 60000);
+
+})();
+</script>
+</body>
+</html>

@@ -2,6 +2,7 @@
 from flask import Blueprint, jsonify, request, render_template
 from core.db import get_db, fetchall
 from core.auth import require_auth, current_universe
+from config import ZENITH_UI_V2
 from algo.corporate_actions import ca_tickers, suspected_tickers
 from datetime import datetime, timezone, timedelta
 
@@ -16,7 +17,7 @@ def _today_dmy() -> str:
 @bp_bsjp.route("/bsjp")
 @require_auth
 def page_bsjp():
-    return render_template("bsjp.html")
+    return render_template("bsjp_v2.html" if ZENITH_UI_V2 else "bsjp.html")
 
 
 @bp_bsjp.route("/api/bsjp/signals")

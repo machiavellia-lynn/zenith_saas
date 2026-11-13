@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-ui="v2">
+<head>
+<meta charset="UTF-8"/>
+<script>(function(){var t=localStorage.getItem('zenith-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Zenith — Portfolio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/tokens.css">
+<link rel="stylesheet" href="/static/sidebar.css">
+<link rel="stylesheet" href="/static/components.css">
+<link rel="stylesheet" href="/static/ui-v2.css">
+<style>
+html, body { height: 100%; }
+body { display: flex; flex-direction: column; }
+
+/* ── Page head (mockup) ── */
+.v2 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 22px; }
+.v2 .page-head h1 { font-size: clamp(26px,3.2vw,34px); line-height: 1.05; letter-spacing: -.025em; margin: 0; font-weight: 700; color: var(--text); }
+.v2 .page-head .subline { margin-top: 7px; }
+.v2 .page-head-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.v2 .date-line { font-family: var(--mono); font-size: 11px; color: var(--text-3); letter-spacing: .02em; }
+
+/* ── Segments (mockup bodies) ── */
+.v2 .segment-body { padding: 16px 18px; }
+.v2 .segment-body.flush { padding: 0; }
+.v2 .segment.seg-pop { overflow: visible; }
+
+/* ── Simulation controls (mockup) ── */
+.v2 .pf-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.v2 .pf-period { display: inline-flex; align-items: center; gap: 10px; }
+.v2 .pf-period-label { font-family: var(--mono); font-size: 9.5px; font-weight: 600; letter-spacing: .13em; text-transform: uppercase; color: var(--text-3); }
+.v2 .strat-group { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+.v2 .strat-btn {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 40px; cursor: pointer;
+  font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--text-3);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; transition: all .15s;
+}
+.v2 .strat-btn .sdot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); display: block; flex: 0 0 8px; }
+.v2 .strat-btn[data-strat="bsjp"] .sdot { background: var(--green); }
+.v2 .strat-btn[data-strat="wyckoff"] .sdot { background: var(--accent); }
+.v2 .strat-btn:hover { border-color: var(--border-strong); color: var(--text); }
+.v2 .strat-btn.on { color: var(--text); border-color: var(--border-strong); background: var(--hover); }
+.v2 .strat-btn.on[data-strat="bsjp"] { box-shadow: inset 0 0 0 1px var(--green-border); }
+.v2 .strat-btn.on[data-strat="wyckoff"] { box-shadow: inset 0 0 0 1px var(--accent); }
+.v2 .pf-note { font-family: var(--mono); font-size: 11px; color: var(--text-3); }
+.v2 .pf-status { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); display: flex; align-items: center; gap: 8px; }
+@keyframes pfSpin { to { transform: rotate(360deg); } }
+.v2 .pf-spinner { width: 12px; height: 12px; border: 2px solid var(--border-strong); border-top-color: var(--accent); border-radius: 99px; display: inline-block; animation: pfSpin .6s linear infinite; flex: 0 0 12px; }
+
+/* ── KPI strip (mockup) ── */
+.v2 .kpi-strip { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 12px; margin-bottom: 16px; }
+.v2 .segment-body.flush .kpi-strip { margin: 12px; }
+.v2 .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 13px 14px 12px; overflow: hidden; position: relative; }
+.v2 .kpi-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.v2 .kpi-label { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .15em; text-transform: uppercase; color: var(--text-3); display: flex; align-items: center; gap: 7px; }
+.v2 .kpi-label i { width: 6px; height: 6px; border-radius: 2px; background: var(--text-3); display: block; }
+.v2 .kpi-label.green i { background: var(--green); }
+.v2 .kpi-label.rose i { background: var(--rose); }
+.v2 .kpi-label.amber i { background: var(--amber); }
+.v2 .kpi-value { font-family: var(--mono); font-size: clamp(23px,2.3vw,29px); font-weight: 700; letter-spacing: -.03em; line-height: 1; white-space: nowrap; color: var(--text); }
+.v2 .kpi-value .unit { font-size: 13px; color: var(--text-3); font-weight: 500; letter-spacing: 0; }
+.v2 .kpi-value.pos { color: var(--green-bright); }
+.v2 .kpi-value.neg { color: var(--neg-text); }
+.v2 .kpi.sm .kpi-value { font-size: 20px; }
+.v2 .kpi.sm .kpi-head { margin-bottom: 7px; }
+
+/* ── Equity chart (mockup) ── */
+.v2 .pf-legend { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.v2 .pf-leg { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: var(--text-2); }
+.v2 .pf-leg i { width: 9px; height: 9px; border-radius: 50%; display: block; }
+.v2 .pf-leg.off { opacity: .35; }
+.v2 .pf-chart-wrap { position: relative; }
+.v2 .equity-svg { width: 100%; height: auto; display: block; }
+.v2 .pf-tooltip {
+  position: absolute; top: 6px; z-index: 6; pointer-events: none; min-width: 158px;
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: var(--shadow);
+  padding: 9px 11px; font-family: var(--mono); font-size: 11.5px; color: var(--text-2);
+}
+.v2 .pf-tooltip .tt-date { font-weight: 700; color: var(--text); margin-bottom: 6px; font-size: 12px; }
+.v2 .pf-tooltip .tt-row { display: flex; align-items: center; gap: 7px; padding: 1.5px 0; }
+.v2 .pf-tooltip .tt-row i { width: 8px; height: 8px; border-radius: 50%; display: block; flex: 0 0 8px; }
+.v2 .pf-tooltip .tt-row b { margin-left: auto; color: var(--text); padding-left: 12px; }
+.v2 .card-note { font-family: var(--mono); font-size: 11px; color: var(--text-3); }
+
+/* ── Monthly table (mockup) ── */
+.v2 .table-wrap { overflow-x: auto; }
+.v2 table.tbl { width: 100%; border-collapse: collapse; min-width: 640px; }
+.v2 table.tbl th {
+  font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .13em; text-transform: uppercase;
+  color: var(--text-3); text-align: left; padding: 8px 14px; border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+.v2 table.tbl td { font-family: var(--mono); font-size: 13px; padding: 7px 14px; border-bottom: 1px solid var(--hairline); white-space: nowrap; color: var(--text-2); }
+.v2 table.tbl tbody tr { transition: background .12s; }
+.v2 table.tbl tbody tr:hover { background: var(--hover); }
+.v2 table.tbl tbody tr:last-child td { border-bottom: none; }
+.v2 table.tbl .num { text-align: right; }
+.v2 table.tbl th.num { text-align: right; }
+.v2 table.tbl td.pos { color: var(--green-bright); font-weight: 600; }
+.v2 table.tbl td.neg { color: var(--neg-text); font-weight: 600; }
+
+/* ── Footer (mockup) ── */
+.v2 footer {
+  margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  color: var(--text-3); font-size: 12px;
+}
+.v2 footer .ver { font-family: var(--mono); font-size: 11.5px; font-weight: 600; letter-spacing: .06em; color: var(--text-2); }
+.v2 footer .ver i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--green); margin-right: 7px; }
+.v2 footer .computed { font-family: var(--mono); font-size: 11px; }
+</style>
+</head>
+<body class="sidebar-layout v2" data-page="portfolio">
+{% include 'sidebar.html' %}
+
+<div class="main-content">
+  <div class="mobile-bar">
+    <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/>
+      </svg>
+    </button>
+    <span class="mobile-bar-title">Portfolio Simulation</span>
+  </div>
+
+  <a href="#main" class="skip-link">Skip to main content</a>
+  <main id="main" class="v2-content">
+
+    <header class="page-head">
+      <div>
+        <h1>Portfolio Simulation</h1>
+        <p class="subline">Capital growth simulation</p>
+      </div>
+      <div class="page-head-right"><div class="date-line" id="pf-range-line">—</div></div>
+    </header>
+
+    <!-- Tape · Top 10 gainers / losers from /api/flow gain_pct (same as Hub v2) -->
+    <div class="tape" aria-label="Top gainers and losers tape"><div class="tape-track" id="tapeTrack"></div></div>
+
+    <!-- Segment · Simulation -->
+    <section class="segment seg-pop" aria-label="Simulation">
+      <div class="segment-head"><span class="segment-label"><i></i>Simulation</span></div>
+      <div class="segment-body">
+        <div class="pf-controls">
+          <div class="pf-period">
+            <span class="pf-period-label" id="pf-period-label">Period</span>
+            <div id="pfDatePicker"></div>
+          </div>
+          <div class="strat-group" role="group" aria-label="Strategies">
+            <button type="button" class="strat-btn on" data-strat="bsjp" aria-pressed="true"><i class="sdot"></i>BSJP</button>
+            <button type="button" class="strat-btn on" data-strat="wyckoff" aria-pressed="true"><i class="sdot"></i>Wyckoff</button>
+          </div>
+          <span class="pf-note">Lot size IDX = 100 shares</span>
+        </div>
+        <div id="pfStatus" class="pf-status" style="display:none"></div>
+      </div>
+    </section>
+
+    <!-- Segment · Performance -->
+    <section class="segment" aria-label="Performance">
+      <div class="segment-head"><span class="segment-label"><i></i>Performance</span></div>
+      <div class="segment-body flush">
+        <section class="kpi-strip" aria-label="Portfolio key metrics" style="grid-template-columns:repeat(auto-fit,minmax(158px,1fr))">
+          <article class="kpi sm"><div class="kpi-head"><div class="kpi-label"><i></i> Starting capital</div></div><div class="kpi-value" id="pf-kpi-start">—</div></article>
+          <article class="kpi sm"><div class="kpi-head"><div class="kpi-label green"><i></i> Final equity</div></div><div class="kpi-value" id="pf-kpi-final">—</div></article>
+          <article class="kpi sm"><div class="kpi-head"><div class="kpi-label green"><i></i> Total return</div></div><div class="kpi-value" id="pf-kpi-return">—</div></article>
+          <article class="kpi sm"><div class="kpi-head"><div class="kpi-label rose"><i></i> Max drawdown</div></div><div class="kpi-value neg" id="pf-kpi-dd">—</div></article>
+          <article class="kpi sm"><div class="kpi-head"><div class="kpi-label amber"><i></i> Win rate</div></div><div class="kpi-value" id="pf-kpi-win">—</div></article>
+          <article class="kpi sm"><div class="kpi-head"><div class="kpi-label"><i></i> Total trades</div></div><div class="kpi-value" id="pf-kpi-trades">—</div></article>
+        </section>
+      </div>
+    </section>
+
+    <!-- Segment · Equity Curve -->
+    <section class="segment" aria-label="Equity Curve">
+      <div class="segment-head"><span class="segment-label"><i></i>Equity Curve</span>
+        <span class="segment-meta"><span class="pf-legend" id="pf-legend">
+          <span class="pf-leg" data-leg="bsjp"><i style="background:var(--green)"></i>BSJP</span>
+          <span class="pf-leg" data-leg="wyckoff"><i style="background:var(--accent)"></i>Wyckoff</span>
+        </span><span>Rp jt</span></span>
+      </div>
+      <div class="segment-body">
+        <div class="pf-chart-wrap" id="pf-chart-wrap">
+          <svg class="equity-svg" id="pf-chart" viewBox="0 0 900 300" role="img" aria-label="Equity growth curves for the selected strategies"></svg>
+          <div class="pf-tooltip" id="pf-tooltip" hidden></div>
+        </div>
+        <div class="card-note" id="pf-chart-note" style="padding-top:8px">—</div>
+      </div>
+    </section>
+
+    <!-- Segment · Monthly Results -->
+    <section class="segment" aria-label="Monthly Results">
+      <div class="segment-head"><span class="segment-label"><i></i>Monthly Results</span><span class="segment-meta"><span id="pf-monthly-note">—</span></span></div>
+      <div class="segment-body flush">
+        <div class="table-wrap"><table class="tbl sortable" aria-label="Monthly simulation results">
+          <thead><tr><th scope="col">Month</th><th scope="col" class="num">Trades</th><th scope="col" class="num">Win %</th><th scope="col" class="num">P&amp;L (Rp jt)</th><th scope="col" class="num">Equity (Rp jt)</th></tr></thead>
+          <tbody id="pf-monthly-body"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <footer>
+      <div><span class="ver"><i></i>zenith v2.0</span> &nbsp;·&nbsp; Portfolio</div>
+      <div class="computed" id="pfComputed"></div>
+    </footer>
+
+  </main>
+</div>
+
+<script src="/static/zenith-utils.js"></script>
+<script src="/static/focus-trap.js" defer></script>
+<script src="/static/animations.js" defer></script>
+<script src="/static/shortcuts.js" defer></script>
+<script>
+(function(){
+'use strict';
+
+/* ════════════════════════════════════════════════════════════════════
+   Engine — carried over from templates/portfolio.html (production) with
+   identical semantics: prefs, fee model, trade scaling, view building
+   and the /api/portfolio run/poll flow. Only the presentation layer
+   (KPI strip, equity chart, monthly table) is new, per the approved
+   mockup. The production gear panel / per-algo stats / trade log are
+   not part of the mockup and are intentionally not rendered here;
+   saved prefs (zenith_pf_prefs_v3) still apply to the view exactly as
+   in production.
+   ════════════════════════════════════════════════════════════════════ */
+
+const PF_LOT_SIZE = 100;   /* 1 lot = 100 shares on IDX */
+
+const SRV_DEFAULTS = {
+  bsjp_capital:      150000000,
+  bsjp_alloc:        30000000,
+  wyckoff_alloc:     5000000,
+  wyckoff_basis:     1000000000,
+};
+
+const PREFS_KEY = 'zenith_pf_prefs_v3';
+const PREFS_DEF = Object.assign({}, SRV_DEFAULTS, {
+  fees_enabled: true,
+  fee_buy: 0.15,
+  fee_sell: 0.25,
+  fee_pph: 0.10,
+});
+
+const S = {
+  data: null,     /* raw response from /api/portfolio */
+  view: null,     /* S.data transformed by prefs (scale) */
+  active: { bsjp: true, wyckoff: true },
+  dateFrom: window.todayLocal(),
+  dateTo:   window.todayLocal(),
+  loading: false,
+  prefs: Object.assign({}, PREFS_DEF),
+};
+
+function savePrefs(){ try { localStorage.setItem(PREFS_KEY, JSON.stringify(S.prefs)); } catch(_){} }
+function loadPrefs(){
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    if (raw) S.prefs = Object.assign({}, PREFS_DEF, JSON.parse(raw));
+  } catch(_){}
+}
+loadPrefs();
+
+/* ── Fee model (production, verbatim semantics) ── */
+function tradeFeeRp(t){
+  const p = S.prefs;
+  if (!p.fees_enabled) return 0;
+  if (t.status === 'OPEN') return 0;
+  const buyV  = (t.entry || 0) * (t.txn_value && t.entry ? (t.txn_value / t.entry) : 0);
+  const sellV = buyV + (t.gross_pnl_rp || 0);
+  const buyFee  = buyV  * (p.fee_buy / 100);
+  const sellFee = sellV * ((p.fee_sell + p.fee_pph) / 100);
+  const meterai = (buyV > 10000000 ? 10000 : 0) + (sellV > 10000000 ? 10000 : 0);
+  return Math.round(buyFee + sellFee + meterai);
+}
+
+function isClosed(t){ return t.status !== 'OPEN'; }
+
+/* ── Trade scaling (production, verbatim semantics) ── */
+function scaleTrades(rawTrades, algo, allocRp){
+  if (!rawTrades || !rawTrades.length) return [];
+  return rawTrades.map(function(t){
+    const o = Object.assign({}, t);
+    const entry = o.entry || 0;
+    if (entry > 0) {
+      let lots = Math.floor(allocRp / (entry * PF_LOT_SIZE));
+      if (lots < 1) lots = 1;
+      o.lots = lots;
+      o.shares = lots * PF_LOT_SIZE;
+      o.txn_value = entry * o.shares;
+    }
+    o.gross_pnl_rp = (o.gain_rp_per_share || 0) * (o.shares || 0);
+    o.fee_rp = tradeFeeRp(o);
+    o.pnl_rp = o.gross_pnl_rp - o.fee_rp;
+    return o;
+  });
+}
+
+function scaleStats(rawSt, trades, allocRp, customBasis){
+  if (!rawSt) return null;
+  const closed = trades.filter(isClosed);
+  const wins   = closed.filter(function(t){ return (t.gain || 0) > 0; });
+  const grossWins   = wins.reduce(function(s,t){ return s + Math.max(0, t.gross_pnl_rp || 0); }, 0);
+  const grossLosses = closed.reduce(function(s,t){ return s + Math.max(0, -(t.gross_pnl_rp || 0)); }, 0);
+  const finalPnl = trades.reduce(function(s,t){ return s + (t.pnl_rp || 0); }, 0);
+  const totalFees = trades.reduce(function(s,t){ return s + (t.fee_rp || 0); }, 0);
+  const totalTxn  = trades.reduce(function(s,t){ return s + (t.txn_value || 0); }, 0);
+  const openCount = trades.length - closed.length;
+  const st = Object.assign({}, rawSt);
+  st.initial_equity   = customBasis;
+  st.final_equity     = finalPnl;
+  st.total_return_pct = customBasis > 0 ? (finalPnl / customBasis * 100) : 0;
+  st.total_trades     = trades.length;
+  st.win_rate         = closed.length ? (wins.length / closed.length * 100) : 0;
+  st.wins             = wins.length;
+  st.losses           = closed.length - wins.length;
+  st.open_trades      = openCount;
+  st.total_txn_value  = totalTxn;
+  st.total_fees       = totalFees;
+  st.profit_factor    = grossLosses > 0 ? (grossWins / grossLosses) : (grossWins > 0 ? Infinity : 0);
+  st.max_drawdown_pct = null;
+  st.max_drawdown_rp  = (rawSt.max_drawdown_rp || 0) * ((rawSt.final_equity || 0) !== 0 ? (finalPnl / (rawSt.final_equity || 1)) : 0) || 0;
+  st._curveScale      = (rawSt.final_equity || 0) !== 0 ? (finalPnl / rawSt.final_equity) : 0;
+  return st;
+}
+
+function scaleEquityCurve(rawCurve, stats){
+  if (!rawCurve || !rawCurve.length) return rawCurve || [];
+  const scale = (stats && stats._curveScale !== undefined) ? stats._curveScale : 1;
+  const totalFeesScaled = (stats && stats.total_fees) || 0;
+  const finalGross = rawCurve[rawCurve.length - 1] * scale;
+  return rawCurve.map(function(v, i){
+    /* Scale curve, then subtract a progressive fee drag so the curve
+       endpoint equals stats.final_equity (gross·scale − fees). */
+    const gross = v * scale;
+    const frac  = finalGross !== 0 ? (gross / finalGross) : 0;
+    return gross - totalFeesScaled * Math.max(0, Math.min(1, frac));
+  });
+}
+
+/* Cumulative-P&L equity curves (Rp, start at 0) + per-algo trades/stats,
+   scaled by the user's saved prefs — production viewData semantics. */
+function viewData(){
+  const raw = S.data;
+  if (!raw) return null;
+  const p = S.prefs;
+  const wTrades = scaleTrades(raw.wyckoff && raw.wyckoff.trades, 'wyckoff', p.wyckoff_alloc);
+  const bTrades = scaleTrades(raw.bsjp && raw.bsjp.trades, 'bsjp', p.bsjp_alloc);
+  const wStats = scaleStats(raw.wyckoff && raw.wyckoff.stats, wTrades, p.wyckoff_alloc, p.wyckoff_basis);
+  const bStats = scaleStats(raw.bsjp && raw.bsjp.stats, bTrades, p.bsjp_alloc, p.bsjp_capital);
+  return {
+    equity: {
+      labels:  raw.equity.labels,
+      wyckoff: scaleEquityCurve(raw.equity.wyckoff, wStats),
+      bsjp:    scaleEquityCurve(raw.equity.bsjp, bStats),
+    },
+    wyckoff: { stats: wStats, trades: wTrades },
+    bsjp:    { stats: bStats, trades: bTrades },
+    ihsg: raw.ihsg || null,
+    axis_dates: raw.axis_dates || null,
+    date_range: raw.date_range,
+    computed_at: raw.computed_at,
+    user_params: raw.user_params,
+  };
+}
+
+/* ── Formatters (id-ID: decimal comma) ── */
+function fmt1id(v){ return v.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
+function fmtSigned1id(v){ return (v > 0 ? '+' : (v < 0 ? '−' : '')) + fmt1id(Math.abs(v)); }
+function fmtPct1(v){
+  if (v === null || v === undefined || isNaN(v)) return '—';
+  return (v < 0 ? '−' : '+') + Math.abs(v).toFixed(1).replace('.', ',') + '%';
+}
+
+const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+/* 'DD-MM-YYYY' → '12 Nov 2025' (mockup dateLabel format) */
+function dateLabelDMY(d){
+  if (!d) return '—';
+  const p = String(d).split('-');
+  if (p.length !== 3) return d;
+  return parseInt(p[0], 10) + ' ' + MN[parseInt(p[1], 10) - 1] + ' ' + p[2];
+}
+function monthShortDMY(d){
+  const p = String(d || '').split('-');
+  return p.length === 3 ? MN[parseInt(p[1], 10) - 1] : '';
+}
+function monthKeyOfDMY(d){
+  if (!d) return null;
+  const p = String(d).split('-');
+  return p.length === 3 ? (p[2] + '-' + p[1]) : null;
+}
+function oneYearBeforeISO(iso){
+  const p = String(iso).split('-');
+  let d = p[2];
+  if (p[1] === '02' && d === '29') d = '28';
+  return (parseInt(p[0], 10) - 1) + '-' + p[1] + '-' + d;
+}
+
+/* ── Status line ── */
+function setStatus(html){
+  const el = document.getElementById('pfStatus');
+  if (!el) return;
+  if (!html) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'flex';
+  el.innerHTML = html;
+}
+const SPIN = '<span class="pf-spinner"></span> ';
+
+/* ── Date picker (production wiring) ── */
+const sdp = new window.StockbitDatePicker('pfDatePicker', {
+  from: window.todayLocal(),
+  to:   window.todayLocal(),
+  alignRight: true,
+  onChange: function(from, to){
+    S.dateFrom = from; S.dateTo = to;
+    runSimDebounced();
+  },
+});
+let _simTimer = null;
+function runSimDebounced(){
+  if (!sdp._open) return;
+  clearTimeout(_simTimer);
+  _simTimer = setTimeout(runSim, 750);
+}
+
+/* Default range = last 1 year ending at the latest available date
+   (user-locked; production's clone-template default was first-signal →
+   latest — see report). Only applied on the first sync. */
+let pickerSynced = false;
+function syncPickerToRange(d){
+  if (!d.date_range || d.date_range === '-') return;
+  const parts = d.date_range.split(' - ');
+  if (parts.length !== 2) return;
+  const f = window.DD_MM_YYYYtoISO(parts[0]);
+  const t = window.DD_MM_YYYYtoISO(parts[1]);
+  if (!pickerSynced) {
+    let start = oneYearBeforeISO(t);
+    if (start < f) start = f;
+    sdp.setDefault(start, t);
+    S.dateFrom = start;
+    S.dateTo = t;
+    sdp.setDates(start, t);
+    pickerSynced = true;
+  }
+}
+
+/* ── Simulation flow (production semantics) ── */
+async function runSim(){
+  S.loading = true;
+  if (!S.data) setStatus(SPIN + 'Calculating portfolio simulation…');
+  try {
+    const qs = '?run=1&date_from=' + encodeURIComponent(window.isoToDD_MM_YYYY(S.dateFrom))
+             + '&date_to='   + encodeURIComponent(window.isoToDD_MM_YYYY(S.dateTo));
+    const r = await fetch('/api/portfolio' + qs);
+    const d = await r.json();
+    if (d && d.equity) { S.data = d; syncPickerToRange(d); renderAll(); }
+    else if (d && d.triggered) { poll(); }
+    else { setStatus('⚠ Failed to run simulation.'); }
+  } catch(e) { setStatus('⚠ Failed to run simulation.'); }
+  S.loading = false;
+}
+
+async function fetchResult(onDone, skipRender){
+  try {
+    const r = await fetch('/api/portfolio');
+    const dd = await r.json();
+    if (dd && dd.equity) {
+      S.data = dd;
+      syncPickerToRange(dd);
+      if (!skipRender) renderAll();
+      if (onDone) onDone();
+    } else {
+      setStatus('⚠ Result expired — running again…');
+      setTimeout(runSim, 1500);
+    }
+  } catch(e) { setStatus('⚠ Failed to load result.'); }
+}
+
+function poll(onReady){
+  let tries = 0;
+  const iv = setInterval(async function(){
+    tries++;
+    try {
+      const r = await fetch('/api/portfolio?status=1');
+      const s = await r.json();
+      if (!s.running) {
+        clearInterval(iv);
+        (onReady || function(){ fetchResult(runSim, true); })();
+      } else if (tries > 240) {
+        clearInterval(iv);
+        setStatus('⚠ Simulation is taking too long. Try a shorter date range.');
+      }
+    } catch(e) {
+      clearInterval(iv);
+      setStatus('⚠ Connection failed.');
+    }
+  }, 1300);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Presentation — mockup model.
+   The production curves are cumulative P&L in Rp starting at 0 with a
+   per-strategy capital basis (bsjp_capital / wyckoff_basis). The mockup
+   shows equity in Rp jt starting at 100, so each curve is normalised:
+   eqJt(k,i) = 100 × (1 + curve_k(i) / basis_k). Combined (both selected)
+   follows the mockup rule: BSJP + Wyckoff − 100.
+   ════════════════════════════════════════════════════════════════════ */
+const NS = { dates: [], bsjp: [], wyckoff: [] };
+
+function basisJt(k){
+  const st = S.view && S.view[k] && S.view[k].stats;
+  let b = st && st.initial_equity;
+  if (!b) b = (k === 'bsjp') ? S.prefs.bsjp_capital : S.prefs.wyckoff_basis;
+  return b / 1e6;
+}
+function buildSeries(){
+  const eq = S.view.equity;
+  const bB = basisJt('bsjp'), bW = basisJt('wyckoff');
+  NS.dates = S.view.axis_dates || [];
+  NS.bsjp = (eq.bsjp || []).map(function(v){ return 100 + (v / 1e6) * (100 / bB); });
+  NS.wyckoff = (eq.wyckoff || []).map(function(v){ return 100 + (v / 1e6) * (100 / bW); });
+}
+function selList(){
+  const out = [];
+  if (S.active.bsjp) out.push('bsjp');
+  if (S.active.wyckoff) out.push('wyckoff');
+  return out;
+}
+function selLabel(){
+  const s = selList();
+  return s.length === 2 ? 'BSJP + Wyckoff' : (s[0] === 'bsjp' ? 'BSJP' : 'Wyckoff');
+}
+function viewEq(i){
+  const s = selList();
+  if (s.length === 2) return NS.bsjp[i] + NS.wyckoff[i] - 100;
+  return s[0] === 'bsjp' ? NS.bsjp[i] : NS.wyckoff[i];
+}
+function selTrades(){
+  const out = [];
+  selList().forEach(function(k){
+    const tr = (S.view[k] && S.view[k].trades) || [];
+    tr.forEach(function(t){ out.push({ k: k, t: t }); });
+  });
+  return out;
+}
+
+function renderKpis(){
+  const n = NS.dates.length;
+  const startEl = document.getElementById('pf-kpi-start');
+  const finalEl = document.getElementById('pf-kpi-final');
+  const retEl = document.getElementById('pf-kpi-return');
+  const ddEl = document.getElementById('pf-kpi-dd');
+  const winEl = document.getElementById('pf-kpi-win');
+  const tradesEl = document.getElementById('pf-kpi-trades');
+  if (!n) {
+    [startEl, finalEl, retEl, ddEl, winEl, tradesEl].forEach(function(el){ el.textContent = '—'; });
+    return;
+  }
+  const startEq = viewEq(0), finalEq = viewEq(n - 1);
+  const ret = startEq ? (finalEq - startEq) / startEq * 100 : 0;
+  /* Max drawdown on the (combined) view series — mockup formula. */
+  let peak = -Infinity, maxDD = 0;
+  for (let i = 0; i < n; i++) {
+    const v = viewEq(i);
+    if (v > peak) peak = v;
+    if (peak > 0) { const dd = (v - peak) / peak * 100; if (dd < maxDD) maxDD = dd; }
+  }
+  /* Win rate: production semantics — closed trades only, gain > 0. */
+  const rows = selTrades();
+  const closed = rows.filter(function(r){ return isClosed(r.t); });
+  const wins = closed.filter(function(r){ return (r.t.gain || 0) > 0; });
+  const winRate = closed.length ? (wins.length / closed.length * 100) : null;
+
+  startEl.innerHTML = fmt1id(startEq) + ' <span class="unit">jt</span>';
+  finalEl.innerHTML = fmt1id(finalEq) + ' <span class="unit">jt</span>';
+  finalEl.classList.toggle('pos', ret >= 0);
+  finalEl.classList.toggle('neg', ret < 0);
+  retEl.textContent = fmtSigned1id(ret) + '%';
+  retEl.classList.toggle('pos', ret >= 0);
+  retEl.classList.toggle('neg', ret < 0);
+  ddEl.textContent = fmtSigned1id(maxDD) + '%';
+  winEl.textContent = winRate === null ? '—' : fmt1id(winRate) + '%';
+  tradesEl.textContent = rows.length.toLocaleString('id-ID');
+}
+
+/* ── Equity chart — SVG built with createElementNS only (hard rule:
+   production runtime mangles SVG injected via innerHTML). Geometry and
+   hover behaviour follow the mockup (900×300, ML46/MR14/MT16/MB28,
+   y-domain snapped to 5 with ±4 padding, min span 10, 5 gridlines). ── */
+const SVGNS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs){
+  const el = document.createElementNS(SVGNS, tag);
+  for (const a in attrs) el.setAttribute(a, attrs[a]);
+  return el;
+}
+let pfGeom = null, pfInited = false;
+
+function renderChart(){
+  const svg = document.getElementById('pf-chart');
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  const note = document.getElementById('pf-chart-note');
+  const n = NS.dates.length;
+  const sel = selList();
+  document.querySelectorAll('#pf-legend .pf-leg').forEach(function(leg){
+    leg.classList.toggle('off', !S.active[leg.dataset.leg]);
+  });
+  if (!n || !sel.length) { note.textContent = '—'; pfGeom = null; return; }
+
+  const cs = getComputedStyle(document.documentElement);
+  function tok(name, fb){ const v = cs.getPropertyValue(name).trim(); return v || fb; }
+  const colB = tok('--green', '#3a6b58'), colW = tok('--accent', '#c8633a');
+  const dotB = tok('--green-bright', '#2f5d49'), dotW = colW;
+  const bgCol = tok('--bg', '#fafaf7'), gridCol = tok('--hairline', 'rgba(28,28,26,.07)'), labCol = tok('--text-3', '#6e6c63');
+
+  const W = 900, H = 300, ML = 46, MR = 14, MT = 16, MB = 28;
+  const iw = W - ML - MR, ih = H - MT - MB;
+  let vmin = Infinity, vmax = -Infinity;
+  sel.forEach(function(k){
+    NS[k].forEach(function(v){ if (v < vmin) vmin = v; if (v > vmax) vmax = v; });
+  });
+  let ymin = Math.floor((vmin - 4) / 5) * 5, ymax = Math.ceil((vmax + 4) / 5) * 5;
+  if (ymax - ymin < 10) { ymax = ymin + 10; }
+  const X = function(i){ return ML + (n <= 1 ? iw / 2 : i / (n - 1) * iw); };
+  const Y = function(v){ return MT + (ymax - v) / (ymax - ymin) * ih; };
+
+  const defs = svgEl('defs', {});
+  [['pfFillB', 'var(--green)'], ['pfFillW', 'var(--accent)']].forEach(function(pair){
+    const g = svgEl('linearGradient', { id: pair[0], x1: '0', y1: '0', x2: '0', y2: '1' });
+    const s1 = svgEl('stop', { offset: '0%' }); s1.setAttribute('style', 'stop-color:' + pair[1]); s1.setAttribute('stop-opacity', '.26');
+    const s2 = svgEl('stop', { offset: '100%' }); s2.setAttribute('style', 'stop-color:' + pair[1]); s2.setAttribute('stop-opacity', '0');
+    g.appendChild(s1); g.appendChild(s2); defs.appendChild(g);
+  });
+  svg.appendChild(defs);
+
+  for (let t = 0; t < 5; t++) {
+    const gv = ymin + (ymax - ymin) * t / 4, gy = Y(gv);
+    svg.appendChild(svgEl('line', { x1: ML, y1: gy.toFixed(1), x2: W - MR, y2: gy.toFixed(1), stroke: gridCol, 'stroke-width': 1 }));
+    const tx = svgEl('text', { x: ML - 8, y: (gy + 3.5).toFixed(1), 'text-anchor': 'end', 'font-family': 'Geist Mono, monospace', 'font-size': 10.5, fill: labCol });
+    tx.textContent = Math.round(gv);
+    svg.appendChild(tx);
+  }
+  /* X labels: first point of each month (daily axis — mockup labels are
+     month abbreviations; labelling every daily point is unreadable). */
+  let lastMonth = null;
+  for (let i = 0; i < n; i++) {
+    const mk = monthKeyOfDMY(NS.dates[i]);
+    if (i !== 0 && mk === lastMonth) continue;
+    lastMonth = mk;
+    const tx = svgEl('text', { x: X(i).toFixed(1), y: H - 8, 'text-anchor': 'middle', 'font-family': 'Geist Mono, monospace', 'font-size': 10.5, fill: labCol });
+    tx.textContent = monthShortDMY(NS.dates[i]);
+    svg.appendChild(tx);
+  }
+
+  const points = [];
+  for (let i = 0; i < n; i++) points.push({ x: X(i), date: NS.dates[i], vals: {} });
+
+  sel.forEach(function(k){
+    const ser = NS[k], col = k === 'bsjp' ? colB : colW, dot = k === 'bsjp' ? dotB : dotW;
+    ser.forEach(function(v, i){ if (points[i]) points[i].vals[k] = { val: v, y: Y(v) }; });
+    if (ser.length >= 2) {
+      let line = '';
+      ser.forEach(function(v, i){ line += (i ? ' L' : 'M') + X(i).toFixed(1) + ',' + Y(v).toFixed(1); });
+      const area = svgEl('path', { d: line + ' L' + X(ser.length - 1).toFixed(1) + ',' + (MT + ih) + ' L' + X(0).toFixed(1) + ',' + (MT + ih) + ' Z', fill: 'url(#' + (k === 'bsjp' ? 'pfFillB' : 'pfFillW') + ')', stroke: 'none' });
+      svg.appendChild(area);
+      svg.appendChild(svgEl('path', { d: line, fill: 'none', stroke: col, 'stroke-width': 2.4, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+    }
+    const li = ser.length - 1;
+    if (li >= 0) svg.appendChild(svgEl('circle', { cx: X(li).toFixed(1), cy: Y(ser[li]).toFixed(1), r: 4, fill: dot, stroke: bgCol, 'stroke-width': 1.5 }));
+  });
+
+  const guide = svgEl('line', { id: 'pf-guide', y1: MT, y2: MT + ih, 'stroke-width': 1, 'stroke-dasharray': '4 4', style: 'display:none;stroke:var(--border-strong)' });
+  svg.appendChild(guide);
+  sel.forEach(function(k){
+    const c = svgEl('circle', { id: 'pf-dot-' + k, r: 4.5, fill: k === 'bsjp' ? dotB : dotW, stroke: bgCol, 'stroke-width': 1.5, style: 'display:none' });
+    svg.appendChild(c);
+  });
+  svg.appendChild(svgEl('rect', { id: 'pf-hover-zone', x: ML, y: MT, width: iw, height: ih, fill: 'transparent' }));
+
+  pfGeom = { points: points, svg: svg, wrap: document.getElementById('pf-chart-wrap') };
+  note.textContent = dateLabelDMY(NS.dates[0]) + ' – ' + dateLabelDMY(NS.dates[n - 1]) + ' · ' + selLabel() + ' · hover for equity per date';
+  pfAttachHover();
+}
+
+function pfAttachHover(){
+  if (pfInited) return;
+  pfInited = true;
+  const tip = document.getElementById('pf-tooltip');
+  function hideTip(){
+    tip.hidden = true;
+    if (!pfGeom) return;
+    const g = pfGeom.svg.querySelector('#pf-guide');
+    if (g) g.style.display = 'none';
+    pfGeom.svg.querySelectorAll('[id^="pf-dot-"]').forEach(function(d){ d.style.display = 'none'; });
+  }
+  function onMove(clientX){
+    if (!pfGeom) return;
+    const r = pfGeom.svg.getBoundingClientRect();
+    const x = (clientX - r.left) / r.width * 900;
+    let best = null, bd = 1e9;
+    pfGeom.points.forEach(function(p){ const d = Math.abs(p.x - x); if (d < bd) { bd = d; best = p; } });
+    if (!best) return;
+    const g = pfGeom.svg.querySelector('#pf-guide');
+    if (g) { g.setAttribute('x1', best.x); g.setAttribute('x2', best.x); g.style.display = ''; }
+    let html = '<div class="tt-date">' + dateLabelDMY(best.date) + '</div>';
+    selList().forEach(function(k){
+      const pv = best.vals[k];
+      const dot = pfGeom.svg.querySelector('#pf-dot-' + k);
+      if (!pv || !dot) return;
+      dot.setAttribute('cx', best.x); dot.setAttribute('cy', pv.y); dot.style.display = '';
+      html += '<div class="tt-row"><i style="background:' + (k === 'bsjp' ? 'var(--green)' : 'var(--accent)') + '"></i>' + (k === 'bsjp' ? 'BSJP' : 'Wyckoff') + '<b>' + fmt1id(pv.val) + ' jt</b></div>';
+    });
+    tip.innerHTML = html;
+    tip.hidden = false;
+    const wrapW = pfGeom.wrap.clientWidth || 1;
+    const px = best.x / 900 * wrapW;
+    tip.style.transform = px < 86 ? 'translateX(0)' : (px > wrapW - 86 ? 'translateX(-100%)' : 'translateX(-50%)');
+    tip.style.left = px + 'px';
+  }
+  const wrap = document.getElementById('pf-chart-wrap');
+  wrap.addEventListener('mousemove', function(e){ onMove(e.clientX); });
+  wrap.addEventListener('mouseleave', hideTip);
+  wrap.addEventListener('touchstart', function(e){ if (e.touches[0]) onMove(e.touches[0].clientX); }, { passive: true });
+  wrap.addEventListener('touchmove', function(e){ if (e.touches[0]) onMove(e.touches[0].clientX); }, { passive: true });
+  wrap.addEventListener('touchend', hideTip);
+}
+
+function renderMonthly(){
+  const body = document.getElementById('pf-monthly-body');
+  const noteEl = document.getElementById('pf-monthly-note');
+  const n = NS.dates.length;
+  const months = [], seen = {};
+  for (let i = 0; i < n; i++) {
+    const key = monthKeyOfDMY(NS.dates[i]);
+    if (!key) continue;
+    if (!seen[key]) {
+      const p = NS.dates[i].split('-');
+      seen[key] = { key: key, label: MN[parseInt(p[1], 10) - 1] + ' ' + p[2], lastIdx: i };
+      months.push(seen[key]);
+    } else { seen[key].lastIdx = i; }
+  }
+  if (!months.length) {
+    body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:22px;color:var(--text-3)">No months inside this range — widen the dates.</td></tr>';
+    noteEl.textContent = '—';
+    return;
+  }
+  const rows = selTrades();
+  body.innerHTML = months.map(function(m){
+    const inMonth = rows.filter(function(r){
+      const d = r.k === 'wyckoff' ? r.t.entry_date : r.t.date;
+      return monthKeyOfDMY(d) === m.key;
+    });
+    const closed = inMonth.filter(function(r){ return isClosed(r.t); });
+    const wins = closed.filter(function(r){ return (r.t.gain || 0) > 0; });
+    const winTxt = closed.length ? fmt1id(wins.length / closed.length * 100) + '%' : '—';
+    const pnl = inMonth.reduce(function(s, r){ return s + (r.t.pnl_rp || 0); }, 0) / 1e6;
+    const pnlCls = pnl > 0 ? ' class="num pos"' : (pnl < 0 ? ' class="num neg"' : ' class="num"');
+    return '<tr><td style="font-family:var(--sans);font-weight:600;color:var(--text)">' + m.label + '</td>' +
+      '<td class="num">' + inMonth.length + '</td>' +
+      '<td class="num">' + winTxt + '</td>' +
+      '<td' + pnlCls + '>' + fmtSigned1id(pnl) + '</td>' +
+      '<td class="num">' + fmt1id(viewEq(m.lastIdx)) + '</td></tr>';
+  }).join('');
+  noteEl.textContent = months.length + (months.length === 1 ? ' month' : ' months') + ' · ' + selLabel();
+  /* Sorting state resets on re-render (mockup behaviour). */
+  document.querySelectorAll('table.tbl th').forEach(function(th){
+    th.removeAttribute('data-dir'); th.removeAttribute('aria-sort');
+    const ind = th.querySelector('.sort-ind'); if (ind) ind.remove();
+  });
+}
+
+function updateRangeLine(){
+  document.getElementById('pf-range-line').textContent =
+    dateLabelDMY(window.isoToDD_MM_YYYY(S.dateFrom)) + ' – ' + dateLabelDMY(window.isoToDD_MM_YYYY(S.dateTo));
+}
+
+function render(){
+  renderKpis();
+  renderChart();
+  renderMonthly();
+  updateRangeLine();
+}
+
+function renderAll(){
+  if (!S.data) return;
+  S.view = viewData();
+  document.getElementById('pfComputed').textContent =
+    S.data.computed_at ? 'Computed: ' + S.data.computed_at : '';
+  buildSeries();
+  setStatus('');
+  render();
+}
+
+/* ── Strategy toggles (mockup: multi-select, minimum 1 active) ── */
+document.querySelectorAll('.strat-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    const k = btn.dataset.strat;
+    const next = !S.active[k];
+    if (!next && !selList().some(function(x){ return x !== k; })) return; /* keep at least one */
+    S.active[k] = next;
+    btn.classList.toggle('on', next);
+    btn.setAttribute('aria-pressed', String(next));
+    if (S.view) render();
+  });
+});
+
+/* ── Tape (same pattern as Hub v2: /api/last-date → /api/flow gain_pct) ── */
+function tapeSetHTML(gainers, losers){
+  let h = '<span class="tape-item tape-group g"><span class="tl">TOP GAINERS</span></span>';
+  gainers.forEach(function(t){ h += '<span class="tape-item"><span class="tl">' + t.ticker + '</span><span class="pos">' + fmtPct1(t.gain_pct) + '</span></span>'; });
+  h += '<span class="tape-item tape-group l"><span class="tl">TOP LOSERS</span></span>';
+  losers.forEach(function(t){ h += '<span class="tape-item"><span class="tl">' + t.ticker + '</span><span class="neg">' + fmtPct1(t.gain_pct) + '</span></span>'; });
+  return h;
+}
+async function loadTape(){
+  try {
+    const rld = await fetch('/api/last-date');
+    const ld = await rld.json();
+    if (!ld.date) return;
+    const dt = ld.date.replace(/\//g, '-');
+    const rf = await fetch('/api/flow?date_from=' + dt + '&date_to=' + dt);
+    const fd = await rf.json();
+    const tickers = (fd && fd.tickers) ? fd.tickers : [];
+    if (!tickers.length) return;
+    const withGain = tickers.filter(function(t){ return t.gain_pct !== null && t.gain_pct !== undefined; });
+    const gainers = withGain.slice().sort(function(a, b){ return b.gain_pct - a.gain_pct; }).slice(0, 10);
+    const losers = withGain.slice().sort(function(a, b){ return a.gain_pct - b.gain_pct; }).slice(0, 10);
+    const setHTML = tapeSetHTML(gainers, losers);
+    document.getElementById('tapeTrack').innerHTML =
+      '<div class="tape-set">' + setHTML + '</div><div class="tape-set dup" aria-hidden="true">' + setHTML + '</div>';
+  } catch(_) { /* tape stays empty */ }
+}
+loadTape();
+
+/* ── Initial load (production flow) ── */
+setStatus(SPIN + 'Calculating portfolio simulation…');
+fetch('/api/portfolio')
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d && d.equity) {
+      S.data = d;
+      syncPickerToRange(d);
+      runSim();
+    } else if (d && d.status === 'running') {
+      poll(function(){ fetchResult(runSim, true); });
+    } else {
+      setStatus('⚠ ' + ((d && d.message) || 'Failed to load simulation.'));
+    }
+  })
+  .catch(function(){ setStatus('⚠ Failed to load simulation.'); });
+
+})();
+</script>
+</body>
+</html>

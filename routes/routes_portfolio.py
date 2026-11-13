@@ -4,6 +4,7 @@ RULE: Routing only. All simulation logic in algo/algo_portfolio.py.
 """
 from flask import Blueprint, render_template, jsonify, request, redirect
 from core.auth import is_authed, current_universe
+from config import ZENITH_UI_V2
 
 bp_portfolio = Blueprint("portfolio", __name__)
 
@@ -42,7 +43,7 @@ def _with_ihsg(result: dict) -> dict:
 def portfolio_page():
     if not is_authed():
         return redirect("/")
-    return render_template("portfolio.html")
+    return render_template("portfolio_v2.html" if ZENITH_UI_V2 else "portfolio.html")
 
 
 @bp_portfolio.route("/api/portfolio")

@@ -31,6 +31,11 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
+# Admin → Log tab (UI v2): keep recent log records in an in-memory ring
+# buffer for the /admin/logs polling endpoint. Same level as journald.
+from core.log_buffer import ring_handler
+logging.getLogger().addHandler(ring_handler)
+
 app = Flask(__name__)
 app.secret_key = config.FLASK_SECRET
 app.config["SESSION_TYPE"]     = config.SESSION_TYPE

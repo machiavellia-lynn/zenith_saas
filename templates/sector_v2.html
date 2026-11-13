@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-ui="v2">
+<head>
+<meta charset="UTF-8"/>
+<script>(function(){var t=localStorage.getItem('zenith-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Zenith — Sector Rotation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/tokens.css">
+<link rel="stylesheet" href="/static/sidebar.css">
+<link rel="stylesheet" href="/static/ui-v2.css">
+<style>
+html, body { height: 100%; }
+body { display: flex; flex-direction: column; }
+
+/* ── Page head ───────────────────────────────────────────────────── */
+.v2 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 22px; }
+.v2 .page-head h1 { font-size: clamp(26px,3.2vw,34px); line-height: 1.05; letter-spacing: -.025em; margin: 0; font-weight: 700; color: var(--text); }
+.v2 .page-head .subline { margin-top: 7px; }
+.v2 .page-head-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.v2 .head-period { display: flex; align-items: center; gap: 9px; }
+.v2 .pf-period-label { font-family: var(--mono); font-size: 9.5px; font-weight: 600; letter-spacing: .13em; text-transform: uppercase; color: var(--text-3); }
+.v2 .date-line { font-family: var(--mono); font-size: 11px; color: var(--text-3); letter-spacing: .02em; }
+@media (min-width: 761px) {
+  .v2 .sector-page .page-head-right { flex-direction: row; align-items: center; gap: 14px; }
+}
+
+/* ── Stockbit date picker (production classes, mockup styling) ──── */
+.v2 .sdp-strip { position: relative; display: inline-flex; align-items: stretch; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; min-height: 40px; }
+.v2 .sdp-arrow { background: none; border: none; cursor: pointer; color: var(--text-2); font-size: 17px; line-height: 1; padding: 0 9px; min-height: 38px; display: grid; place-items: center; }
+.v2 .sdp-arrow:hover { color: var(--text); }
+.v2 .sdp-label { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text); display: flex; align-items: center; justify-content: center; min-width: 96px; padding: 0 4px; white-space: nowrap; }
+.v2 .sdp-cal-btn { background: none; border: none; cursor: pointer; color: var(--text-2); padding: 0 2px 0 6px; min-height: 38px; display: grid; place-items: center; }
+.v2 .sdp-cal-btn:hover { color: var(--text); }
+.sdp-cal-popup { position: fixed; z-index: 1000; width: 280px; max-width: calc(100vw - 36px); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: var(--shadow); padding: 12px; display: none; font-family: var(--sans); }
+.sdp-cal-popup.open { display: block; }
+.sdp-cal-hint { font-size: 12px; color: var(--text-3); line-height: 1.5; margin-bottom: 10px; }
+.sdp-cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.sdp-cal-month { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--text); }
+.sdp-cal-nav-btn { background: none; border: none; cursor: pointer; color: var(--text-2); font-size: 15px; line-height: 1; min-height: 30px; padding: 0 7px; display: grid; place-items: center; }
+.sdp-cal-nav-btn:hover { color: var(--text); }
+.sdp-cal-wdays { display: grid; grid-template-columns: repeat(7,1fr); margin-bottom: 4px; }
+.sdp-cal-wday { font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: .08em; color: var(--text-3); text-align: center; padding: 3px 0; }
+.sdp-cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; }
+.sdp-cal-day { border: none; background: none; cursor: pointer; font-family: var(--mono); font-size: 12px; color: var(--text-2); height: 32px; min-height: 32px; border-radius: 6px; display: grid; place-items: center; padding: 0; }
+.sdp-cal-day:hover { background: var(--hover); color: var(--text); }
+.sdp-cal-day.in-range { background: var(--green-dim); color: var(--text); }
+.sdp-cal-day.selected { background: var(--green); color: var(--on-green); font-weight: 700; }
+.sdp-cal-day.selected:hover { background: var(--green); color: var(--on-green); }
+.sdp-cal-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid var(--border); margin-top: 10px; padding-top: 10px; }
+.sdp-cal-foot-label { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--text-2); }
+.sdp-cal-reset { background: none; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--text-2); padding: 5px 10px; min-height: 30px; }
+.sdp-cal-reset:hover { border-color: var(--border-strong); color: var(--text); }
+
+/* ── Segment bodies / KPI strip ──────────────────────────────────── */
+.v2 .segment-body { padding: 16px 18px; }
+.v2 .segment-body.flush { padding: 0; }
+.v2 .kpi-strip { display: grid; grid-template-columns: repeat(auto-fit,minmax(168px,1fr)); gap: 12px; margin-bottom: 16px; }
+.v2 .segment .kpi-strip { margin-bottom: 0; gap: 1px; background: var(--border); }
+.v2 .segment .kpi { border: none; border-radius: 0; }
+.v2 .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 13px 14px 12px; overflow: hidden; position: relative; }
+.v2 .kpi-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.v2 .kpi-label { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .15em; text-transform: uppercase; color: var(--text-3); display: flex; align-items: center; gap: 7px; }
+.v2 .kpi-label i { width: 6px; height: 6px; border-radius: 2px; background: var(--text-3); display: block; }
+.v2 .kpi-label.green i { background: var(--green); }
+.v2 .kpi-label.amber i { background: var(--amber); }
+.v2 .kpi-label.rose i { background: var(--rose); }
+.v2 .kpi-value { font-family: var(--mono); font-size: clamp(23px,2.3vw,29px); font-weight: 700; letter-spacing: -.03em; line-height: 1; white-space: nowrap; color: var(--text); }
+.v2 .kpi-value .unit { font-size: 13px; color: var(--text-3); font-weight: 500; letter-spacing: 0; }
+.v2 .kpi-value.pos { color: var(--green-bright); }
+.v2 .kpi-value.neg { color: var(--neg-text); }
+.v2 .kpi-sub { font-size: 12.5px; color: var(--text-2); margin-top: 7px; line-height: 1.45; }
+.v2 .kpi.sm { padding: 13px 14px 12px; }
+.v2 .kpi.sm .kpi-value { font-size: 20px; }
+.v2 .kpi.sm .kpi-head { margin-bottom: 7px; }
+.v2 .kpi.sm .kpi-sub { font-size: 11.5px; margin-top: 5px; }
+
+/* ── Sector diverging bars ───────────────────────────────────────── */
+.v2 .sec-list { padding: 14px 18px 16px; display: flex; flex-direction: column; gap: 7px; }
+.v2 .sec-row { display: grid; grid-template-columns: 158px 1fr 74px; gap: 12px; align-items: center; }
+.v2 .sec-name { font-size: 12.5px; font-weight: 600; color: var(--text-2); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v2 .sec-track { position: relative; height: 22px; background: var(--hover); border-radius: 6px; }
+.v2 .sec-track::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--border-strong); }
+.v2 .sec-bar { position: absolute; top: 5px; height: 12px; border-radius: 4px; transition: width .6s var(--ease-fluid); }
+.v2 .sec-bar.pos { left: 50%; background: var(--green); }
+.v2 .sec-bar.neg { right: 50%; background: var(--rose); }
+.v2 .sec-val { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--text); }
+.v2 .sec-val.pos { color: var(--green-bright); }
+.v2 .sec-val.neg { color: var(--neg-text); }
+.v2 .sec-axis { display: grid; grid-template-columns: 158px 1fr 74px; gap: 12px; padding: 0 18px 14px; font-family: var(--mono); font-size: 10px; color: var(--text-3); }
+.v2 .sec-axis .ax { display: flex; justify-content: space-between; }
+.v2 .sec-note { padding: 12px 18px 15px; border-top: 1px solid var(--border); }
+.v2 .pf-note { font-family: var(--mono); font-size: 11px; color: var(--text-3); margin: 0; line-height: 1.6; }
+.v2 .sec-empty { padding: 32px 18px; text-align: center; color: var(--text-3); font-size: 13px; }
+
+/* ── Sector · one-screen layout (desktop) ────────────────────────── */
+/* Header and Snapshot keep natural height; the Clean Money segment
+   flexes to fill the rest and its rows spread evenly over the panel
+   height (each row flex:1, content centred), so no dead space remains. */
+@media (min-width: 761px) {
+  .v2 .sector-page { display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+  .v2 .sector-page .page-head { margin-bottom: 14px; flex: 0 0 auto; position: relative; z-index: 30; }
+  .v2 .sector-page .segment { flex: 0 0 auto; }
+  .v2 .sector-page .segment.sec-grow { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin-top: 14px; }
+  .v2 .sector-page .sec-grow .segment-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  .v2 .sector-page .sec-list { flex: 1 1 auto; min-height: 0; gap: 0; padding: 10px 18px; }
+  .v2 .sector-page .sec-row { flex: 1 1 auto; min-height: 24px; }
+  .v2 .sector-page .sec-track { height: 27px; }
+  .v2 .sector-page .sec-bar { top: 50%; transform: translateY(-50%); height: 13px; }
+}
+@media (min-width: 761px) and (max-height: 800px) {
+  .v2 .sector-page .page-head { margin-bottom: 10px; }
+  .v2 .sector-page .segment.sec-grow { margin-top: 10px; }
+  .v2 .sector-page .segment-head { min-height: 34px; }
+  .v2 .sector-page .kpi.sm { padding: 10px 12px 9px; }
+  .v2 .sector-page .sec-list { padding: 6px 18px; }
+  .v2 .sector-page .sec-row { min-height: 19px; }
+  .v2 .sector-page .sec-track { height: 20px; }
+  .v2 .sector-page .sec-bar { height: 10px; }
+  .v2 .sector-page .sec-axis { padding-bottom: 8px; }
+  .v2 .sector-page .sec-note { padding: 8px 18px 10px; }
+}
+@media (max-width: 680px) {
+  .v2 .sec-row, .v2 .sec-axis { grid-template-columns: 104px 1fr 58px; gap: 8px; }
+  .v2 .sec-name { font-size: 11px; }
+  .v2 .page-head-right { align-items: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .v2 .sec-bar { transition: none; }
+}
+</style>
+</head>
+<body class="sidebar-layout v2" data-page="sector">
+{% include 'sidebar.html' %}
+
+<div class="main-content">
+  <div class="mobile-bar">
+    <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/>
+      </svg>
+    </button>
+    <span class="mobile-bar-title">Sector Rotation</span>
+  </div>
+
+  <a href="#main" class="skip-link">Skip to main content</a>
+  <main id="main" class="v2-content sector-page">
+
+    <!-- Header -->
+    <header class="page-head">
+      <div>
+        <h1>Sector Rotation</h1>
+        <p class="subline">Rotation map · Industry accumulation</p>
+      </div>
+      <div class="page-head-right">
+        <div class="head-period"><span class="pf-period-label">Period</span><div id="sectorDatePicker"></div></div>
+        <div class="date-line" id="secDateLine">—</div>
+      </div>
+    </header>
+
+    <!-- Segment 1 · Snapshot -->
+    <section class="segment" aria-label="Snapshot">
+      <div class="segment-head"><span class="segment-label"><i></i>Snapshot</span></div>
+      <div class="segment-body flush">
+        <section class="kpi-strip" aria-label="Sector key metrics">
+          <article class="kpi sm"><div class="kpi-head"><div class="kpi-label green"><i></i> IHSG</div><div class="delta up" id="kpiIhsgDelta">—</div></div><div class="kpi-value" id="kpiIhsg">—</div></article>
+          <article class="kpi sm"><div class="kpi-head"><div class="kpi-label green"><i></i> Net CM</div></div><div class="kpi-value" id="kpiNetCM">—</div><div class="kpi-sub">SM − BM aggregate</div></article>
+          <article class="kpi sm"><div class="kpi-head"><div class="kpi-label amber"><i></i> Net MF</div></div><div class="kpi-value" id="kpiNetMF">—</div><div class="kpi-sub">MF+ − MF− aggregate</div></article>
+          <article class="kpi sm"><div class="kpi-head"><div class="kpi-label green"><i></i> Top Sector</div></div><div class="kpi-value" id="kpiTop">—</div><div class="kpi-sub" id="kpiTopSub">—</div></article>
+          <article class="kpi sm"><div class="kpi-head"><div class="kpi-label rose"><i></i> Weakest Sector</div></div><div class="kpi-value" id="kpiWeak">—</div><div class="kpi-sub" id="kpiWeakSub">—</div></article>
+        </section>
+      </div>
+    </section>
+
+    <!-- Segment 2 · Clean Money by Sector -->
+    <section class="segment sec-grow" aria-label="Clean Money by Sector">
+      <div class="segment-head"><span class="segment-label"><i></i>Clean Money by Sector</span><span class="segment-meta"><span>Bidirectional from center</span><span>Rp miliar (M)</span></span></div>
+      <div class="segment-body flush">
+        <div class="sec-list" id="secList">
+          <div class="sec-empty">Loading...</div>
+        </div>
+        <div class="sec-axis"><div></div><div class="ax" id="secAxis"><span>—</span><span>—</span><span>0</span><span>—</span><span>—</span></div><div></div></div>
+        <div class="sec-note"><p class="pf-note" id="secNote"></p></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="/static/zenith-utils.js"></script>
+<script src="/static/focus-trap.js" defer></script>
+<script src="/static/animations.js" defer></script>
+<script src="/static/shortcuts.js" defer></script>
+<script>
+(function () {
+  'use strict';
+
+  var S = { dateFrom: '', dateTo: '', sectors: [], liveDate: '' };
+  var today = window.todayLocal();
+  S.dateFrom = S.dateTo = S.liveDate = today;
+
+  /* ── Formatters (id-ID: decimal comma) ── */
+  function fmtM1(v) {
+    if (v === null || v === undefined) return '—';
+    var s = v > 0 ? '+' : (v < 0 ? '−' : '');
+    return s + Math.abs(v).toLocaleString('id-ID', { maximumFractionDigits: 1 });
+  }
+  function fmtAxis(v) {
+    if (v === 0) return '0';
+    var s = v > 0 ? '+' : '−';
+    return s + Math.abs(v).toLocaleString('id-ID', { maximumFractionDigits: 1 });
+  }
+  function fmtPct2(v) {
+    if (v === null || v === undefined) return '—';
+    return Math.abs(v).toFixed(2).replace('.', ',') + '%';
+  }
+  var MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var WD = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  function dateLabel(iso) {
+    var p = iso.split('-');
+    return parseInt(p[2], 10) + ' ' + MN[parseInt(p[1], 10) - 1] + ' ' + p[0];
+  }
+  function dateLineText() {
+    if (S.dateFrom === S.dateTo) {
+      var d = new Date(S.dateFrom + 'T00:00:00');
+      return WD[d.getDay()] + ', ' + dateLabel(S.dateFrom);
+    }
+    return dateLabel(S.dateFrom) + ' – ' + dateLabel(S.dateTo);
+  }
+  /* Nice axis ceiling: 1 / 2 / 2.5 / 5 / 10 × 10^n */
+  function niceCeil(x) {
+    if (!(x > 0)) return 1;
+    var mag = Math.pow(10, Math.floor(Math.log10(x)));
+    var n = x / mag;
+    var nice = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10;
+    return nice * mag;
+  }
+
+  /* ── IHSG KPI (same endpoint as Hub v2) ── */
+  fetch('/api/ihsg').then(function (r) { return r.json(); }).then(function (d) {
+    if (d.price) {
+      document.getElementById('kpiIhsg').textContent =
+        d.price.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      var g = d.gain_pct;
+      if (g !== null && g !== undefined) {
+        var dEl = document.getElementById('kpiIhsgDelta');
+        dEl.textContent = (g >= 0 ? '▲ ' : '▼ ') + fmtPct2(g);
+        dEl.className = 'delta ' + (g >= 0 ? 'up' : 'down');
+      }
+    }
+  }).catch(function () { /* keep placeholders */ });
+
+  /* ── Date picker (production StockbitDatePicker wiring) ── */
+  var sdp = new window.StockbitDatePicker('sectorDatePicker', {
+    from: today, to: today, alignRight: true,
+    onChange: function (from, to) { S.dateFrom = from; S.dateTo = to || from; load(); }
+  });
+  fetch('/api/last-date').then(function (r) { return r.json(); }).then(function (d) {
+    if (d.date) {
+      var iso = window.DD_MM_YYYYtoISO(d.date.replace(/\//g, '-'));
+      S.dateFrom = iso; S.dateTo = iso; S.liveDate = iso;
+      sdp.setDates(iso, iso);
+      load();
+    }
+  }).catch(function () {});
+
+  function setKpi(id, v) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = fmtM1(v) + ' <span class="unit">M</span>';
+    el.classList.toggle('pos', v >= 0);
+    el.classList.toggle('neg', v < 0);
+  }
+
+  function renderSectors() {
+    var sectors = S.sectors;
+    var listEl = document.getElementById('secList');
+    document.getElementById('secDateLine').textContent = dateLineText();
+    if (!sectors.length) {
+      listEl.innerHTML = '<div class="sec-empty">No data.</div>';
+      document.getElementById('secNote').textContent = '';
+      return;
+    }
+
+    /* Aggregates — Top/Weakest are scanned from the same rows that are
+       rendered below, so the KPIs always match the max/min bars. */
+    var maxAbs = 0, netCM = 0, netMF = 0, top = null, weak = null;
+    sectors.forEach(function (s) {
+      var cm = s.cm || 0;
+      if (Math.abs(cm) > maxAbs) maxAbs = Math.abs(cm);
+      netCM += cm;
+      netMF += (s.net_mf || 0);
+      if (!top || cm > (top.cm || 0)) top = s;
+      if (!weak || cm < (weak.cm || 0)) weak = s;
+    });
+    if (maxAbs === 0) maxAbs = 1;
+
+    setKpi('kpiNetCM', netCM);
+    setKpi('kpiNetMF', netMF);
+    setKpi('kpiTop', top.cm || 0);
+    document.getElementById('kpiTopSub').textContent = top.name + ' CM';
+    setKpi('kpiWeak', weak.cm || 0);
+    document.getElementById('kpiWeakSub').textContent = weak.name + ' CM';
+
+    /* Rows in API order (server sorts by clean money, descending) */
+    listEl.innerHTML = sectors.map(function (s) {
+      var cm = s.cm || 0;
+      var pos = cm >= 0;
+      var w = (Math.abs(cm) / maxAbs * 50).toFixed(1);
+      return '<div class="sec-row">' +
+        '<div class="sec-name">' + s.name + '</div>' +
+        '<div class="sec-track"><div class="sec-bar ' + (pos ? 'pos' : 'neg') + '" style="width:' + w + '%"></div></div>' +
+        '<div class="sec-val ' + (pos ? 'pos' : 'neg') + '">' + fmtM1(cm) + '</div>' +
+      '</div>';
+    }).join('');
+
+    /* Axis — nice-number ceiling, ticks at −max, −max/2, 0, +max/2, +max */
+    var ax = niceCeil(maxAbs);
+    document.getElementById('secAxis').innerHTML =
+      '<span>' + fmtAxis(-ax) + '</span><span>' + fmtAxis(-ax / 2) + '</span><span>0</span><span>' + fmtAxis(ax / 2) + '</span><span>' + fmtAxis(ax) + '</span>';
+
+    /* Note — mockup sentence, built from the rendered extremes */
+    document.getElementById('secNote').textContent =
+      top.name + ' is being accumulated hardest; ' + weak.name +
+      ' is rotating out. Sector totals net to the board’s Net CM of ' + fmtM1(netCM) + ' M.';
+  }
+
+  function load(silent) {
+    if (!silent) {
+      document.getElementById('secList').innerHTML = '<div class="sec-empty">Loading...</div>';
+    }
+    var from = window.isoToDD_MM_YYYY(S.dateFrom), to = window.isoToDD_MM_YYYY(S.dateTo);
+    fetch('/api/sector?date_from=' + encodeURIComponent(from) + '&date_to=' + encodeURIComponent(to))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        S.sectors = d.sectors || [];
+        renderSectors();
+      })
+      .catch(function () {
+        if (!silent) {
+          document.getElementById('secList').innerHTML = '<div class="sec-empty">Failed to load data.</div>';
+        }
+      });
+  }
+
+  load();
+  setInterval(function () { if (S.dateFrom === S.liveDate) load(true); }, 30000);
+})();
+</script>
+</body>
+</html>

@@ -44,7 +44,7 @@ def login_page():
         if login(username, password):
             return jsonify({"ok": True})
         return jsonify({"ok": False})
-    return render_template("login.html")
+    return render_template("login_v2.html" if ZENITH_UI_V2 else "login.html")
 
 
 @bp_main.route("/logout")
@@ -71,14 +71,14 @@ def chart_page():
 def wyckoff_page():
     if not is_authed():
         return redirect("/")
-    return render_template("wyckoff.html")
+    return render_template("wyckoff_v2.html" if ZENITH_UI_V2 else "wyckoff.html")
 
 
 @bp_main.route("/flow")
 def flow_page():
     if not is_authed():
         return redirect("/")
-    return render_template("flow.html")
+    return render_template("flow_v2.html" if ZENITH_UI_V2 else "flow.html")
 
 
 @bp_main.route("/api/last-date")

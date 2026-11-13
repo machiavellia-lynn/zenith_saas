@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light" data-ui="v2">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Zenith — Access</title>
+<script>
+(function(){
+  var t = localStorage.getItem('zenith-theme') || 'light';
+  document.documentElement.setAttribute('data-theme', t);
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/tokens.css">
+<link rel="stylesheet" href="/static/ui-v2.css">
+<style>
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+  .v2 .login-view { display: grid; grid-template-columns: 1.05fr .95fr; min-height: 100vh; }
+  .v2 .login-brand { padding: 52px 56px; display: flex; flex-direction: column; justify-content: center; background: var(--bg-2); border-right: 1px solid var(--border); }
+  .v2 .brand { display: flex; align-items: center; gap: 11px; padding: 2px 8px 20px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .v2 .brand-mark { width: 34px; height: 34px; border-radius: 8px; flex: 0 0 34px; background: var(--green); color: var(--on-green); display: grid; place-items: center; font-weight: 700; font-size: 18px; letter-spacing: -.02em; border: 1px solid var(--green-border); }
+  .v2 .brand-name { font-size: 19px; font-weight: 700; letter-spacing: -.01em; line-height: 1; }
+  .v2 .brand-sub { font-family: var(--mono); font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-3); margin-top: 4px; }
+  .v2 .login-brand h2 { font-size: clamp(30px,3.6vw,44px); line-height: 1.12; letter-spacing: -.025em; margin: 0 0 16px; max-width: 480px; font-weight: 700; }
+  .v2 .login-brand h2 em { font-style: normal; color: var(--green-bright); }
+  .v2 .lb-sub { color: var(--text-2); font-size: 15.5px; line-height: 1.65; max-width: 440px; margin: 0 0 34px; }
+  .v2 .lb-feats { display: flex; flex-direction: column; gap: 18px; }
+  .v2 .lb-feat { display: flex; gap: 13px; align-items: flex-start; }
+  .v2 .lb-feat b { display: block; font-size: 14.5px; margin-bottom: 2px; }
+  .v2 .lb-feat span { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+  .v2 .lf-ic { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--green-border); background: var(--green-dim); display: grid; place-items: center; flex: 0 0 34px; color: var(--green-bright); }
+  .v2 .lf-ic svg { width: 18px; height: 18px; }
+  .v2 .login-side { display: flex; align-items: center; justify-content: center; padding: 40px 28px; }
+  .v2 .login-card { width: 100%; max-width: 400px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 32px 30px 26px; }
+  .v2 .login-card h3 { font-size: 22px; letter-spacing: -.02em; margin: 0 0 6px; }
+  .v2 .lc-sub { color: var(--text-2); font-size: 13.5px; margin: 0 0 24px; line-height: 1.55; }
+  .v2 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+  .v2 .field label { font-family: var(--mono); font-size: 9.5px; font-weight: 600; letter-spacing: .13em; text-transform: uppercase; color: var(--text-3); }
+  .v2 .field input { width: 100%; font-family: var(--sans); font-size: 14px; padding: 11px 13px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); box-sizing: border-box; }
+  .v2 .field input:focus { outline: none; border-color: var(--focus); box-shadow: 0 0 0 3px var(--accent-dim); }
+  .v2 .pw-wrap { position: relative; }
+  .v2 .pw-wrap input { padding-right: 64px; }
+  .v2 .pw-toggle { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: .08em; color: var(--text-3); cursor: pointer; padding: 6px 8px; }
+  .v2 .pw-toggle:hover { color: var(--text); }
+  .v2 .lc-row { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin: 4px 0 20px; font-size: 13px; }
+  .v2 .forgot { color: var(--green-bright); font-weight: 600; background: none; border: none; font: inherit; cursor: pointer; padding: 0; }
+  .v2 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer; font-family: var(--sans); font-size: 13px; font-weight: 700; min-height: 38px; padding: 8px 15px; border-radius: 8px; background: var(--green); color: var(--on-green); border: 1px solid var(--green); transition: all .15s; white-space: nowrap; }
+  .v2 .btn.block { width: 100%; min-height: 46px; font-size: 14.5px; }
+  .v2 .btn:disabled { opacity: .6; cursor: wait; }
+  .v2 .lc-foot { margin-top: 20px; text-align: center; font-size: 13px; color: var(--text-2); }
+  .v2 .lc-foot button { color: var(--green-bright); font-weight: 600; background: none; border: none; font: inherit; cursor: pointer; padding: 0; }
+  .v2 .login-note { margin-top: 14px; font-size: 12.5px; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; line-height: 1.55; }
+  .v2 .login-note.error { color: var(--neg-text); border-color: var(--rose-border); background: var(--rose-dim); }
+  .v2 .login-note.success { color: var(--green-bright); border-color: var(--green-border); background: var(--green-dim); }
+  .v2 .login-copy { margin-top: 26px; text-align: center; font-family: var(--mono); font-size: 11px; color: var(--text-3); }
+  @media (max-width: 900px) {
+    .v2 .login-view { grid-template-columns: 1fr; }
+    .v2 .login-brand { padding: 36px 28px 8px; border-right: none; }
+    .v2 .lb-feats { display: none; }
+    .v2 .lb-sub { margin-bottom: 10px; }
+    .v2 .login-side { padding: 24px 20px 40px; align-items: flex-start; }
+  }
+</style>
+</head>
+<body class="v2">
+<div class="login-view">
+  <div class="login-brand">
+    <div class="brand">
+      <div class="brand-mark">Z</div>
+      <div class="brand-text">
+        <div class="brand-name">Zenith</div>
+        <div class="brand-sub">IDX · Money Flow</div>
+      </div>
+    </div>
+    <h2>The quiet way to <em>read the market.</em></h2>
+    <p class="lb-sub">Smart Money &amp; Wyckoff analysis for IDX. Built for clarity. Designed so you can think.</p>
+    <div class="lb-feats">
+      <div class="lb-feat">
+        <div class="lf-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13"/><path d="m14 3.5 3.5 3.5L14 10.5"/><path d="M20 17H7"/><path d="m10 13.5-3.5 3.5 3.5 3.5"/></svg></div>
+        <div><b>Per-emiten flow ledger</b><span>See accumulation as it happens</span></div>
+      </div>
+      <div class="lb-feat">
+        <div class="lf-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg></div>
+        <div><b>Sector rotation lens</b><span>Industries being bought, quietly</span></div>
+      </div>
+      <div class="lb-feat">
+        <div class="lf-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8.5 7V5.5A1.5 1.5 0 0 1 10 4h4a1.5 1.5 0 0 1 1.5 1.5V7"/><path d="M3 12.5h18"/></svg></div>
+        <div><b>Portfolio simulation</b><span>Simulate equity growth before you commit</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="login-side">
+    <div style="width:100%;max-width:400px">
+      <form class="login-card" id="loginForm" novalidate>
+        <h3>Welcome back</h3>
+        <p class="lc-sub">Sign in to your account to continue</p>
+        <div class="field">
+          <label for="usernameInput">Username</label>
+          <input id="usernameInput" type="text" autocomplete="username" />
+        </div>
+        <div class="field">
+          <label for="passwordInput">Password</label>
+          <div class="pw-wrap">
+            <input id="passwordInput" type="password" autocomplete="current-password" />
+            <button type="button" class="pw-toggle" id="pwToggle" aria-label="Show password">SHOW</button>
+          </div>
+        </div>
+        <div class="lc-row">
+          <button type="button" class="forgot" id="forgotBtn">Forgot?</button>
+        </div>
+        <button type="submit" class="btn block" id="authBtn">Sign in</button>
+        <div class="lc-foot">Don't have an account? <button type="button" id="requestBtn">Request access</button></div>
+        <p class="login-note" id="msg" hidden></p>
+      </form>
+      <div class="login-copy">© Zenith Project · Machiavellia · 2026</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var msg = document.getElementById('msg');
+  function showNote(text, kind) {
+    msg.hidden = false;
+    msg.className = 'login-note' + (kind ? ' ' + kind : '');
+    msg.textContent = text;
+  }
+  document.getElementById('forgotBtn').addEventListener('click', function () {
+    showNote('Reset password dikelola admin — hubungi admin Zenith untuk dibantu masuk kembali.');
+  });
+  document.getElementById('requestBtn').addEventListener('click', function () {
+    showNote('Akun Zenith dibuat oleh admin — hubungi admin Zenith untuk permintaan akses.');
+  });
+  document.getElementById('pwToggle').addEventListener('click', function () {
+    var inp = document.getElementById('passwordInput');
+    var btn = document.getElementById('pwToggle');
+    var show = inp.type === 'password';
+    inp.type = show ? 'text' : 'password';
+    btn.textContent = show ? 'HIDE' : 'SHOW';
+    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+  });
+
+  /* Same auth contract as the current login page: POST / with FormData. */
+  async function doAuth() {
+    var username = document.getElementById('usernameInput').value.trim();
+    var password = document.getElementById('passwordInput').value.trim();
+    if (!username || !password) return;
+    var btn = document.getElementById('authBtn');
+    btn.disabled = true; btn.textContent = 'Signing in...';
+    try {
+      var fd = new FormData();
+      fd.append('username', username); fd.append('password', password);
+      var res = await fetch('/', { method: 'POST', body: fd });
+      var d = await res.json();
+      if (d.ok) {
+        showNote('✓ Access granted', 'success');
+        setTimeout(function () { location.href = '/hub'; }, 500);
+      } else {
+        showNote('⚠ Invalid credentials', 'error');
+        document.getElementById('passwordInput').value = '';
+        document.getElementById('usernameInput').focus();
+        btn.disabled = false; btn.textContent = 'Sign in';
+      }
+    } catch (e) {
+      showNote('⚠ Network error', 'error');
+      btn.disabled = false; btn.textContent = 'Sign in';
+    }
+  }
+  document.getElementById('loginForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    doAuth();
+  });
+})();
+</script>
+</body>
+</html>

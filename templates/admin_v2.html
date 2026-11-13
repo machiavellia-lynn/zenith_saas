@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-ui="v2">
+<head>
+<meta charset="UTF-8"/>
+<script>(function(){var t=localStorage.getItem('zenith-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Zenith — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/tokens.css">
+<link rel="stylesheet" href="/static/components.css">
+<link rel="stylesheet" href="/static/sidebar.css">
+<link rel="stylesheet" href="/static/ui-v2.css">
+<style>
+html, body { height: 100%; }
+body { display: flex; flex-direction: column; }
+
+/* ── Admin v2 page components (ported from the approved mockup) ── */
+.v2 .page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:22px}
+.v2 .page-head h1{font-size:clamp(26px,3.2vw,34px)}
+.v2 .page-head .subline{margin-top:7px;color:var(--text-2);font-size:14px}
+.v2 .page-head-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.v2 .date-line{font-family:var(--mono);font-size:11px;color:var(--text-3);letter-spacing:.02em}
+.v2 .admin-feedback{background:var(--surface);border:1px solid var(--border-strong);border-radius:8px;padding:10px 14px;font-size:13px;line-height:1.55;color:var(--text-2);margin-bottom:14px}
+.v2 .admin-feedback.err{border-color:var(--rose-border);color:var(--neg-text)}
+
+.v2 .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:18px;overflow-x:auto;scrollbar-width:none}
+.v2 .tabs::-webkit-scrollbar{display:none}
+.v2 .tab-btn{background:none;border:none;border-bottom:2px solid transparent;color:var(--text-2);font-family:var(--sans);font-size:14px;font-weight:600;padding:10px 14px;cursor:pointer;white-space:nowrap;min-height:42px}
+.v2 .tab-btn:hover{color:var(--text)}
+.v2 .tab-btn.on{color:var(--green-bright);border-bottom-color:var(--green)}
+.v2 .tab-panel{display:none;flex-direction:column;gap:22px}
+.v2 .tab-panel.on{display:flex}
+.v2 .tab-panel .segment + .segment{margin-top:0}
+
+.v2 .segment-body{padding:16px 18px}
+.v2 .segment-body.flush{padding:0}
+.v2 .segment.seg-pop{overflow:visible}
+
+.v2 .seg{display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:3px;gap:2px}
+.v2 .seg button{border:none;background:transparent;color:var(--text-2);font-family:var(--mono);font-size:12px;font-weight:600;padding:6px 13px;border-radius:7px;cursor:pointer;min-height:32px;transition:all .15s}
+.v2 .seg button:hover{color:var(--text)}
+.v2 .seg button.on{background:var(--green-dim);color:var(--green-bright);box-shadow:inset 0 0 0 1px var(--green-border)}
+
+.v2 .table-wrap{overflow-x:auto}
+.v2 table.tbl{width:100%;border-collapse:collapse;min-width:640px}
+.v2 table.tbl th{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--text-3);text-align:left;padding:8px 14px;border-bottom:1px solid var(--border);white-space:nowrap}
+.v2 table.tbl td{font-family:var(--mono);font-size:13px;padding:7px 14px;border-bottom:1px solid var(--hairline);white-space:nowrap;color:var(--text-2)}
+.v2 table.tbl tbody tr{transition:background .12s}
+.v2 table.tbl tbody tr:hover{background:var(--hover)}
+.v2 table.tbl .num{text-align:right}
+.v2 table.tbl th.num{text-align:right}
+.v2 table.tbl td.tk{font-weight:700;color:var(--text);font-size:13.5px}
+.v2 td.ds-sans{font-family:var(--sans);font-weight:600;color:var(--text)}
+.v2 td.ds-mono{font-weight:600;color:var(--text)}
+.v2 td.cell-note{font-family:var(--sans);color:var(--text-3);text-align:center;padding:20px 14px}
+
+.v2 .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;font-family:var(--sans);font-size:13px;font-weight:700;min-height:38px;padding:8px 15px;border-radius:8px;background:var(--green);color:var(--on-green);border:1px solid var(--green);transition:all .15s;white-space:nowrap}
+.v2 .btn:hover{background:var(--green-bright)}
+.v2 .btn.ghost{background:var(--hover);color:var(--text);border-color:var(--border-strong)}
+.v2 .btn.ghost:hover{border-color:var(--text-3);color:var(--text)}
+.v2 .btn.sm{min-height:34px;padding:6px 12px;font-size:12.5px}
+.v2 .btn.danger-ghost{background:transparent;color:var(--neg-text);border-color:var(--rose-border)}
+.v2 .btn.danger-ghost:hover{border-color:var(--rose);color:var(--neg-text)}
+.v2 .btn:disabled{opacity:.55;cursor:not-allowed}
+
+.v2 .role{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.05em;padding:3px 9px;border-radius:99px;border:1px solid var(--border-strong);color:var(--text-2);white-space:nowrap}
+.v2 .role.admin{color:var(--green-bright);background:var(--green-dim);border-color:var(--green-border)}
+.v2 .role.syariah{color:var(--warn-text);background:var(--amber-dim);border-color:var(--amber-border)}
+.v2 .status-pill{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--green-bright);background:var(--green-dim);border:1px solid var(--green-border);padding:4px 10px;border-radius:99px}
+.v2 .status-pill i{width:7px;height:7px;border-radius:50%;background:var(--green);display:block}
+.v2 .pill{display:inline-flex;align-items:center;font-family:var(--mono);font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px;border:1px solid var(--border);color:var(--text-2);white-space:nowrap}
+.v2 .user-av{width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:700;background:var(--surface-3);border:1px solid var(--border-strong);color:var(--text-2);flex:0 0 28px}
+.v2 .user-av.admin{background:var(--green-dim);color:var(--green-bright);border-color:var(--green-border)}
+.v2 .user-cell{display:flex;align-items:center;gap:10px}
+.v2 .key-chip{display:inline-block;font-family:var(--mono);font-size:11.5px;background:var(--surface-3);border:1px solid var(--border);border-radius:5px;padding:3px 8px;color:var(--text-2)}
+.v2 .quota-line{font-family:var(--mono);font-size:11.5px;color:var(--text-3);padding:12px 18px 0}
+
+/* Forms (Users tab + modals) */
+.v2 .adm-form{padding:16px 18px;border-bottom:1px solid var(--border);background:var(--surface-2)}
+.v2 .adm-form-row{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end}
+.v2 .adm-field{display:flex;flex-direction:column;gap:6px}
+.v2 .adm-field label{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3)}
+.v2 .adm-input,.v2 .adm-select{background:var(--surface);border:1px solid var(--border-strong);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:13px;min-height:38px;padding:8px 11px}
+.v2 .adm-input:focus,.v2 .adm-select:focus{outline:none;border-color:var(--green)}
+.v2 .adm-msg{font-size:12.5px;min-height:16px;margin-top:9px}
+.v2 .adm-msg.ok{color:var(--green-bright)}
+.v2 .adm-msg.err{color:var(--neg-text)}
+
+/* Coverage heatmap (approved redesign: tinted tiles + core dot) */
+.v2 .hm-wrap{padding:14px 18px 16px}
+.v2 .hm-monthbar{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.v2 .hm-nav{background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--text-2);width:32px;height:32px;min-height:32px;display:grid;place-items:center;font-size:16px;line-height:1;cursor:pointer;padding:0}
+.v2 .hm-nav:hover:not(:disabled){color:var(--text);border-color:var(--border-strong)}
+.v2 .hm-nav:disabled{opacity:.35;cursor:not-allowed}
+.v2 .hm-month{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text);min-width:128px;text-align:center}
+.v2 .hm-legend{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px;font-family:var(--mono);font-size:11px;color:var(--text-2)}
+.v2 .hm-legend .hl-k{font-weight:700;color:var(--text-3);letter-spacing:.14em;text-transform:uppercase;font-size:10px}
+.v2 .hm-legend span{display:inline-flex;align-items:center;gap:7px}
+.v2 .hm-legend i{width:15px;height:15px;border-radius:4px;display:block;flex:0 0 15px;position:relative}
+.v2 .hm-legend i::after{content:"";position:absolute;left:50%;top:50%;width:5px;height:5px;border-radius:50%;transform:translate(-50%,-50%)}
+.v2 .hm-legend i.sw-c{background:var(--green-dim);border:1px solid var(--green-border)}
+.v2 .hm-legend i.sw-c::after{background:var(--green)}
+.v2 .hm-legend i.sw-p{background:var(--amber-dim);border:1px solid var(--amber-border)}
+.v2 .hm-legend i.sw-p::after{background:var(--amber)}
+.v2 .hm-legend i.sw-e{background:var(--rose-dim);border:1px solid var(--rose-border)}
+.v2 .hm-legend i.sw-e::after{background:var(--rose)}
+.v2 .hm-legend i.sw-h{background:var(--surface-3);border:1px solid var(--border)}
+.v2 .hm-legend i.sw-h::after{display:none}
+.v2 .hm-scroll{overflow-x:auto;padding-bottom:4px}
+.v2 .hm-grid{display:grid;grid-template-columns:172px repeat(var(--days,30),minmax(15px,1fr));gap:2px;min-width:712px;align-items:center}
+.v2 .hm-corner,.v2 .hm-day{font-family:var(--mono);font-size:9.5px;color:var(--text-3);text-align:center;padding:3px 0}
+.v2 .hm-corner{text-align:left;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.v2 .hm-day{border-radius:4px;line-height:1.25}
+.v2 .hm-day.wknd{opacity:.45}
+.v2 .hm-day.today{color:var(--text);font-weight:700;box-shadow:inset 0 0 0 1px var(--border-strong);background:var(--hover)}
+.v2 .hm-group{grid-column:1 / -1;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--text-3);padding:11px 0 3px;display:flex;align-items:center;gap:8px}
+.v2 .hm-group::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green);display:block;flex:0 0 6px}
+.v2 .hm-name{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text-2);white-space:nowrap;padding-right:10px;display:flex;align-items:center;gap:8px;min-width:0}
+.v2 .hm-name .hm-nm{overflow:hidden;text-overflow:ellipsis}
+.v2 .hm-name .hm-pct{margin-left:auto;font-size:10.5px;font-weight:700;color:var(--text-3);flex:0 0 auto}
+.v2 .hm-cell{height:21px;border-radius:5px;display:flex;align-items:center;justify-content:center;position:relative;cursor:default;transition:transform .26s var(--ease-fluid),border-color .26s var(--ease-fluid),background-color .26s var(--ease-fluid)}
+.v2 .hm-cell::after{content:"";width:6px;height:6px;border-radius:50%;display:block}
+.v2 .hm-cell.c{background:var(--green-dim);border:1px solid var(--green-border)}
+.v2 .hm-cell.c::after{background:var(--green)}
+.v2 .hm-cell.p{background:var(--amber-dim);border:1px solid var(--amber-border)}
+.v2 .hm-cell.p::after{background:var(--amber)}
+.v2 .hm-cell.e{background:var(--rose-dim);border:1px solid var(--rose-border)}
+.v2 .hm-cell.e::after{background:var(--rose)}
+.v2 .hm-cell.h{background:var(--surface-3);border:1px solid var(--border)}
+.v2 .hm-cell.h::after{display:none}
+.v2 .hm-cell.f{background:transparent;border:1px dashed var(--border);opacity:.55}
+.v2 .hm-cell.f::after{display:none}
+.v2 .hm-cell:hover{transform:scale(1.07);z-index:2}
+.v2 .hm-cell.c:hover{border-color:var(--green)}
+.v2 .hm-cell.p:hover{border-color:var(--amber)}
+.v2 .hm-cell.e:hover{border-color:var(--rose)}
+.v2 .hm-cell.h:hover,.v2 .hm-cell.f:hover{border-color:var(--border-strong)}
+.v2 .hm-note{font-family:var(--mono);font-size:11px;color:var(--text-3);margin-top:10px;line-height:1.6}
+.v2 .hm-missing{border-top:1px solid var(--border);padding:13px 18px 15px}
+.v2 .hm-missing h4{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin:0 0 9px}
+.v2 .hm-miss-row{display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid var(--hairline);flex-wrap:wrap}
+.v2 .hm-miss-row:last-child{border-bottom:none}
+.v2 .hm-miss-name{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--text);min-width:118px}
+.v2 .hm-miss-count{font-family:var(--mono);font-size:11.5px;color:var(--neg-text);font-weight:700;white-space:nowrap}
+.v2 .hm-miss-dates{font-family:var(--mono);font-size:11.5px;color:var(--text-3);flex:1;min-width:180px}
+.v2 .hm-allok{font-size:13px;color:var(--green-bright);font-weight:600}
+.v2 .hm-failed{font-size:12.5px;color:var(--neg-text);padding:6px 0}
+
+/* Backfill rows + donut progress */
+.v2 .bf-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 28px}
+.v2 .bf-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--hairline)}
+.v2 .bf-row .bf-main{flex:1;min-width:0}
+.v2 .bf-row .bf-name{font-family:var(--mono);font-size:12.5px;font-weight:700;color:var(--text)}
+.v2 .bf-row .bf-meta{font-family:var(--mono);font-size:10.5px;color:var(--text-3);margin-top:2px;min-height:13px}
+.v2 .bf-row .bf-meta.err{color:var(--neg-text)}
+.v2 .bf-ctl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.v2 .bf-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:13px;border-top:1px solid var(--border)}
+.v2 .bf-foot .bf-note{font-size:12.5px;color:var(--text-3);flex:1;min-width:200px;line-height:1.5}
+.v2 .bf-log{font-family:var(--mono);font-size:11.5px;line-height:1.9;color:var(--text-2);background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:9px 13px;margin-top:13px}
+.v2 .bf-log:empty{display:none}
+.v2 .bf-log .lt{color:var(--text-3)} .v2 .bf-log .ok{color:var(--green-bright)} .v2 .bf-log .err{color:var(--neg-text)}
+.v2 .bf-prog{display:inline-flex;align-items:center;gap:6px}
+.v2 .bf-donut{width:30px;height:30px;flex:0 0 30px;transform:rotate(-90deg)}
+.v2 .bf-donut circle{fill:none;stroke-width:3.4}
+.v2 .bf-donut .dn-track{stroke:var(--track)}
+.v2 .bf-donut .dn-prog{stroke:var(--green);stroke-linecap:round;transition:stroke-dasharray .16s linear}
+.v2 .bf-pct{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--text-2);min-width:36px}
+.v2 .bf-prog.done .bf-pct{color:var(--green-bright)}
+.v2 .bf-prog.err .bf-pct{color:var(--neg-text)}
+.v2 .bf-prog.err .dn-prog{stroke:var(--rose)}
+.v2 .bf-prog.indet .bf-donut{animation:v2bfspin 1.1s linear infinite}
+@keyframes v2bfspin{from{transform:rotate(-90deg)}to{transform:rotate(270deg)}}
+@media (max-width:1100px){ .v2 .bf-grid{grid-template-columns:1fr} }
+@media (max-width:760px){ .v2 .bf-ctl{margin-left:0} }
+@media (prefers-reduced-motion: reduce){ .v2 .bf-donut .dn-prog{transition:none} .v2 .bf-prog.indet .bf-donut{animation:none} .v2 .hm-cell{transition:none} }
+
+/* Log tab console */
+.v2 .live-dot{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--green-bright)}
+.v2 .live-dot i{width:7px;height:7px;border-radius:50%;background:var(--green);display:block}
+.v2 .live-dot.off{color:var(--text-3)} .v2 .live-dot.off i{background:var(--text-3)}
+.v2 .log-viewport{font-family:var(--mono);font-size:12px;line-height:1.95;color:var(--text-2);background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:12px 15px;overflow-y:auto;overflow-x:auto;white-space:nowrap;min-height:220px}
+.v2 .log-viewport .lt{color:var(--text-3)} .v2 .log-viewport .ok{color:var(--green-bright)}
+.v2 .log-viewport .lv{color:var(--warn-text)} .v2 .log-viewport .src{color:var(--text-3)} .v2 .log-viewport .err{color:var(--neg-text)}
+.v2 .log-unavail{font-family:var(--mono);font-size:12px;color:var(--text-3);border:1px dashed var(--border-strong);border-radius:8px;padding:10px 14px;margin-bottom:12px}
+.v2 .log-jump{position:absolute;right:16px;bottom:16px;z-index:5;cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--text);background:var(--surface);border:1px solid var(--border-strong);border-radius:99px;padding:7px 13px;min-height:32px;box-shadow:var(--shadow)}
+.v2 .log-jump[hidden]{display:none}
+.v2 #tab-log .segment{position:relative}
+@media (min-width:761px){
+  .v2 main.log-locked{display:flex;flex-direction:column;overflow:hidden}
+  .v2 main.log-locked .page-head{margin-bottom:12px;flex:0 0 auto}
+  .v2 main.log-locked .admin-feedback{flex:0 0 auto}
+  .v2 main.log-locked .tabs-wrap{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+  .v2 main.log-locked .tabs{flex:0 0 auto;margin-bottom:12px}
+  .v2 main.log-locked #tab-log{display:flex;flex:1 1 auto;min-height:0}
+  .v2 main.log-locked #tab-log .segment{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+  .v2 main.log-locked #tab-log .segment-body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+  .v2 main.log-locked .log-viewport{flex:1 1 auto;min-height:0}
+}
+@media (max-width:760px){
+  .v2 #tab-log .log-viewport{max-height:62vh}
+  .v2 table.tbl .hidesm{display:none}
+}
+
+/* Confirm modal (production behaviour, v2 styling) */
+.v2 .v2-confirm{position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.4);align-items:center;justify-content:center;padding:24px}
+.v2 .v2-confirm-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:min(90vw,380px);padding:24px 24px 20px;box-shadow:var(--shadow)}
+.v2 .v2-confirm-title{font-size:16px;font-weight:600;color:var(--text);margin-bottom:6px}
+.v2 .v2-confirm-desc{font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:20px}
+.v2 .v2-confirm-actions{display:flex;gap:8px;justify-content:flex-end}
+.v2 .modal-box .adm-field{margin-bottom:16px}
+.v2 .modal-title-v2{font-size:16px;font-weight:600;color:var(--text)}
+.v2 .modal-desc-v2{font-size:12.5px;color:var(--text-2);line-height:1.5}
+.v2 .modal-x{background:none;border:none;color:var(--text-3);cursor:pointer;font-size:18px;line-height:1;padding:0}
+</style>
+</head>
+<body class="sidebar-layout v2" data-page="admin">
+{% include 'sidebar.html' %}
+
+<div class="main-content">
+  <div class="mobile-bar">
+    <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/>
+      </svg>
+    </button>
+    <span class="mobile-bar-title">Admin</span>
+  </div>
+
+  <a href="#main" class="skip-link">Skip to main content</a>
+  <main id="main" class="v2-content">
+
+    <header class="page-head">
+      <div>
+        <h1>Admin</h1>
+        <p class="subline">Data coverage · Backfill · Users &amp; access</p>
+      </div>
+      <div class="page-head-right"><div class="date-line" id="adminDateLine">—</div></div>
+    </header>
+
+    <div class="admin-feedback" id="admin-feedback" role="status" aria-live="polite" hidden></div>
+
+    <div class="tabs-wrap">
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab-btn on" data-tab="data" role="tab" aria-selected="true">Data &amp; Algo</button>
+        <button type="button" class="tab-btn" data-tab="users" role="tab" aria-selected="false">Users</button>
+        <button type="button" class="tab-btn" data-tab="log" role="tab" aria-selected="false">Log</button>
+      </div>
+
+      <!-- ══════════ Data & Algo ══════════ -->
+      <div class="tab-panel on" id="tab-data" role="tabpanel">
+
+        <!-- 1 · Data Coverage -->
+        <section class="segment" aria-label="Data Coverage">
+          <div class="segment-head"><span class="segment-label"><i></i>Data Coverage</span>
+            <span class="segment-meta cov-tools">
+              <span class="seg" role="group" aria-label="Coverage view" id="cov-view-seg">
+                <button type="button" class="on" data-cov-view="table">Table</button>
+                <button type="button" data-cov-view="heatmap">Heatmap</button>
+              </span>
+            </span>
+          </div>
+          <div class="segment-body flush">
+            <!-- TABLE view -->
+            <div class="cov-view" id="cov-view-table">
+              <div class="table-wrap"><table class="tbl" aria-label="Data coverage per dataset">
+                <thead><tr><th scope="col">Channel</th><th scope="col">First Data</th><th scope="col">Latest Data</th><th scope="col" class="num">Total Rows</th></tr></thead>
+                <tbody id="covTableBody">
+                  <tr><td class="ds-sans">Telegram SM</td><td data-cov="tg_sm_first">—</td><td data-cov="tg_sm_latest">—</td><td class="num" data-cov="tg_sm_total">—</td></tr>
+                  <tr><td class="ds-sans">Telegram BM</td><td data-cov="tg_bm_first">—</td><td data-cov="tg_bm_latest">—</td><td class="num" data-cov="tg_bm_total">—</td></tr>
+                  <tr><td class="ds-sans">Telegram MF</td><td data-cov="tg_mf_first">—</td><td data-cov="tg_mf_latest">—</td><td class="num" data-cov="tg_mf_total">—</td></tr>
+                  <tr><td class="ds-mono">eod_summary</td><td data-cov="eod_first">—</td><td data-cov="eod_latest">—</td><td class="num" data-cov="eod_total">—</td></tr>
+                  <tr><td class="ds-mono">price_daily</td><td>—</td><td>—</td><td class="num">—</td></tr>
+                  <tr><td class="ds-mono">price_15m</td><td>—</td><td>—</td><td class="num">—</td></tr>
+                  <tr><td class="ds-mono">bsjp_signals</td><td>—</td><td>—</td><td class="num">—</td></tr>
+                  <tr><td class="ds-mono">wyckoff_signals</td><td>—</td><td>—</td><td class="num">—</td></tr>
+                </tbody>
+              </table></div>
+            </div>
+            <!-- HEATMAP view -->
+            <div class="cov-view" id="cov-view-heatmap" hidden>
+              <div class="hm-wrap">
+                <div class="hm-monthbar">
+                  <button type="button" class="hm-nav" id="hm-prev" aria-label="Previous month">‹</button>
+                  <span class="hm-month" id="hm-month-label">—</span>
+                  <button type="button" class="hm-nav" id="hm-next" aria-label="Next month" disabled>›</button>
+                </div>
+                <div class="hm-legend">
+                  <span class="hl-k">Status</span>
+                  <span><i class="sw-c"></i> Complete</span>
+                  <span><i class="sw-p"></i> Partial</span>
+                  <span><i class="sw-e"></i> Empty</span>
+                  <span><i class="sw-h"></i> Holiday / Weekend</span>
+                </div>
+                <div class="hm-scroll"><div class="hm-grid" id="hm-grid"></div></div>
+                <p class="hm-note" id="hm-note"></p>
+              </div>
+              <div class="hm-missing">
+                <h4>Missing data</h4>
+                <div id="hm-missing-list"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2 · Backfill Data & Recompute Analytic -->
+        <section class="segment seg-pop" aria-label="Backfill Data and Recompute Analytic">
+          <div class="segment-head"><span class="segment-label"><i></i>Backfill Data &amp; Recompute Analytic</span><span class="segment-meta"><span>Satu tombol per dataset di Data Coverage</span></span></div>
+          <div class="segment-body">
+            <div class="bf-grid" id="bf-grid"></div>
+            <div class="bf-foot">
+              <span class="bf-note">Recompute menjalankan ulang analytic (eod_summary, bsjp_signals, wyckoff_signals) dari data yang sudah ada — tanpa menarik data baru.</span>
+              <button type="button" class="btn" id="bf-recompute">Recompute Analytics</button>
+              <span class="bf-prog" data-prog id="rc-prog" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Recompute Analytics progress"><span class="bf-pct" data-pct>0%</span></span>
+            </div>
+            <div class="bf-log" id="bf-log" aria-live="polite"></div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ══════════ Users ══════════ -->
+      <div class="tab-panel" id="tab-users" role="tabpanel">
+        <section class="segment" aria-label="Users">
+          <div class="segment-head"><span class="segment-label"><i></i>Users</span><span class="segment-meta"><button type="button" class="btn sm ghost" id="addUserToggle">+ Add user</button></span></div>
+          <div class="segment-body flush">
+            <div class="adm-form" id="addUserPanel" hidden>
+              <div class="adm-form-row">
+                <div class="adm-field"><label for="newUsername">Username</label><input type="text" class="adm-input" id="newUsername" placeholder="username" autocomplete="off"/></div>
+                <div class="adm-field"><label for="newPassword">Password</label><input type="password" class="adm-input" id="newPassword" placeholder="password" autocomplete="new-password"/></div>
+                <div class="adm-field"><label for="newRole">Role</label><select class="adm-select" id="newRole"><option value="guest">guest</option><option value="admin">admin</option></select></div>
+                <div class="adm-field"><label for="newMode">Mode</label><select class="adm-select" id="newMode" title="Stock universe visible to this user"><option value="general">general</option><option value="syariah">syariah</option></select></div>
+                <button type="button" class="btn" id="addUserBtn">Add User</button>
+              </div>
+              <div class="adm-msg" id="addUserMsg"></div>
+            </div>
+            <div class="table-wrap"><table class="tbl" aria-label="User list">
+              <thead><tr><th scope="col">User</th><th scope="col">Role</th><th scope="col">Mode</th><th scope="col" class="hidesm">Created</th><th scope="col">Actions</th></tr></thead>
+              <tbody id="userTableBody"><tr><td colspan="5" class="cell-note">Loading...</td></tr></tbody>
+            </table></div>
+          </div>
+        </section>
+        <section class="segment" aria-label="API Keys">
+          <div class="segment-head"><span class="segment-label"><i></i>API Keys</span><span class="segment-meta"><button type="button" class="btn sm" id="createKeyBtn">+ Create API key</button></span></div>
+          <div class="segment-body flush">
+            <div class="quota-line" id="apiKeyQuota">Loading...</div>
+            <div class="table-wrap"><table class="tbl" aria-label="API keys">
+              <thead><tr><th scope="col">Name</th><th scope="col">Key</th><th scope="col" class="hidesm">Environment</th><th scope="col" class="hidesm">Last Used</th><th scope="col">Actions</th></tr></thead>
+              <tbody id="apiKeyList"><tr><td colspan="5" class="cell-note">Loading...</td></tr></tbody>
+            </table></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ══════════ Log ══════════ -->
+      <div class="tab-panel" id="tab-log" role="tabpanel">
+        <section class="segment" aria-label="Server Log">
+          <div class="segment-head"><span class="segment-label"><i></i>Server Log</span><span class="segment-meta"><span class="live-dot" id="log-live"><i></i> Live</span></span></div>
+          <div class="segment-body">
+            <div class="log-unavail" id="log-unavail" hidden>Log stream tidak tersedia</div>
+            <div class="log-viewport" id="log-viewport" tabindex="0" aria-label="Live server log"></div>
+            <button type="button" class="log-jump" id="log-jump" hidden>Jump to latest ↓</button>
+          </div>
+        </section>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Create API Key modal -->
+<div class="modal-overlay" id="createKeyModal">
+  <div class="modal-box" style="width:min(90vw,420px)">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+      <div class="modal-title-v2">Create API Key</div>
+      <button type="button" class="modal-x" id="createKeyClose" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-desc-v2" style="margin-bottom:20px">Create a new API key for authentication. The key will only be shown once.</div>
+    <div class="adm-field">
+      <label for="createKeyName">Key Name</label>
+      <input type="text" class="adm-input" id="createKeyName" placeholder="Default"/>
+    </div>
+    <div class="adm-field">
+      <label for="createKeyEnv">Environment</label>
+      <select class="adm-select" id="createKeyEnv">
+        <option value="live">Live</option>
+        <option value="test">Test</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button type="button" class="btn ghost" id="createKeyCancel">Cancel</button>
+      <button type="button" class="btn" id="createKeySubmitBtn">Create Key</button>
+    </div>
+  </div>
+</div>
+
+<!-- New key reveal modal (shown once, right after creation) -->
+<div class="modal-overlay" id="revealKeyModal">
+  <div class="modal-box" style="width:min(90vw,460px)">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+      <div class="modal-title-v2">API Key Created</div>
+      <button type="button" class="modal-x" id="revealKeyClose" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-desc-v2" style="margin-bottom:16px">Copy this key now — it will not be shown again after this modal is closed.</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
+      <code id="revealKeyValue" style="flex:1;overflow-x:auto;white-space:nowrap;font-family:var(--mono);font-size:12.5px;background:var(--surface-3);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text)"></code>
+      <button type="button" class="btn sm ghost" id="revealKeyCopyBtn">Copy</button>
+    </div>
+    <div style="display:flex;justify-content:flex-end">
+      <button type="button" class="btn" id="revealKeyDone">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm modal -->
+<div class="v2-confirm" id="confirmModal" style="display:none">
+  <div class="v2-confirm-box">
+    <div class="v2-confirm-title" id="confirmTitle">Confirm</div>
+    <div class="v2-confirm-desc" id="confirmDesc"></div>
+    <div class="v2-confirm-actions">
+      <button type="button" class="btn ghost" id="confirmCancelBtn">Cancel</button>
+      <button type="button" class="btn danger-ghost" id="confirmOkBtn">Yes, continue</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/focus-trap.js" defer></script>
+<script src="/static/animations.js" defer></script>
+<script src="/static/shortcuts.js" defer></script>
+<script src="/static/zenith-utils.js"></script>
+<script>
+(function(){
+'use strict';
+
+/* ── Helpers ── */
+var MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+function pad(n){ return (n<10?'0':'')+n; }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function fmtInt(n){ return Number(n||0).toLocaleString('id-ID'); }
+/* "DD-MM-YYYY" (or DD/MM/YYYY) → "3 Jan 2025" */
+function fmtDMY(s){
+  if(!s) return '—';
+  var p = String(s).split(/[-/]/);
+  if(p.length !== 3) return String(s);
+  var d = parseInt(p[0],10), m = parseInt(p[1],10), y = parseInt(p[2],10);
+  if(!d || m<1 || m>12 || !y) return String(s);
+  return d + ' ' + MON[m-1] + ' ' + y;
+}
+function parseDMY(s){
+  if(!s) return null;
+  var p = String(s).split(/[-/]/);
+  if(p.length !== 3) return null;
+  return new Date(parseInt(p[2],10), parseInt(p[1],10)-1, parseInt(p[0],10));
+}
+function isoToDMY(iso){ return window.isoToDD_MM_YYYY(iso); }
+function dmyToISODate(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function isoFmtDMY(iso){ /* ISO → "3 Jan 2025" */
+  var p = String(iso||'').split('-');
+  if(p.length !== 3) return String(iso||'');
+  return parseInt(p[2],10) + ' ' + MON[parseInt(p[1],10)-1] + ' ' + p[0];
+}
+function rangeText(fromISO, toISO){
+  if(fromISO === toISO) return isoFmtDMY(fromISO);
+  return isoFmtDMY(fromISO) + ' – ' + isoFmtDMY(toISO);
+}
+/* WIB "now" parts (all Zenith data is WIB) */
+function wibNowParts(){
+  try{
+    var parts = new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).formatToParts(new Date());
+    var o = {};
+    parts.forEach(function(x){ o[x.type] = x.value; });
+    return { y: parseInt(o.year,10), m: parseInt(o.month,10), d: parseInt(o.day,10),
+             hh: pad(parseInt(o.hour,10)%24), mm: o.minute, ss: o.second };
+  }catch(e){
+    var n = new Date();
+    return { y: n.getFullYear(), m: n.getMonth()+1, d: n.getDate(), hh: pad(n.getHours()), mm: pad(n.getMinutes()), ss: pad(n.getSeconds()) };
+  }
+}
+function wibClock(){ var w = wibNowParts(); return w.hh + ':' + w.mm + ':' + w.ss; }
+
+/* Header date line — real current date (WIB) */
+(function(){
+  var el = document.getElementById('adminDateLine');
+  if(!el) return;
+  try{
+    el.textContent = new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Jakarta',weekday:'short',day:'numeric',month:'short',year:'numeric'}).format(new Date());
+  }catch(e){
+    var w = wibNowParts();
+    el.textContent = w.d + ' ' + MON[w.m-1] + ' ' + w.y;
+  }
+})();
+
+/* ── Feedback (mockup #admin-feedback region) ── */
+var feedbackEl = document.getElementById('admin-feedback');
+var feedbackTimer = null;
+function showFeedback(msg, isError){
+  if(!feedbackEl) return;
+  feedbackEl.textContent = msg;
+  feedbackEl.classList.toggle('err', !!isError);
+  feedbackEl.hidden = false;
+  if(feedbackTimer) clearTimeout(feedbackTimer);
+  feedbackTimer = setTimeout(function(){ feedbackEl.hidden = true; }, 6000);
+}
+function toast(msg, type){ showFeedback(msg, type === 'error'); }
+
+/* ── Donuts (SVG built via DOM methods) ── */
+var SVGNS = 'http://www.w3.org/2000/svg';
+function buildDonut(wrap){
+  if(!wrap || wrap.querySelector('svg')) return;
+  var svg = document.createElementNS(SVGNS, 'svg');
+  svg.setAttribute('class', 'bf-donut');
+  svg.setAttribute('viewBox', '0 0 36 36');
+  svg.setAttribute('aria-hidden', 'true');
+  var track = document.createElementNS(SVGNS, 'circle');
+  track.setAttribute('class', 'dn-track');
+  track.setAttribute('cx', '18'); track.setAttribute('cy', '18'); track.setAttribute('r', '15.5');
+  var prog = document.createElementNS(SVGNS, 'circle');
+  prog.setAttribute('class', 'dn-prog');
+  prog.setAttribute('cx', '18'); prog.setAttribute('cy', '18'); prog.setAttribute('r', '15.5');
+  prog.setAttribute('pathLength', '100');
+  prog.style.strokeDasharray = '0 100';
+  svg.appendChild(track); svg.appendChild(prog);
+  wrap.insertBefore(svg, wrap.firstChild);
+}
+function setDonut(wrap, pct){
+  if(!wrap) return;
+  wrap.classList.remove('indet');
+  var ring = wrap.querySelector('.dn-prog');
+  var txt = wrap.querySelector('[data-pct]');
+  var v = Math.max(0, Math.min(100, Math.round(pct)));
+  if(ring) ring.style.strokeDasharray = v + ' ' + (100 - v);
+  if(txt) txt.textContent = v + '%';
+  wrap.setAttribute('aria-valuenow', String(v));
+}
+function setDonutIndet(wrap){
+  if(!wrap) return;
+  var ring = wrap.querySelector('.dn-prog');
+  var txt = wrap.querySelector('[data-pct]');
+  if(ring) ring.style.strokeDasharray = '25 75';
+  if(txt) txt.textContent = '…';
+  wrap.classList.add('indet');
+  wrap.removeAttribute('aria-valuenow');
+}
+document.querySelectorAll('[data-prog]').forEach(buildDonut);
+
+/* ── Tabs ── */
+var mainEl = document.getElementById('main');
+var usersLoaded = false;
+document.querySelectorAll('.tab-btn[data-tab]').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var tab = btn.getAttribute('data-tab');
+    document.querySelectorAll('.tab-btn[data-tab]').forEach(function(b){
+      var on = b === btn;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('on'); });
+    var panel = document.getElementById('tab-' + tab);
+    if(panel) panel.classList.add('on');
+    var isLog = (tab === 'log');
+    if(mainEl) mainEl.classList.toggle('log-locked', isLog);
+    if(isLog){ startLog(); } else { stopLog(); }
+    if(tab === 'users'){ usersLoaded = true; loadUsers(); loadApiKeys(); }
+  });
+});
+
+/* ── Coverage table ← GET /admin/scraper-status (production contract) ── */
+function setCov(key, val){
+  var el = document.querySelector('[data-cov="' + key + '"]');
+  if(el) el.textContent = val;
+}
+function loadCoverageTable(){
+  fetch('/admin/scraper-status')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var first = d.first_data || {}, latest = d.latest_data || {}, counts = d.row_counts || {};
+      setCov('tg_sm_first', fmtDMY(first['SM']));   setCov('tg_sm_latest', fmtDMY(latest['SM']));   setCov('tg_sm_total', counts['SM'] ? fmtInt(counts['SM']) : '—');
+      setCov('tg_bm_first', fmtDMY(first['BM']));   setCov('tg_bm_latest', fmtDMY(latest['BM']));   setCov('tg_bm_total', counts['BM'] ? fmtInt(counts['BM']) : '—');
+      /* Telegram MF = MF+ and MF− channels combined (endpoint splits them) */
+      var fPlus = parseDMY(first['MF+']), fMin = parseDMY(first['MF-']);
+      var lPlus = parseDMY(latest['MF+']), lMin = parseDMY(latest['MF-']);
+      var mfFirst = (fPlus && fMin) ? (fPlus < fMin ? first['MF+'] : first['MF-']) : (first['MF+'] || first['MF-']);
+      var mfLatest = (lPlus && lMin) ? (lPlus > lMin ? latest['MF+'] : latest['MF-']) : (latest['MF+'] || latest['MF-']);
+      var mfTotal = (counts['MF+'] || 0) + (counts['MF-'] || 0);
+      setCov('tg_mf_first', fmtDMY(mfFirst)); setCov('tg_mf_latest', fmtDMY(mfLatest)); setCov('tg_mf_total', mfTotal ? fmtInt(mfTotal) : '—');
+      setCov('eod_first', fmtDMY(first['EOD Summary'])); setCov('eod_latest', fmtDMY(latest['EOD Summary'])); setCov('eod_total', counts['summary'] ? fmtInt(counts['summary']) : '—');
+      /* price_daily / price_15m / bsjp_signals / wyckoff_signals: no production
+         endpoint exposes first/latest/total for these — cells stay "—". */
+    })
+    .catch(function(){ showFeedback('Failed to load data coverage.', true); });
+}
+
+/* ── Coverage view toggle (Table | Heatmap) ── */
+var covSeg = document.getElementById('cov-view-seg');
+var covTable = document.getElementById('cov-view-table');
+var covHeat = document.getElementById('cov-view-heatmap');
+if(covSeg && covTable && covHeat){
+  covSeg.querySelectorAll('button[data-cov-view]').forEach(function(b){
+    b.addEventListener('click', function(){
+      covSeg.querySelectorAll('button').forEach(function(x){ x.classList.toggle('on', x === b); });
+      var v = b.getAttribute('data-cov-view');
+      covTable.hidden = (v !== 'table');
+      covHeat.hidden = (v !== 'heatmap');
+    });
+  });
+}
+
+/* ── Heatmap ← GET /admin/data-coverage (production contract) ──
+   Display rows follow the mockup's 8 datasets. /admin/data-coverage keys:
+   raw_messages (SM+BM channels combined — it cannot split them, so the SM
+   and BM rows mirror the same underlying table), raw_mf_messages,
+   eod_summary, price_history, price_history_15m, bsjp_signals,
+   wyckoff_signals. (bsjp_results exists in the endpoint but has no row in
+   the approved mockup, so it is not displayed.) */
+var HM_GROUPS = [
+  { label:'Telegram', items:[
+    { disp:'telegram_sm', name:'Telegram SM', src:'raw_messages' },
+    { disp:'telegram_bm', name:'Telegram BM', src:'raw_messages' },
+    { disp:'telegram_mf', name:'Telegram MF', src:'raw_mf_messages' } ] },
+  { label:'Prices', items:[
+    { disp:'price_daily', name:'price_daily', src:'price_history' },
+    { disp:'price_15m', name:'price_15m', src:'price_history_15m' } ] },
+  { label:'Analytics', items:[
+    { disp:'eod_summary', name:'eod_summary', src:'eod_summary' },
+    { disp:'bsjp_signals', name:'bsjp_signals', src:'bsjp_signals' },
+    { disp:'wyckoff_signals', name:'wyckoff_signals', src:'wyckoff_signals' } ] }
+];
+/* Gap-button backfill endpoints — production HM_BACKFILL map; the Telegram
+   rows map to tele-backfill (production gave raw_* rows no button). */
+var HM_BACKFILL_URL = {
+  telegram_sm: '/admin/tele-backfill', telegram_bm: '/admin/tele-backfill', telegram_mf: '/admin/tele-backfill',
+  price_daily: '/admin/backfill-prices', price_15m: '/admin/backfill-intraday',
+  eod_summary: '/admin/eod-summary-rebuild', bsjp_signals: '/admin/bsjp-recompute',
+  wyckoff_signals: '/admin/wyckoff-recompute'
+};
+var HM_STATUS_NAME = { c:'Complete', p:'Partial', e:'Empty', h:'Holiday / Weekend', f:'Future — no data yet' };
+var hmGrid = document.getElementById('hm-grid');
+var hmMissing = document.getElementById('hm-missing-list');
+var hmLabel = document.getElementById('hm-month-label');
+var hmPrev = document.getElementById('hm-prev');
+var hmNext = document.getElementById('hm-next');
+var hmNote = document.getElementById('hm-note');
+var hmWib = wibNowParts();
+var hmYear = hmWib.y, hmMonth = hmWib.m, hmData = null;
+
+function hmDaysIn(y, m){ return new Date(y, m, 0).getDate(); }
+function hmStatus(srcKey, y, m, d){
+  var dow = new Date(y, m-1, d).getDay();
+  if(dow === 0 || dow === 6) return 'h';
+  var w = wibNowParts();
+  if(y > w.y || (y === w.y && (m > w.m || (m === w.m && d > w.d)))) return 'f';
+  if(!hmData || !hmData[srcKey]) return 'e';
+  var cnt = hmData[srcKey].days[String(d)] || 0;
+  if(!cnt) return 'e';
+  return cnt >= hmData[srcKey].max * 0.5 ? 'c' : 'p';
+}
+function hmRender(){
+  if(!hmGrid) return;
+  var days = hmDaysIn(hmYear, hmMonth);
+  var w = wibNowParts();
+  var isCurMonth = (hmYear === w.y && hmMonth === w.m);
+  hmGrid.style.setProperty('--days', days);
+  hmGrid.innerHTML = '';
+  var frag = document.createDocumentFragment();
+  var corner = document.createElement('span'); corner.className = 'hm-corner'; corner.textContent = 'Table'; frag.appendChild(corner);
+  for(var d = 1; d <= days; d++){
+    var hd = document.createElement('span'); hd.className = 'hm-day'; hd.textContent = d;
+    var dow = new Date(hmYear, hmMonth-1, d).getDay();
+    if(dow === 0 || dow === 6) hd.classList.add('wknd');
+    if(isCurMonth && d === w.d) hd.classList.add('today');
+    frag.appendChild(hd);
+  }
+  var missingByDisp = {};
+  HM_GROUPS.forEach(function(g){
+    var gl = document.createElement('div'); gl.className = 'hm-group'; gl.textContent = g.label; frag.appendChild(gl);
+    g.items.forEach(function(it){
+      var tot = 0, done = 0, miss = [];
+      for(var pd = 1; pd <= days; pd++){
+        var pst = hmStatus(it.src, hmYear, hmMonth, pd);
+        if(pst === 'c' || pst === 'p' || pst === 'e'){ tot++; if(pst === 'c') done++; }
+        if(pst === 'e') miss.push(pd);
+      }
+      if(miss.length) missingByDisp[it.disp] = { name: it.name, days: miss };
+      var pct = tot ? Math.round(done / tot * 100) : 100;
+      var nm = document.createElement('span'); nm.className = 'hm-name';
+      var nmT = document.createElement('span'); nmT.className = 'hm-nm'; nmT.textContent = it.name;
+      var nmP = document.createElement('span'); nmP.className = 'hm-pct'; nmP.textContent = pct + '%';
+      nmP.title = 'Complete ' + done + ' of ' + tot + ' trading days shown';
+      nm.appendChild(nmT); nm.appendChild(nmP);
+      frag.appendChild(nm);
+      for(var day = 1; day <= days; day++){
+        var st = hmStatus(it.src, hmYear, hmMonth, day);
+        var c = document.createElement('span');
+        c.className = 'hm-cell ' + st;
+        c.title = it.name + ' · ' + day + ' ' + MON[hmMonth-1] + ' ' + hmYear + ': ' + HM_STATUS_NAME[st];
+        frag.appendChild(c);
+      }
+    });
+  });
+  hmGrid.appendChild(frag);
+  if(hmLabel) hmLabel.textContent = MONTHS_FULL[hmMonth-1] + ' ' + hmYear;
+  if(hmNext) hmNext.disabled = isCurMonth;
+  if(hmNote) hmNote.textContent = 'Complete = baris hari itu ≥ 50% dari hari tersibuk dataset tersebut. Sel setelah ' + w.d + ' ' + MON[w.m-1] + ' ' + w.y + ' adalah masa depan — belum ada data.';
+  /* Missing data list */
+  if(hmMissing){
+    hmMissing.innerHTML = '';
+    var keys = Object.keys(missingByDisp);
+    if(!keys.length){
+      var ok = document.createElement('div'); ok.className = 'hm-allok';
+      ok.textContent = '✓ All datasets complete this month — no missing data.';
+      hmMissing.appendChild(ok);
+    } else {
+      keys.forEach(function(disp){
+        var info = missingByDisp[disp];
+        var datesFmt = info.days.map(function(dd){ return pad(dd) + ' ' + MON[hmMonth-1] + ' ' + hmYear; });
+        var row = document.createElement('div'); row.className = 'hm-miss-row';
+        var n1 = document.createElement('span'); n1.className = 'hm-miss-name'; n1.textContent = info.name;
+        var n2 = document.createElement('span'); n2.className = 'hm-miss-count'; n2.textContent = info.days.length + ' empty day' + (info.days.length > 1 ? 's' : '');
+        var n3 = document.createElement('span'); n3.className = 'hm-miss-dates';
+        n3.textContent = datesFmt.slice(0, 5).join(' · ') + (datesFmt.length > 5 ? ' · +' + (datesFmt.length - 5) + ' more' : '');
+        row.appendChild(n1); row.appendChild(n2); row.appendChild(n3);
+        var url = HM_BACKFILL_URL[disp];
+        if(url){
+          var btn = document.createElement('button');
+          btn.type = 'button'; btn.className = 'btn sm ghost'; btn.textContent = 'Backfill →';
+          (function(btnEl, u, firstD, lastD){
+            btnEl.addEventListener('click', function(){
+              var from = pad(firstD) + '-' + pad(hmMonth) + '-' + hmYear;
+              var to = pad(lastD) + '-' + pad(hmMonth) + '-' + hmYear;
+              btnEl.disabled = true;
+              fetch(u + '?date_from=' + encodeURIComponent(from) + '&date_to=' + encodeURIComponent(to))
+                .then(function(r){ return r.json(); })
+                .then(function(dd){
+                  if(dd.ok !== false){
+                    btnEl.textContent = 'Queued ✓';
+                    showFeedback('Backfill started ✓');
+                    setTimeout(function(){ hmLoad(hmYear, hmMonth); }, 2500);
+                  } else {
+                    btnEl.disabled = false;
+                    showFeedback('Error: ' + (dd.error || '?'), true);
+                  }
+                })
+                .catch(function(e){ btnEl.disabled = false; showFeedback('Failed: ' + e.message, true); });
+            });
+          })(btn, url, info.days[0], info.days[info.days.length - 1]);
+          row.appendChild(btn);
+        }
+        hmMissing.appendChild(row);
+      });
+    }
+  }
+  /* Follow the mockup: bf-row pickers default to the shown month's gap range */
+  if(isCurMonth) applyGapDefaults(missingByDisp, days);
+}
+function hmLoad(y, m){
+  hmYear = y; hmMonth = m;
+  if(hmLabel) hmLabel.textContent = MONTHS_FULL[m-1] + ' ' + y;
+  fetch('/admin/data-coverage?year=' + y + '&month=' + m)
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      hmData = {};
+      (d.sources || []).forEach(function(src){
+        var vals = Object.values(src.days || {}).map(Number).filter(function(v){ return v > 0; });
+        hmData[src.key] = { days: src.days || {}, max: vals.length ? Math.max.apply(null, vals) : 1 };
+      });
+      hmRender();
+    })
+    .catch(function(){
+      if(hmGrid) hmGrid.innerHTML = '<div class="hm-failed">Failed to load data coverage.</div>';
+    });
+}
+if(hmPrev) hmPrev.addEventListener('click', function(){
+  var m = hmMonth - 1, y = hmYear;
+  if(m < 1){ m = 12; y--; }
+  hmLoad(y, m);
+});
+if(hmNext) hmNext.addEventListener('click', function(){
+  var w = wibNowParts();
+  var m = hmMonth + 1, y = hmYear;
+  if(m > 12){ m = 1; y++; }
+  if(y > w.y || (y === w.y && m > w.m)) return;
+  hmLoad(y, m);
+});
+
+/* ── Backfill rows ── */
+var BF_DEFS = [
+  { key:'telegram_sm', name:'Telegram SM', meta:'', group:'tele' },
+  { key:'telegram_bm', name:'Telegram BM', meta:'', group:'tele' },
+  { key:'telegram_mf', name:'Telegram MF', meta:'', group:'tele' },
+  { key:'eod_summary', name:'eod_summary', meta:'Runs 16:30 WIB', group:'eod' },
+  { key:'price_daily', name:'price_daily', meta:'Yahoo Finance', group:'prices' },
+  { key:'price_15m', name:'price_15m', meta:'Intraday bars', group:'intraday' },
+  { key:'bsjp_signals', name:'bsjp_signals', meta:'SMA5 scan', group:'bsjp' },
+  { key:'wyckoff_signals', name:'wyckoff_signals', meta:'Phase scan', group:'wyckoff' }
+];
+/* Progress text builders — production PROGRESS_CONFIGS, verbatim */
+var PROGRESS_TEXT = {
+  intraday: {
+    runningText: function(s){ return s.done + ' / ' + s.total + (s.current ? ' · ' + s.current : '') + ' · ' + s.rows_inserted + ' rows' + (s.failed_count ? ' · ' + s.failed_count + ' failed' : ''); },
+    doneText: function(s){ return '✓ Done · ' + s.rows_inserted + ' rows · ' + s.failed_count + ' failed'; },
+    toastLabel: 'Price History (15m)'
+  },
+  wyckoff: {
+    runningText: function(s){ return s.done + ' / ' + s.total + (s.current_date ? ' · ' + s.current_date : ''); },
+    doneText: function(s){ return '✓ Done · ' + s.done + ' dates'; },
+    toastLabel: 'Recompute Analytics'
+  },
+  bsjp: {
+    runningText: function(s){ return s.done + ' / ' + s.total + (s.current_date ? ' · ' + s.current_date : ''); },
+    doneText: function(s){ return '✓ Done · ' + (s.inserted || 0) + ' signals · ' + s.done + ' dates'; },
+    toastLabel: 'BSJP Signals'
+  },
+  prices: {
+    runningText: function(s){ return s.done + ' / ' + s.total + (s.current ? ' · ' + s.current : '') + (s.step ? ' · ' + s.step : ''); },
+    doneText: function(s){ return '✓ Done · ' + (s.prices_updated || 0) + ' prices · ' + (s.analytics_recomputed || 0) + ' analytics'; },
+    toastLabel: 'Fetch OHLCV Daily'
+  },
+  eod: {
+    runningText: function(s){ return s.done + ' / ' + s.total + (s.current_date ? ' · ' + s.current_date : ''); },
+    doneText: function(s){ return '✓ Done · ' + s.done + ' dates'; },
+    toastLabel: 'EOD Summary'
+  }
+};
+var JOB_DEFS = {
+  tele:     { start: function(f, t){ return '/admin/tele-backfill?date_from=' + encodeURIComponent(f) + '&date_to=' + encodeURIComponent(t); },
+              statusUrl: '/admin/tele-backfill-status', pollMs: 2000,
+              runningText: function(s){ return 'Fetching Telegram... scanned=' + (s.scanned || 0) + ' saved=' + (s.saved || 0); },
+              doneText: function(s){ return '✓ Done · scanned=' + (s.scanned || 0) + ' saved=' + (s.saved || 0); },
+              toastLabel: 'Enrich Telegram', logName: 'Telegram' },
+  eod:      { start: function(f, t){ return '/admin/eod-summary-rebuild?date_from=' + encodeURIComponent(f) + '&date_to=' + encodeURIComponent(t); },
+              statusUrl: '/admin/eod-summary-status', pollMs: 1500,
+              runningText: PROGRESS_TEXT.eod.runningText, doneText: PROGRESS_TEXT.eod.doneText,
+              toastLabel: PROGRESS_TEXT.eod.toastLabel, logName: 'eod_summary' },
+  prices:   { start: function(f, t){ return '/admin/backfill-prices?date_from=' + encodeURIComponent(f) + '&date_to=' + encodeURIComponent(t); },
+              statusUrl: '/admin/prices-progress', pollMs: 1500,
+              runningText: PROGRESS_TEXT.prices.runningText, doneText: PROGRESS_TEXT.prices.doneText,
+              toastLabel: PROGRESS_TEXT.prices.toastLabel, logName: 'price_daily' },
+  intraday: { start: function(f, t){ return '/admin/backfill-intraday?date_from=' + encodeURIComponent(f) + '&date_to=' + encodeURIComponent(t); },
+              statusUrl: '/admin/intraday-progress', pollMs: 1500,
+              runningText: PROGRESS_TEXT.intraday.runningText, doneText: PROGRESS_TEXT.intraday.doneText,
+              toastLabel: PROGRESS_TEXT.intraday.toastLabel, logName: 'price_15m' },
+  bsjp:     { start: function(f, t){ return '/admin/bsjp-backfill?date_from=' + encodeURIComponent(f) + '&date_to=' + encodeURIComponent(t); },
+              statusUrl: '/admin/bsjp-status', pollMs: 1500,
+              runningText: PROGRESS_TEXT.bsjp.runningText, doneText: PROGRESS_TEXT.bsjp.doneText,
+              toastLabel: PROGRESS_TEXT.bsjp.toastLabel, logName: 'bsjp_signals' },
+  wyckoff:  { start: function(f, t){ return '/admin/wyckoff-recompute?date_from=' + encodeURIComponent(f) + '&date_to=' + encodeURIComponent(t); },
+              statusUrl: '/admin/wyckoff-recompute-status', pollMs: 1500,
+              runningText: PROGRESS_TEXT.wyckoff.runningText, doneText: PROGRESS_TEXT.wyckoff.doneText,
+              toastLabel: PROGRESS_TEXT.wyckoff.toastLabel, logName: 'wyckoff_signals' }
+};
+
+var bfGrid = document.getElementById('bf-grid');
+var bfPickers = {};   /* key → StockbitDatePicker */
+var bfRows = {};      /* key → {row, meta, btn, prog} */
+var bfRunning = {};   /* group → bool */
+var bfLogEl = document.getElementById('bf-log');
+function bfLogLine(html){
+  if(!bfLogEl) return;
+  var div = document.createElement('div');
+  div.innerHTML = '<span class="lt">' + wibClock() + ' WIB</span> · ' + html;
+  bfLogEl.appendChild(div);
+  while(bfLogEl.children.length > 50) bfLogEl.removeChild(bfLogEl.firstChild);
+}
+function setRowMeta(key, text, isErr){
+  var r = bfRows[key];
+  if(!r) return;
+  r.meta.textContent = text;
+  r.meta.classList.toggle('err', !!isErr);
+}
+function groupKeys(group){
+  return BF_DEFS.filter(function(d){ return d.group === group; }).map(function(d){ return d.key; });
+}
+
+BF_DEFS.forEach(function(def){
+  var row = document.createElement('div'); row.className = 'bf-row';
+  var main = document.createElement('div'); main.className = 'bf-main';
+  var nm = document.createElement('div'); nm.className = 'bf-name'; nm.textContent = def.name;
+  var mt = document.createElement('div'); mt.className = 'bf-meta'; mt.textContent = def.meta;
+  main.appendChild(nm); main.appendChild(mt);
+  var ctl = document.createElement('div'); ctl.className = 'bf-ctl';
+  var dpHost = document.createElement('div'); dpHost.id = 'bfDP-' + def.key;
+  var btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'btn sm ghost'; btn.textContent = 'Backfill';
+  var prog = document.createElement('span');
+  prog.className = 'bf-prog'; prog.setAttribute('data-prog', '');
+  prog.setAttribute('role', 'progressbar');
+  prog.setAttribute('aria-valuemin', '0'); prog.setAttribute('aria-valuemax', '100'); prog.setAttribute('aria-valuenow', '0');
+  prog.setAttribute('aria-label', 'Backfill progress ' + def.name);
+  var pct = document.createElement('span'); pct.className = 'bf-pct'; pct.setAttribute('data-pct', ''); pct.textContent = '0%';
+  prog.appendChild(pct);
+  ctl.appendChild(dpHost); ctl.appendChild(btn); ctl.appendChild(prog);
+  row.appendChild(main); row.appendChild(ctl);
+  bfGrid.appendChild(row);
+  buildDonut(prog);
+  bfRows[def.key] = { row: row, meta: mt, btn: btn, prog: prog, def: def };
+  btn.addEventListener('click', function(){ startBackfill(def); });
+});
+
+/* Picker defaults: current WIB month start → latest data date (/api/last-date),
+   then refined to each dataset's gap range when the heatmap loads. */
+(function(){
+  var w = wibNowParts();
+  var monthStart = w.y + '-' + pad(w.m) + '-01';
+  var todayISO = w.y + '-' + pad(w.m) + '-' + pad(w.d);
+  BF_DEFS.forEach(function(def){
+    bfPickers[def.key] = new window.StockbitDatePicker('bfDP-' + def.key, { from: monthStart, to: todayISO });
+  });
+  fetch('/api/last-date', { cache: 'no-store' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d.date) return;
+      var iso = window.DD_MM_YYYYtoISO(String(d.date).replace(/\//g, '-'));
+      if(!iso) return;
+      var p = iso.split('-');
+      var mStart = p[0] + '-' + p[1] + '-01';
+      BF_DEFS.forEach(function(def){
+        if(bfRunning[def.group]) return;
+        bfPickers[def.key].setDates(mStart, iso);
+      });
+    }).catch(function(){});
+})();
+function applyGapDefaults(missingByDisp, daysInMonth){
+  BF_DEFS.forEach(function(def){
+    if(bfRunning[def.group]) return;
+    var picker = bfPickers[def.key];
+    if(!picker) return;
+    var info = missingByDisp[def.key];
+    if(info && info.days.length){
+      var f = hmYear + '-' + pad(hmMonth) + '-' + pad(info.days[0]);
+      var t = hmYear + '-' + pad(hmMonth) + '-' + pad(info.days[info.days.length - 1]);
+      picker.setDates(f, t);
+    }
+  });
+}
+
+/* Generic polling job runner — drives one row-group's donuts from the real
+   production status endpoint. Groups run concurrently. */
+function startBackfill(def){
+  var group = def.group;
+  if(bfRunning[group]) return;
+  var job = JOB_DEFS[group];
+  var picker = bfPickers[def.key];
+  var fromISO = picker ? picker.from : null;
+  var toISO = picker ? (picker.to || picker.from) : null;
+  if(!fromISO || !toISO){ showFeedback('Pick a date range first.', true); return; }
+  var keys = groupKeys(group);
+  bfRunning[group] = true;
+  keys.forEach(function(k){
+    var r = bfRows[k];
+    r.btn.disabled = true; r.btn.textContent = 'Running…';
+    r.prog.classList.remove('done', 'err');
+    setDonutIndet(r.prog);
+    setRowMeta(k, 'Starting…', false);
+  });
+  var rt = rangeText(fromISO, toISO);
+  bfLogLine('Backfill <b>' + esc(job.logName) + '</b> · ' + esc(rt) + ' · started');
+  var startUrl = job.start(isoToDMY(fromISO), isoToDMY(toISO));
+  function finishErr(msg){
+    bfRunning[group] = false;
+    keys.forEach(function(k){
+      var r = bfRows[k];
+      r.btn.disabled = false; r.btn.textContent = 'Backfill';
+      r.prog.classList.remove('indet'); r.prog.classList.add('err');
+      setRowMeta(k, 'Error: ' + msg, true);
+    });
+    bfLogLine('Backfill <b>' + esc(job.logName) + '</b> · ' + esc(rt) + ' <span class="err">· error · ' + esc(msg) + '</span>');
+    showFeedback('Error: ' + msg, true);
+  }
+  fetch(startUrl)
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d.ok){ finishErr(d.error || '?'); return; }
+      var iv = setInterval(function(){
+        fetch(job.statusUrl)
+          .then(function(r){ return r.json(); })
+          .then(function(s){
+            if(s.status === 'running'){
+              var txt = job.runningText(s);
+              keys.forEach(function(k){
+                var r = bfRows[k];
+                if(s.total > 0) setDonut(r.prog, Math.min(99, s.done / s.total * 100));
+                else setDonutIndet(r.prog);
+                setRowMeta(k, txt, false);
+              });
+            } else if(s.status === 'done'){
+              clearInterval(iv);
+              bfRunning[group] = false;
+              var doneTxt = job.doneText(s);
+              keys.forEach(function(k){
+                var r = bfRows[k];
+                r.btn.disabled = false; r.btn.textContent = 'Backfill';
+                r.prog.classList.add('done');
+                setDonut(r.prog, 100);
+                setRowMeta(k, doneTxt, false);
+              });
+              bfLogLine('Backfill <b>' + esc(job.logName) + '</b> · ' + esc(rt) + ' <span class="ok">· done</span>');
+              showFeedback(job.toastLabel + ' done ✓');
+            } else if(s.status === 'error'){
+              clearInterval(iv);
+              finishErr(s.error || '?');
+            }
+          }).catch(function(){});
+      }, job.pollMs);
+    })
+    .catch(function(e){ finishErr(e.message); });
+}
+
+/* ── Recompute Analytics → GET /admin/recompute-analytics ──
+   The endpoint has no dedicated status feed; progress is observed via the
+   recompute_running flag in /admin/scraper-status (best effort). */
+var rcBtn = document.getElementById('bf-recompute');
+var rcProg = document.getElementById('rc-prog');
+var rcRunning = false;
+if(rcBtn) rcBtn.addEventListener('click', function(){
+  if(rcRunning) return;
+  rcRunning = true;
+  rcBtn.disabled = true; rcBtn.textContent = 'Running…';
+  rcProg.classList.remove('done', 'err');
+  setDonutIndet(rcProg);
+  bfLogLine('Recompute Analytics · started');
+  function finish(okState, msg){
+    rcRunning = false;
+    rcBtn.disabled = false; rcBtn.textContent = 'Recompute Analytics';
+    if(okState){
+      rcProg.classList.add('done');
+      setDonut(rcProg, 100);
+      bfLogLine('Recompute Analytics <span class="ok">· done · eod_summary, bsjp_signals, wyckoff_signals rebuilt</span>');
+      showFeedback('Recompute Analytics done ✓');
+    } else {
+      rcProg.classList.remove('indet'); rcProg.classList.add('err');
+      bfLogLine('Recompute Analytics <span class="err">· error · ' + esc(msg || '?') + '</span>');
+      showFeedback('Error: ' + (msg || '?'), true);
+    }
+  }
+  fetch('/admin/recompute-analytics')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(d && d.ok === false){ finish(false, d.error || d.message || 'rejected'); return; }
+      var seenRunning = false, waited = 0;
+      var iv = setInterval(function(){
+        waited += 2000;
+        fetch('/admin/scraper-status')
+          .then(function(r){ return r.json(); })
+          .then(function(s){
+            if(s.recompute_running){ seenRunning = true; return; }
+            if(seenRunning || waited >= 12000){
+              clearInterval(iv);
+              finish(true);
+            }
+          }).catch(function(){});
+        if(waited >= 600000){ clearInterval(iv); finish(false, 'timeout'); }
+      }, 2000);
+    })
+    .catch(function(e){ finish(false, e.message); });
+});
+
+/* ── Confirm modal (production pattern) ── */
+var confirmModal = document.getElementById('confirmModal');
+function showConfirm(title, desc, onOk){
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmDesc').textContent = desc;
+  document.getElementById('confirmOkBtn').onclick = function(){ closeConfirm(); onOk(); };
+  confirmModal.style.display = 'flex';
+}
+function closeConfirm(){ confirmModal.style.display = 'none'; }
+document.getElementById('confirmCancelBtn').addEventListener('click', closeConfirm);
+confirmModal.addEventListener('click', function(e){ if(e.target === this) closeConfirm(); });
+
+/* ── Users ← /admin/users (production contract) ── */
+function fmtKeyDate(iso){
+  if(!iso) return '—';
+  var d = new Date(iso);
+  if(isNaN(d)) return '—';
+  return d.getDate() + ' ' + MON[d.getMonth()] + ' ' + d.getFullYear();
+}
+function loadUsers(){
+  fetch('/admin/users')
+    .then(function(r){ return r.json(); })
+    .then(function(users){
+      var body = document.getElementById('userTableBody');
+      if(!users.length){
+        body.innerHTML = '<tr><td colspan="5" class="cell-note">No users yet.</td></tr>';
+        return;
+      }
+      body.innerHTML = '';
+      users.forEach(function(u){
+        var mode = u.mode || 'general';
+        var isSyr = mode === 'syariah';
+        var tr = document.createElement('tr');
+        var tdUser = document.createElement('td');
+        var cell = document.createElement('span'); cell.className = 'user-cell';
+        var av = document.createElement('span'); av.className = 'user-av' + (u.role === 'admin' ? ' admin' : '');
+        av.textContent = (u.username || '?').charAt(0).toUpperCase();
+        var un = document.createElement('span'); un.style.fontWeight = '700'; un.style.color = 'var(--text)'; un.textContent = u.username;
+        cell.appendChild(av); cell.appendChild(un);
+        tdUser.appendChild(cell);
+        var tdRole = document.createElement('td');
+        var rp = document.createElement('span'); rp.className = 'role' + (u.role === 'admin' ? ' admin' : ''); rp.textContent = u.role;
+        tdRole.appendChild(rp);
+        var tdMode = document.createElement('td');
+        var mp = document.createElement('span'); mp.className = 'role' + (isSyr ? ' syariah' : ''); mp.textContent = mode;
+        tdMode.appendChild(mp);
+        var tdCreated = document.createElement('td'); tdCreated.className = 'hidesm';
+        tdCreated.textContent = u.created_at ? fmtKeyDate(u.created_at) : '—';
+        var tdAct = document.createElement('td');
+        var tgl = document.createElement('button');
+        tgl.type = 'button'; tgl.className = 'btn sm ghost'; tgl.textContent = '→ ' + (isSyr ? 'general' : 'syariah');
+        tgl.title = "Change this user's stock universe";
+        tgl.addEventListener('click', function(){ toggleUserMode(u.id, mode); });
+        var del = document.createElement('button');
+        del.type = 'button'; del.className = 'btn sm danger-ghost'; del.textContent = 'Delete';
+        del.addEventListener('click', function(){ deleteUser(u.id, u.username); });
+        tdAct.appendChild(tgl);
+        tdAct.appendChild(document.createTextNode(' '));
+        tdAct.appendChild(del);
+        tr.appendChild(tdUser); tr.appendChild(tdRole); tr.appendChild(tdMode); tr.appendChild(tdCreated); tr.appendChild(tdAct);
+        body.appendChild(tr);
+      });
+    }).catch(function(){
+      document.getElementById('userTableBody').innerHTML = '<tr><td colspan="5" class="cell-note">Failed to load user list.</td></tr>';
+    });
+}
+function toggleUserMode(id, current){
+  var next = current === 'syariah' ? 'general' : 'syariah';
+  fetch('/admin/users/mode/' + id, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode: next })
+  }).then(function(r){ return r.json(); })
+    .then(function(d){ if(d.ok) loadUsers(); })
+    .catch(function(){});
+}
+function deleteUser(id, username){
+  showConfirm('Delete user "' + username + '"?', 'This user will be permanently deleted and cannot be recovered.', function(){
+    fetch('/admin/users/delete/' + id, { method: 'POST' })
+      .then(function(){ loadUsers(); toast('User "' + username + '" deleted ✓'); })
+      .catch(function(){ toast('Failed to delete user', 'error'); });
+  });
+}
+var addUserPanel = document.getElementById('addUserPanel');
+document.getElementById('addUserToggle').addEventListener('click', function(){
+  addUserPanel.hidden = !addUserPanel.hidden;
+});
+document.getElementById('addUserBtn').addEventListener('click', function(){
+  var username = document.getElementById('newUsername').value.trim();
+  var password = document.getElementById('newPassword').value.trim();
+  var role = document.getElementById('newRole').value;
+  var mode = document.getElementById('newMode').value;
+  var msgEl = document.getElementById('addUserMsg');
+  if(!username || !password){ msgEl.className = 'adm-msg err'; msgEl.textContent = 'Username and password are required.'; return; }
+  var btn = document.getElementById('addUserBtn');
+  btn.disabled = true;
+  fetch('/admin/users/add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: username, password: password, role: role, mode: mode })
+  }).then(function(r){ return r.json(); })
+    .then(function(d){
+      btn.disabled = false;
+      if(d.ok){
+        msgEl.className = 'adm-msg ok'; msgEl.textContent = '✓ User "' + username + '" added.';
+        document.getElementById('newUsername').value = '';
+        document.getElementById('newPassword').value = '';
+        loadUsers();
+      } else {
+        msgEl.className = 'adm-msg err'; msgEl.textContent = d.error || 'Failed to add user.';
+      }
+    }).catch(function(){ btn.disabled = false; msgEl.className = 'adm-msg err'; msgEl.textContent = 'Network error.'; });
+});
+
+/* ── API Keys ← /admin/api-keys (production contract) ── */
+function loadApiKeys(){
+  fetch('/admin/api-keys')
+    .then(function(r){ return r.json(); })
+    .then(function(keys){
+      document.getElementById('apiKeyQuota').textContent = keys.length + ' API key' + (keys.length === 1 ? '' : 's') + ' active.';
+      var body = document.getElementById('apiKeyList');
+      if(!keys.length){
+        body.innerHTML = '<tr><td colspan="5" class="cell-note">No API keys yet.</td></tr>';
+        return;
+      }
+      body.innerHTML = '';
+      keys.forEach(function(k){
+        var tr = document.createElement('tr');
+        var tdName = document.createElement('td'); tdName.className = 'tk'; tdName.textContent = k.name;
+        var tdKey = document.createElement('td');
+        var chip = document.createElement('code'); chip.className = 'key-chip'; chip.textContent = k.key_prefix + '••••••••';
+        tdKey.appendChild(chip);
+        var tdEnv = document.createElement('td'); tdEnv.className = 'hidesm';
+        var ep = document.createElement('span'); ep.className = 'pill'; ep.textContent = k.environment;
+        tdEnv.appendChild(ep);
+        var tdUsed = document.createElement('td'); tdUsed.className = 'hidesm';
+        tdUsed.textContent = k.last_used_at ? fmtKeyDate(k.last_used_at) : 'Never';
+        var tdAct = document.createElement('td');
+        var rev = document.createElement('button');
+        rev.type = 'button'; rev.className = 'btn sm ghost'; rev.textContent = 'Revoke';
+        rev.addEventListener('click', function(){ deleteApiKey(k.id, k.name); });
+        tdAct.appendChild(rev);
+        tr.appendChild(tdName); tr.appendChild(tdKey); tr.appendChild(tdEnv); tr.appendChild(tdUsed); tr.appendChild(tdAct);
+        body.appendChild(tr);
+      });
+    }).catch(function(){
+      document.getElementById('apiKeyList').innerHTML = '<tr><td colspan="5" class="cell-note">Failed to load API keys.</td></tr>';
+    });
+}
+function deleteApiKey(id, name){
+  showConfirm('Delete API key "' + name + '"?', 'Any application still using this key will immediately lose access to /api/v1/*.', function(){
+    fetch('/admin/api-keys/delete/' + id, { method: 'POST' })
+      .then(function(){ loadApiKeys(); toast('API key "' + name + '" deleted ✓'); })
+      .catch(function(){ toast('Failed to delete API key', 'error'); });
+  });
+}
+var createKeyModal = document.getElementById('createKeyModal');
+var revealKeyModal = document.getElementById('revealKeyModal');
+function closeCreateKeyModal(){ createKeyModal.classList.remove('open'); }
+function closeRevealKeyModal(){
+  revealKeyModal.classList.remove('open');
+  document.getElementById('revealKeyValue').textContent = '';
+}
+document.getElementById('createKeyBtn').addEventListener('click', function(){
+  document.getElementById('createKeyName').value = '';
+  document.getElementById('createKeyEnv').value = 'live';
+  createKeyModal.classList.add('open');
+});
+document.getElementById('createKeyClose').addEventListener('click', closeCreateKeyModal);
+document.getElementById('createKeyCancel').addEventListener('click', closeCreateKeyModal);
+createKeyModal.addEventListener('click', function(e){ if(e.target === this) closeCreateKeyModal(); });
+document.getElementById('createKeySubmitBtn').addEventListener('click', function(){
+  var name = document.getElementById('createKeyName').value.trim() || 'Default';
+  var environment = document.getElementById('createKeyEnv').value;
+  var btn = document.getElementById('createKeySubmitBtn');
+  btn.disabled = true;
+  fetch('/admin/api-keys/add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: name, environment: environment })
+  }).then(function(r){ return r.json(); })
+    .then(function(d){
+      btn.disabled = false;
+      if(d.ok){
+        closeCreateKeyModal();
+        loadApiKeys();
+        document.getElementById('revealKeyValue').textContent = d.key;
+        revealKeyModal.classList.add('open');
+      } else {
+        toast('Failed to create key: ' + (d.error || '?'), 'error');
+      }
+    }).catch(function(e){ btn.disabled = false; toast('Failed: ' + e.message, 'error'); });
+});
+document.getElementById('revealKeyClose').addEventListener('click', closeRevealKeyModal);
+document.getElementById('revealKeyDone').addEventListener('click', closeRevealKeyModal);
+revealKeyModal.addEventListener('click', function(e){ if(e.target === this) closeRevealKeyModal(); });
+document.getElementById('revealKeyCopyBtn').addEventListener('click', function(){
+  var val = document.getElementById('revealKeyValue').textContent;
+  if(!val) return;
+  var btn = this;
+  navigator.clipboard.writeText(val).then(function(){
+    var orig = btn.textContent;
+    btn.textContent = 'Copied ✓';
+    setTimeout(function(){ btn.textContent = orig; }, 1500);
+  }).catch(function(){ toast('Failed to copy, copy manually', 'error'); });
+});
+
+/* ── Log tab — live console ← GET /admin/logs?since=<seq> ──
+   Response: {lines:[{seq, ts, level, logger, msg}], last_seq}; ts is already
+   WIB (server formats it). Polls every 2s while the tab is active; on error
+   shows "Log stream tidak tersedia" and retries every 5s. */
+var logViewport = document.getElementById('log-viewport');
+var logJump = document.getElementById('log-jump');
+var logUnavail = document.getElementById('log-unavail');
+var logLive = document.getElementById('log-live');
+var logSeq = 0, logTimer = null, logFails = 0, logStick = true, logStarted = false;
+function logLevelClass(level){
+  var lv = String(level || '').toUpperCase();
+  if(lv === 'WARNING' || lv === 'WARN') return 'lv';
+  if(lv === 'ERROR' || lv === 'CRITICAL' || lv === 'FATAL') return 'err';
+  if(lv === 'DEBUG') return 'src';
+  return '';
+}
+function appendLogLine(line){
+  var div = document.createElement('div');
+  var lt = document.createElement('span'); lt.className = 'lt'; lt.textContent = line.ts || '';
+  div.appendChild(lt);
+  div.appendChild(document.createTextNode(' '));
+  var lc = logLevelClass(line.level);
+  var lv = document.createElement('span'); if(lc) lv.className = lc; lv.textContent = line.level || '';
+  div.appendChild(lv);
+  div.appendChild(document.createTextNode(' '));
+  var src = document.createElement('span'); src.className = 'src'; src.textContent = '[' + (line.logger || '') + ']';
+  div.appendChild(src);
+  div.appendChild(document.createTextNode(' ' + (line.msg || '')));
+  logViewport.appendChild(div);
+}
+function logPoll(){
+  fetch('/admin/logs?since=' + logSeq)
+    .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(d){
+      logFails = 0;
+      logUnavail.hidden = true;
+      logLive.classList.remove('off');
+      var lines = d.lines || [];
+      /* First successful load can return the whole ring buffer (≤2000) —
+         render only the most recent 300 lines. */
+      if(!logStarted && lines.length > 300) lines = lines.slice(lines.length - 300);
+      logStarted = true;
+      lines.forEach(appendLogLine);
+      while(logViewport.children.length > 500) logViewport.removeChild(logViewport.firstChild);
+      if(typeof d.last_seq === 'number') logSeq = d.last_seq;
+      else if(lines.length && typeof lines[lines.length - 1].seq === 'number') logSeq = lines[lines.length - 1].seq;
+      if(logStick) logViewport.scrollTop = logViewport.scrollHeight;
+      if(logJump) logJump.hidden = logStick;
+      logTimer = setTimeout(logPoll, 2000);
+    })
+    .catch(function(){
+      logFails++;
+      logUnavail.hidden = false;
+      logLive.classList.add('off');
+      logTimer = setTimeout(logPoll, 5000);
+    });
+}
+function startLog(){
+  if(logTimer) return;
+  logPoll();
+}
+function stopLog(){
+  if(logTimer){ clearTimeout(logTimer); logTimer = null; }
+}
+if(logViewport){
+  logViewport.addEventListener('scroll', function(){
+    logStick = (logViewport.scrollHeight - logViewport.scrollTop - logViewport.clientHeight) < 48;
+    if(logJump) logJump.hidden = logStick;
+  });
+}
+if(logJump) logJump.addEventListener('click', function(){
+  logStick = true;
+  if(logViewport) logViewport.scrollTop = logViewport.scrollHeight;
+  logJump.hidden = true;
+});
+
+/* ── Init ── */
+loadCoverageTable();
+hmLoad(hmYear, hmMonth);
+})();
+</script>
+</body>
+</html>

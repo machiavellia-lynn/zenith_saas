@@ -43,7 +43,25 @@ _ohlcv_daily_all = {
 def admin_page():
     if not is_authed():
         return redirect("/")
-    return render_template("admin.html")
+    from config import ZENITH_UI_V2
+    return render_template("admin_v2.html" if ZENITH_UI_V2 else "admin.html")
+
+
+@bp_admin.route("/admin/logs")
+def admin_logs():
+    """Recent application log lines for the Admin → Log tab (UI v2).
+
+    Short polling only (?since=<seq>): the single sync gunicorn worker
+    must never hold a streaming connection open. Auth/admin gating is
+    handled by this blueprint's before_request hook.
+    """
+    from core.log_buffer import get_since
+    try:
+        since = int(request.args.get("since", 0))
+    except (TypeError, ValueError):
+        since = 0
+    lines, last_seq = get_since(since)
+    return jsonify({"lines": lines, "last_seq": last_seq})
 
 
 @bp_admin.route("/admin/scraper-status")

@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-ui="v2">
+<head>
+<meta charset="UTF-8"/>
+<script>(function(){var t=localStorage.getItem('zenith-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Zenith — BSJP Algo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/tokens.css">
+<link rel="stylesheet" href="/static/sidebar.css">
+<link rel="stylesheet" href="/static/components.css">
+<link rel="stylesheet" href="/static/ui-v2.css">
+<style>
+html, body { height: 100%; }
+body { display: flex; flex-direction: column; }
+
+/* ── Page head (mockup) ── */
+.v2 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 22px; }
+.v2 .page-head h1 { font-size: clamp(26px,3.2vw,34px); line-height: 1.05; letter-spacing: -.025em; margin: 0; font-weight: 700; color: var(--text); }
+.v2 .page-head .subline { margin-top: 7px; }
+.v2 .page-head-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.v2 .head-period { display: flex; align-items: center; gap: 9px; }
+.v2 .pf-period-label { font-family: var(--mono); font-size: 9.5px; font-weight: 600; letter-spacing: .13em; text-transform: uppercase; color: var(--text-3); }
+.v2 .date-line { font-family: var(--mono); font-size: 11px; color: var(--text-3); letter-spacing: .02em; }
+
+/* ── Warning banner (mockup) ── */
+.v2 .banner { display: flex; gap: 11px; align-items: flex-start; border-radius: var(--radius-sm); padding: 13px 16px; margin-bottom: 16px; font-size: 13.5px; line-height: 1.55; }
+.v2 .banner.warn { background: var(--amber-dim); border: 1px solid var(--amber-border); color: var(--warn-text); }
+.v2 .banner.warn b { color: var(--amber-text); }
+.v2 .banner .bicon { flex: 0 0 auto; font-size: 15px; line-height: 1.4; color: var(--amber-text); }
+.v2 .banner .bicon svg { width: 18px; height: 18px; display: block; }
+
+/* ── Segments / KPI strip (mockup) ── */
+.v2 .segment-body { padding: 16px 18px; }
+.v2 .segment-body.flush { padding: 0; }
+.v2 .segment .kpi-strip { display: grid; gap: 1px; background: var(--border); margin-bottom: 0; }
+.v2 .segment .kpi { border: none; background: var(--surface); border-radius: 0; }
+.v2 .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 13px 14px 12px; overflow: hidden; position: relative; }
+.v2 .kpi-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.v2 .kpi-label { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .15em; text-transform: uppercase; color: var(--text-3); display: flex; align-items: center; gap: 7px; }
+.v2 .kpi-label i { width: 6px; height: 6px; border-radius: 2px; background: var(--text-3); display: block; }
+.v2 .kpi-label.green i { background: var(--green); }
+.v2 .kpi-label.rose i { background: var(--rose); }
+.v2 .kpi-label.amber i { background: var(--amber); }
+.v2 .kpi-value { font-family: var(--mono); font-size: clamp(23px,2.3vw,29px); font-weight: 700; letter-spacing: -.03em; line-height: 1; white-space: nowrap; color: var(--text); }
+.v2 .kpi-value .unit { font-size: 13px; color: var(--text-3); font-weight: 500; letter-spacing: 0; }
+.v2 .kpi-value.pos { color: var(--green-bright); }
+.v2 .kpi-value.neg { color: var(--neg-text); }
+.v2 .kpi-sub { font-size: 12.5px; color: var(--text-2); margin-top: 7px; line-height: 1.45; }
+.v2 .kpi.sm { padding: 13px 14px 12px; }
+.v2 .kpi.sm .kpi-value { font-size: 20px; }
+.v2 .kpi.sm .kpi-head { margin-bottom: 7px; }
+.v2 .kpi.sm .kpi-sub { font-size: 11.5px; margin-top: 5px; }
+
+/* ── Signals table (mockup .tbl) ── */
+.v2 .table-wrap { overflow-x: auto; }
+.v2 table.tbl { width: 100%; border-collapse: collapse; min-width: 640px; }
+.v2 table.tbl th { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .13em; text-transform: uppercase; color: var(--text-3); text-align: left; padding: 8px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.v2 table.tbl td { font-family: var(--mono); font-size: 13px; padding: 7px 14px; border-bottom: 1px solid var(--hairline); white-space: nowrap; color: var(--text-2); }
+.v2 table.tbl tbody tr { transition: background .12s; }
+.v2 table.tbl tbody tr:hover { background: var(--hover); }
+.v2 table.tbl tbody tr:last-child td { border-bottom: none; }
+.v2 table.tbl .num { text-align: right; }
+.v2 table.tbl th.num { text-align: right; }
+.v2 table.tbl td.tk { font-weight: 700; color: var(--text); font-size: 13.5px; }
+.v2 table.tbl td.pos { color: var(--green-bright); }
+.v2 table.tbl td.neg { color: var(--neg-text); }
+.v2 table.tbl td.tbl-empty { text-align: center; color: var(--text-3); font-family: var(--sans); font-size: 13px; padding: 48px 14px; }
+.v2 .score-cell { display: flex; align-items: center; gap: 9px; justify-content: flex-end; }
+.v2 .score-track { width: 56px; height: 5px; border-radius: 99px; background: var(--track); overflow: hidden; flex: 0 0 56px; }
+.v2 .score-track i { display: block; height: 100%; background: var(--green); border-radius: 99px; }
+.v2 .ca-badge { display: inline-block; padding: 1px 6px; border-radius: 99px; background: var(--accent-dim); color: var(--accent-text); font-size: 9px; font-weight: 700; vertical-align: middle; }
+.v2 .iep-entry { font-family: var(--sans); font-size: 10.5px; font-weight: 700; color: var(--accent-text); letter-spacing: .02em; white-space: nowrap; }
+
+/* ── BSJP one-screen layout (mockup, desktop) ── */
+@media (min-width: 761px) {
+  body.sidebar-layout { overflow: hidden; }
+  .v2 .main-content { overflow: hidden; }
+  .v2 .v2-content { overflow: hidden; display: flex; flex-direction: column; }
+  .v2 .page-head { margin-bottom: 14px; flex: 0 0 auto; position: relative; z-index: 30; }
+  .v2 .page-head-right { flex-direction: row; align-items: center; gap: 14px; }
+  .v2 .tape { flex: 0 0 auto; }
+  .v2 .banner { flex: 0 0 auto; }
+  .v2 .segment { flex: 0 0 auto; }
+  .v2 .segment.sig-grow { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin-top: 14px; }
+  .v2 .sig-grow .segment-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  .v2 .sig-grow .table-wrap { flex: 1 1 auto; min-height: 0; overflow-x: auto; overflow-y: auto; }
+  .v2 .sig-grow table.tbl { height: 100%; }
+  .v2 .sig-grow table.tbl td { vertical-align: middle; }
+}
+@media (min-width: 761px) and (max-height: 820px) {
+  .v2 .page-head { margin-bottom: 10px; }
+  .v2 .banner { padding: 9px 14px; margin-bottom: 10px; }
+  .v2 .segment-head { min-height: 34px; }
+  .v2 .kpi.sm { padding: 10px 12px 9px; }
+  .v2 .segment.sig-grow { margin-top: 10px; }
+  .v2 .sig-grow table.tbl th { padding-top: 5px; padding-bottom: 5px; }
+  .v2 .sig-grow table.tbl td { padding-top: 3px; padding-bottom: 3px; font-size: 12.5px; }
+}
+@media (max-width: 680px) {
+  .v2 table.tbl .hidesm { display: none; }
+  .v2 .page-head-right { align-items: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .v2 table.tbl tbody tr { transition: none; }
+}
+</style>
+</head>
+<body class="sidebar-layout v2" data-page="bsjp">
+{% include 'sidebar.html' %}
+
+<div class="main-content">
+  <div class="mobile-bar">
+    <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/>
+      </svg>
+    </button>
+    <span class="mobile-bar-title">BSJP Algo</span>
+  </div>
+
+  <a href="#main" class="skip-link">Skip to main content</a>
+  <main id="main" class="v2-content">
+
+    <!-- Header -->
+    <header class="page-head">
+      <div>
+        <h1>BSJP Algo</h1>
+        <p class="subline">Breakout · Sideways · Trending · Pullback Scanner</p>
+      </div>
+      <div class="page-head-right">
+        <div class="head-period"><span class="pf-period-label">Period</span><div id="datePicker"></div></div>
+        <div class="date-line" id="bsjp-date-line">—</div>
+      </div>
+    </header>
+
+    <!-- Tape · Top 10 gainers / losers from the selected date's /api/flow -->
+    <div class="tape" aria-label="Top gainers and losers tape"><div class="tape-track" id="tapeTrack"></div></div>
+
+    <!-- Market Weakening banner · production rule: IHSG down more than 1.5% today -->
+    <div class="banner warn" id="marketWarn" role="note" style="display:none">
+      <span class="bicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5 2.8 19.5h18.4L12 3.5Z"/><path d="M12 10v4.2"/><circle cx="12" cy="17" r=".6" fill="currentColor" stroke="none"/></svg></span>
+      <div><b>Market Weakening</b> — IHSG is down more than 1.5% today. Consider skipping BSJP signals.</div>
+    </div>
+
+    <!-- Segment · Snapshot -->
+    <section class="segment" aria-label="Snapshot">
+      <div class="segment-head"><span class="segment-label"><i></i>Snapshot</span></div>
+      <div class="segment-body flush">
+        <section class="kpi-strip" aria-label="BSJP key metrics" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
+          <article class="kpi sm"><div class="kpi-head"><div class="kpi-label rose"><i></i> IHSG</div><div class="delta" id="ihsgDelta">—</div></div><div class="kpi-value" id="ihsgValue">—</div><div class="kpi-sub">Indeks acuan seluruh saham tercatat di BEI.</div></article>
+          <article class="kpi sm"><div class="kpi-head"><div class="kpi-label green"><i></i> SM total</div></div><div class="kpi-value pos" id="bsjp-kpi-sm">—</div><div class="kpi-sub" id="bsjp-kpi-sm-sub">— stocks</div></article>
+          <article class="kpi sm"><div class="kpi-head"><div class="kpi-label rose"><i></i> BM total</div></div><div class="kpi-value neg" id="bsjp-kpi-bm">—</div><div class="kpi-sub" id="bsjp-kpi-bm-sub">— stocks</div></article>
+          <article class="kpi sm"><div class="kpi-head"><div class="kpi-label green"><i></i> Clean Money</div></div><div class="kpi-value" id="bsjp-kpi-cm">—</div><div class="kpi-sub">SM − BM</div></article>
+          <article class="kpi sm"><div class="kpi-head"><div class="kpi-label amber"><i></i> Signals</div></div><div class="kpi-value" id="bsjp-kpi-signals">—</div><div class="kpi-sub" id="bsjp-kpi-signals-sub">—</div></article>
+        </section>
+      </div>
+    </section>
+
+    <!-- Segment · Signals -->
+    <section class="segment sig-grow" aria-label="Signals">
+      <div class="segment-head"><span class="segment-label"><i></i>Signals</span></div>
+      <div class="segment-body flush">
+        <div class="table-wrap"><table class="tbl" aria-label="BSJP overnight signals">
+          <thead><tr>
+            <th scope="col">#</th><th scope="col">Ticker</th><th scope="col">Setup</th><th scope="col" class="num">Entry</th><th scope="col" class="num">TP1</th>
+            <th scope="col" class="num hidesm">TP2</th><th scope="col" class="num">SL</th><th scope="col" class="num">Score</th><th scope="col" class="num hidesm">Last</th>
+          </tr></thead>
+          <tbody id="bsjp-body">
+            <tr><td colspan="9" class="tbl-empty">Loading...</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="/static/focus-trap.js" defer></script>
+<script src="/static/animations.js" defer></script>
+<script src="/static/shortcuts.js" defer></script>
+<script src="/static/zenith-utils.js"></script>
+<script>
+(function () {
+  var S = { rows: [], date: '' };
+  var today = window.todayLocal();
+  S.date = today;
+
+  /* ── Formatters — production fmtMoney thresholds, id-ID decimals ── */
+  function fmtMoneyParts(v) {
+    var a = Math.abs(v);
+    if (a >= 1000) return { n: (a / 1000).toFixed(2).replace('.', ','), u: 'B' };
+    if (a >= 1)    return { n: a.toFixed(1).replace('.', ','), u: 'M' };
+    return { n: (a * 1000).toFixed(0), u: 'K' };
+  }
+  /* mode: 'plus' (SM: signed +), 'neg' (BM: shown as outflow −), 'auto' (CM: sign follows value) */
+  function setMoney(id, v, mode) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (v === null || v === undefined) { el.textContent = '—'; return; }
+    var f = fmtMoneyParts(v);
+    var sign;
+    if (mode === 'neg')       sign = v > 0 ? '−' : (v < 0 ? '+' : '');
+    else if (mode === 'plus') sign = v < 0 ? '−' : '+';
+    else                      sign = v > 0 ? '+' : (v < 0 ? '−' : '');
+    el.innerHTML = '';
+    el.appendChild(document.createTextNode(sign + f.n + ' '));
+    var u = document.createElement('span');
+    u.className = 'unit';
+    u.textContent = f.u;
+    el.appendChild(u);
+    if (mode === 'auto') el.className = 'kpi-value ' + (v >= 0 ? 'pos' : 'neg');
+  }
+  function fmtPct1(v) {
+    if (v === null || v === undefined) return '—';
+    var s = v > 0 ? '+' : (v < 0 ? '−' : '');
+    return s + Math.abs(v).toFixed(1).replace('.', ',') + '%';
+  }
+  function fmtDateLong(iso) {
+    var d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  }
+  function fmtDateShort(iso) {
+    var d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  /* ── Date picker — single date, production wiring ── */
+  var sdp = new window.StockbitDatePicker('datePicker', {
+    from: today, to: today,
+    onChange: function (from) { S.date = from; load(); }
+  });
+  fetch('/api/last-date').then(function (r) { return r.json(); }).then(function (d) {
+    if (d.date) { var iso = window.DD_MM_YYYYtoISO(d.date.replace(/\//g, '-')); S.date = iso; sdp.setDates(iso, iso); load(); }
+  }).catch(function () {});
+
+  /* ── IHSG KPI + Market Weakening banner ──
+     Production rule: banner when IHSG is down more than 1.5% today.
+     The legacy template read totals.ihsg_chg_pct from /api/flow, a field the
+     backend does not emit; the same −1.5% rule is applied here to the live
+     IHSG change from /api/ihsg (today's value, as in the legacy check). */
+  fetch('/api/ihsg').then(function (r) { return r.json(); }).then(function (d) {
+    if (d.price) {
+      document.getElementById('ihsgValue').textContent =
+        Number(d.price).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    if (d.gain_pct !== null && d.gain_pct !== undefined) {
+      var g = d.gain_pct;
+      var chip = document.getElementById('ihsgDelta');
+      chip.textContent = (g >= 0 ? '▲ ' : '▼ ') + Math.abs(g).toFixed(2).replace('.', ',') + '%';
+      chip.className = 'delta ' + (g >= 0 ? 'up' : 'down');
+      if (g < -1.5) document.getElementById('marketWarn').style.display = 'flex';
+    }
+  }).catch(function () {});
+
+  /* ── Tape — Top 10 gainers / losers from the loaded flow rows ── */
+  function tapeSetHTML(gainers, losers) {
+    var h = '<span class="tape-item tape-group g"><span class="tl">TOP GAINERS</span></span>';
+    gainers.forEach(function (t) { h += '<span class="tape-item"><span class="tl">' + t.ticker + '</span><span class="pos">' + fmtPct1(t.gain_pct) + '</span></span>'; });
+    h += '<span class="tape-item tape-group l"><span class="tl">TOP LOSERS</span></span>';
+    losers.forEach(function (t) { h += '<span class="tape-item"><span class="tl">' + t.ticker + '</span><span class="neg">' + fmtPct1(t.gain_pct) + '</span></span>'; });
+    return h;
+  }
+  function buildTape(tickers) {
+    var withGain = (tickers || []).filter(function (t) { return t.gain_pct !== null && t.gain_pct !== undefined; });
+    if (!withGain.length) return;
+    var gainers = withGain.slice().sort(function (a, b) { return b.gain_pct - a.gain_pct; }).slice(0, 10);
+    var losers = withGain.slice().sort(function (a, b) { return a.gain_pct - b.gain_pct; }).slice(0, 10);
+    var setHTML = tapeSetHTML(gainers, losers);
+    document.getElementById('tapeTrack').innerHTML =
+      '<div class="tape-set">' + setHTML + '</div><div class="tape-set dup" aria-hidden="true">' + setHTML + '</div>';
+  }
+
+  /* ── Signals table ── */
+  function render(rows) {
+    var body = document.getElementById('bsjp-body');
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="9" class="tbl-empty">No signals for this date.</td></tr>';
+      return;
+    }
+    var last = fmtDateShort(S.date);
+    body.innerHTML = rows.map(function (r, i) {
+      var entry = r.entry || null;
+      var score = r.score !== null && r.score !== undefined ? Math.round(r.score * 100) : null;
+      return '<tr>' +
+        '<td>' + (i + 1) + '</td>' +
+        '<td class="tk">' + r.ticker + (r.is_ca_suspected ? ' <span class="ca-badge" title="Suspected corporate action — auto-detected, pending admin review">CA?</span>' : '') + '</td>' +
+        '<td>' + window.setupBadgeHTML(r.setup) + '</td>' +
+        '<td class="num">' + (entry
+          ? window.fmtPrice(entry)
+          /* Signal fired at 15:48, before the pre-closing auction set the day's
+             close — there is no real entry price to show yet, so show the order
+             instruction instead. Filled in by the 16:45 pricing pass. */
+          : '<span class="iep-entry" title="Signal published before pre-closing. Place the HAKA order at IEP +2 ticks; actual entry, TP and SL appear after 16:45.">IEP +2 tick</span>') + '</td>' +
+        '<td class="num pos">' + (r.tp1 ? window.fmtPrice(r.tp1) : '—') + '</td>' +
+        '<td class="num pos hidesm">' + (r.tp2 ? window.fmtPrice(r.tp2) : '—') + '</td>' +
+        '<td class="num neg">' + (r.sl ? window.fmtPrice(r.sl) : '—') + '</td>' +
+        '<td class="num">' + (score !== null
+          ? '<span class="score-cell">' + score + '<span class="score-track"><i style="width:' + Math.min(100, Math.max(0, score)) + '%"></i></span></span>'
+          : '—') + '</td>' +
+        '<td class="num hidesm">' + last + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  /* ── Main load — same endpoints & semantics as the current BSJP page ── */
+  function load() {
+    var body = document.getElementById('bsjp-body');
+    body.innerHTML = '<tr><td colspan="9" class="tbl-empty">Loading...</td></tr>';
+    document.getElementById('bsjp-date-line').textContent = fmtDateLong(S.date);
+    var dmy = window.isoToDD_MM_YYYY(S.date);
+    Promise.all([
+      fetch('/api/bsjp/signals?date=' + encodeURIComponent(dmy)).then(function (r) { return r.json(); }),
+      fetch('/api/flow?date_from=' + encodeURIComponent(dmy) + '&date_to=' + encodeURIComponent(dmy)).then(function (r) { return r.json(); })
+    ]).then(function (results) {
+      var d = results[0], fd = results[1];
+      var signals = d.signals || [];
+      S.rows = signals;
+      render(signals);
+      /* KPI Signals always equals the number of rendered signal rows. */
+      document.getElementById('bsjp-kpi-signals').textContent = signals.length;
+      document.getElementById('bsjp-kpi-signals-sub').textContent = fmtDateShort(S.date);
+      var t = fd.totals || {};
+      setMoney('bsjp-kpi-sm', t.sm || 0, 'plus');
+      document.getElementById('bsjp-kpi-sm-sub').textContent =
+        (fd.tickers || []).filter(function (r) { return (r.sm_val || 0) > 0; }).length + ' stocks';
+      setMoney('bsjp-kpi-bm', t.bm || 0, 'neg');
+      document.getElementById('bsjp-kpi-bm-sub').textContent =
+        (fd.tickers || []).filter(function (r) { return (r.bm_val || 0) > 0; }).length + ' stocks';
+      setMoney('bsjp-kpi-cm', t.net_cm || 0, 'auto');
+      buildTape(fd.tickers || []);
+    }).catch(function () {
+      body.innerHTML = '<tr><td colspan="9" class="tbl-empty">Failed to load data.</td></tr>';
+    });
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>
