@@ -64,7 +64,7 @@ def hub():
 def chart_page():
     if not is_authed():
         return redirect("/")
-    return render_template("chart.html")
+    return render_template("chart_v2.html" if ZENITH_UI_V2 else "chart.html")
 
 
 @bp_main.route("/wyckoff")

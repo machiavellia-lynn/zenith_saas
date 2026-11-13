@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-ui="v2">
+<head>
+<meta charset="UTF-8"/>
+<script>(function(){var t=localStorage.getItem('zenith-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Zenith — Chart</title>
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/tokens.css">
+<link rel="stylesheet" href="/static/sidebar.css">
+<link rel="stylesheet" href="/static/components.css">
+<link rel="stylesheet" href="/static/ui-v2.css">
+<style>
+html, body { height: 100%; }
+body { display: flex; flex-direction: column; }
+
+/* ── Page head (mockup) ── */
+.v2 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 22px; }
+.v2 .page-head h1 { font-size: clamp(26px,3.2vw,34px); line-height: 1.05; letter-spacing: -.025em; margin: 0; font-weight: 700; color: var(--text); }
+.v2 .page-head .subline { margin-top: 7px; }
+.v2 .page-head-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.v2 .head-period { display: flex; align-items: center; gap: 9px; }
+.v2 .pf-period-label { font-family: var(--mono); font-size: 9.5px; font-weight: 600; letter-spacing: .13em; text-transform: uppercase; color: var(--text-3); }
+.v2 .date-line { font-family: var(--mono); font-size: 11px; color: var(--text-3); letter-spacing: .02em; }
+@media (max-width: 680px) {
+  .v2 .page-head-right { align-items: flex-start; }
+}
+
+/* ── Segments (mockup) ── */
+.v2 .segment-body { padding: 16px 18px; }
+.v2 .segment-body.flush { padding: 0; }
+.v2 .segment.seg-pop { overflow: visible; }
+
+/* ── Chart controls (mockup) ── */
+.v2 .chart-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.v2 .search-box { display: flex; align-items: center; gap: 9px; flex: 1; min-width: 210px; max-width: 340px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0 13px; min-height: 40px; transition: border-color .15s; position: relative; }
+.v2 .search-box:focus-within { border-color: var(--focus); outline: 2px solid var(--focus); outline-offset: 0; }
+.v2 .search-box svg { width: 16px; height: 16px; color: var(--text-3); flex: 0 0 16px; }
+.v2 .search-box input { background: none; border: none; outline: none; color: var(--text); font-family: var(--mono); font-size: 13.5px; width: 100%; letter-spacing: .04em; text-transform: uppercase; }
+.v2 .search-box input::placeholder { color: var(--text-3); text-transform: none; }
+.v2 .ticker-suggest { display: none; position: absolute; top: calc(100% + 6px); left: 0; min-width: 260px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); z-index: 60; overflow: hidden; }
+.v2 .ticker-suggest-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; cursor: pointer; font-size: 12.5px; }
+.v2 .ticker-suggest-item:hover, .v2 .ticker-suggest-item.active { background: var(--hover); }
+.v2 .ticker-suggest-item + .ticker-suggest-item { border-top: 1px solid var(--hairline); }
+.v2 .seg { display: inline-flex; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 2px; }
+.v2 .seg button { border: none; background: transparent; color: var(--text-2); font-family: var(--mono); font-size: 12px; font-weight: 600; padding: 6px 13px; border-radius: 7px; cursor: pointer; min-height: 32px; transition: all .15s; }
+.v2 .seg button:hover { color: var(--text); }
+.v2 .seg button.on { background: var(--green-dim); color: var(--green-bright); box-shadow: inset 0 0 0 1px var(--green-border); }
+.v2 .toggle-pill { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; cursor: pointer; font-family: var(--mono); font-size: 11.5px; font-weight: 700; letter-spacing: .05em; color: var(--text-3); background: var(--surface); border: 1px solid var(--border); border-radius: 99px; padding: 6px 12px; transition: all .15s; }
+.v2 .toggle-pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); display: block; }
+.v2 .toggle-pill.on { color: var(--text); border-color: var(--border-strong); }
+.v2 .toggle-pill.on i { background: var(--green); }
+.v2 .toggle-pill.on.amber i { background: var(--amber); }
+.v2 .toggle-pill.on.rose i { background: var(--rose-2); }
+
+/* ── OHLC bar (mockup) ── */
+.v2 .ohlc-bar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; font-family: var(--mono); font-size: 12.5px; color: var(--text-2); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 15px; margin-bottom: 12px; }
+.v2 .ohlc-bar b { color: var(--text); }
+.v2 .ohlc-bar .pos { color: var(--green-bright); }
+.v2 .ohlc-bar .neg { color: var(--neg-text); }
+.v2 .ohlc-bar .sep { width: 1px; height: 16px; background: var(--border); }
+.v2 .ohlc-bar .lbl { color: var(--text-3); font-size: 10px; letter-spacing: .12em; }
+
+/* ── Chart area + legend overlay + loading ── */
+.v2 .chart-card { padding: 16px 16px 10px; }
+.v2 .chart-wrap { position: relative; }
+.v2 #chartArea { min-height: 200px; }
+.v2 .chart-legend { position: absolute; top: 2px; right: 64px; z-index: 5; pointer-events: none; text-align: right; font-family: var(--mono); }
+.v2 .chart-legend .cl-title { font-size: 12px; font-weight: 700; color: var(--green-bright); }
+.v2 .chart-legend .cl-row { font-size: 10px; margin-top: 2px; display: flex; gap: 12px; justify-content: flex-end; }
+.v2 .chart-legend .cl-ma { color: var(--amber); }
+.v2 .chart-legend .cl-ov.cm { color: var(--accent); }
+.v2 .chart-legend .cl-ov.sm { color: var(--green); }
+.v2 .chart-legend .cl-ov.bm { color: var(--rose); }
+.v2 .chart-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--surface); z-index: 10; opacity: 0; pointer-events: none; transition: opacity .2s; }
+.v2 .chart-loading.visible { opacity: 1; pointer-events: all; }
+.v2 .spinner-sm { width: 24px; height: 24px; border: 2px solid var(--border-strong); border-top-color: var(--accent); border-radius: 99px; animation: v2ChartSpin .7s linear infinite; }
+@keyframes v2ChartSpin { to { transform: rotate(360deg); } }
+.v2 .chart-error { padding: 60px 20px; text-align: center; color: var(--text-3); font-size: 13px; }
+
+/* ── Flow Book (mockup) ── */
+.v2 .flowbook { padding: 14px 15px 13px; }
+.v2 .fb-group-label { font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: .13em; margin: 9px 0 6px; display: flex; justify-content: space-between; }
+.v2 .fb-group-label.dist { color: var(--rose); }
+.v2 .fb-group-label.acc { color: var(--green-bright); }
+.v2 .fb-row { display: grid; grid-template-columns: 46px 1fr 52px; gap: 9px; align-items: center; padding: 2.5px 0; }
+.v2 .fb-tk { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--text); }
+.v2 .fb-bar { position: relative; height: 13px; background: var(--track); border-radius: 3px; overflow: hidden; }
+.v2 .fb-bar i { position: absolute; top: 0; bottom: 0; display: block; }
+.v2 .fb-row.dist .fb-bar i { right: 0; background: var(--rose); opacity: .5; }
+.v2 .fb-row.acc .fb-bar i { left: 0; background: var(--green); opacity: .5; }
+.v2 .fb-val { font-family: var(--mono); font-size: 12px; font-weight: 700; text-align: right; }
+.v2 .fb-row.dist .fb-val { color: var(--neg-text); }
+.v2 .fb-row.acc .fb-val { color: var(--green-bright); }
+.v2 .fb-spread { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid var(--border-strong); border-bottom: 1px solid var(--border-strong); padding: 8px 2px; margin: 10px 0 2px; font-family: var(--mono); font-size: 11.5px; }
+.v2 .fb-spread .fs-k { font-size: 9.5px; letter-spacing: .13em; color: var(--text-3); font-weight: 700; }
+.v2 .fb-spread b { color: var(--green-bright); }
+.v2 .fb-spread b.neg { color: var(--neg-text); }
+.v2 .fb-empty { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); padding: 4px 0 6px; }
+
+/* ── Metric rail (mockup) ── */
+.v2 .metric-card { padding: 16px 17px 14px; }
+.v2 .metric-card h4 { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: var(--text-3); margin: 0 0 12px; }
+.v2 .metric-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--hairline); }
+.v2 .metric-row:last-child { border-bottom: none; }
+.v2 .metric-row .mr-name { font-size: 13px; color: var(--text-2); }
+.v2 .metric-row .mr-val { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--text); }
+.v2 .metric-row .mr-val.pos { color: var(--green-bright); }
+.v2 .metric-row .mr-val.neg { color: var(--neg-text); }
+.v2 .phase-big { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.v2 .phase { display: inline-flex; font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: .07em; padding: 4px 9px; border-radius: 6px; white-space: nowrap; }
+.v2 .phase.sos { color: var(--on-green); background: var(--green); }
+html[data-theme="light"] .v2 .phase.sos { color: #ffffff; }
+.v2 .phase.spring { color: var(--amber-text); background: var(--amber-dim); border: 1px solid var(--amber-border); }
+.v2 .phase.accum { color: var(--green-bright); background: var(--green-dim); border: 1px solid var(--green-border); }
+.v2 .phase.distri { color: var(--neg-text); background: var(--rose-dim); border: 1px solid var(--rose-border); }
+.v2 .phase.markup { color: var(--text); background: var(--hover); border: 1px solid var(--border-strong); }
+.v2 .act { font-family: var(--sans); font-size: 13px; font-weight: 600; }
+.v2 .act.buy { color: var(--green-bright); }
+.v2 .act.watch { color: var(--amber-text); }
+.v2 .act.avoid { color: var(--neg-text); }
+
+/* ── Indicator sub-panels (mockup) ── */
+.v2 .sub-panel { border-top: 1px solid var(--border); margin-top: 8px; padding: 9px 2px 4px; display: flex; align-items: center; gap: 14px; }
+.v2 .sub-panel .sp-label { font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: .1em; color: var(--text-3); white-space: nowrap; }
+.v2 .sub-panel .sp-val { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--text); }
+.v2 .sub-panel .sp-val.pos { color: var(--green-bright); }
+.v2 .sub-panel .sp-val.neg { color: var(--neg-text); }
+.v2 .sub-panel svg { flex: 1; height: 34px; min-width: 0; }
+.v2 svg [stroke="#e3b356"] { stroke: var(--amber); }
+.v2 svg [stroke="#9adbb6"] { stroke: var(--green-bright); }
+.v2 svg [stroke="rgba(255,255,255,.12)"] { stroke: var(--border-strong); }
+
+/* ── Cards + tables (mockup) ── */
+.v2 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.v2 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 18px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.v2 .card-title { font-size: 14.5px; font-weight: 700; display: flex; align-items: center; gap: 9px; color: var(--text); }
+.v2 .card-title .badge { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .08em; padding: 3px 7px; border-radius: 6px; }
+.v2 .badge.acc { color: var(--green-bright); background: var(--green-dim); border: 1px solid var(--green-border); }
+.v2 .badge.dist { color: var(--neg-text); background: var(--rose-dim); border: 1px solid var(--rose-border); }
+.v2 .card-note { font-family: var(--mono); font-size: 11px; color: var(--text-3); }
+.v2 .table-wrap { overflow-x: auto; }
+.v2 .tx-grid .table-wrap { max-height: 212px; overflow-y: auto; }
+.v2 table.tbl { width: 100%; border-collapse: collapse; min-width: 640px; }
+.v2 table.tbl th { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .13em; text-transform: uppercase; color: var(--text-3); text-align: left; padding: 8px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.v2 table.tbl td { font-family: var(--mono); font-size: 13px; padding: 7px 14px; border-bottom: 1px solid var(--hairline); white-space: nowrap; color: var(--text-2); }
+.v2 table.tbl tbody tr { transition: background .12s; }
+.v2 table.tbl tbody tr:hover { background: var(--hover); }
+.v2 table.tbl tbody tr:last-child td { border-bottom: none; }
+.v2 table.tbl .num { text-align: right; }
+.v2 table.tbl th.num { text-align: right; }
+.v2 table.tbl td.pos { color: var(--green-bright); }
+.v2 table.tbl td.neg { color: var(--neg-text); }
+.v2 table.tbl td.tbl-empty { text-align: center; color: var(--text-3); font-family: var(--sans); font-size: 12.5px; padding: 20px 14px; }
+.v2 table.tbl.compact { min-width: 0; }
+.v2 table.tbl.compact td, .v2 table.tbl.compact th { padding: 6px 12px; font-size: 12.5px; }
+.v2 .tx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+
+/* ── Chart-page segment inners (mockup #page-chart overrides) ── */
+.v2[data-page="chart"] .segment .chart-controls { padding: 14px 18px 0; margin-bottom: 12px; }
+.v2[data-page="chart"] .segment .ohlc-bar { margin: 0 18px 12px; }
+.v2[data-page="chart"] .segment .card { border: none; border-radius: 0; background: transparent; }
+.v2[data-page="chart"] .fb-grid { display: grid; grid-template-columns: 1fr 292px; align-items: start; }
+.v2[data-page="chart"] .fb-rail { border-left: 1px solid var(--border); padding: 8px 18px 12px; }
+.v2[data-page="chart"] .fb-rail .metric-card { padding: 12px 0 10px; border-top: 1px solid var(--hairline); }
+.v2[data-page="chart"] .fb-rail .metric-card:first-child { border-top: none; padding-top: 6px; }
+.v2[data-page="chart"] .ind-grid { display: grid; grid-template-columns: 1fr 1fr; }
+.v2[data-page="chart"] .ind-grid .sub-panel { border-top: none; margin-top: 0; padding: 12px 16px; }
+.v2[data-page="chart"] .ind-grid .sub-panel + .sub-panel { border-left: 1px solid var(--border); }
+.v2[data-page="chart"] .segment .tx-grid { gap: 0; margin-top: 0; }
+.v2[data-page="chart"] .segment .tx-grid .card + .card { border-left: 1px solid var(--border); }
+@media (max-width: 1180px) {
+  .v2[data-page="chart"] .fb-grid { grid-template-columns: 1fr; }
+  .v2[data-page="chart"] .fb-rail { border-left: none; border-top: 1px solid var(--border); }
+}
+@media (max-width: 900px) {
+  .v2[data-page="chart"] .segment .tx-grid .card + .card { border-left: none; border-top: 1px solid var(--border); }
+  .v2[data-page="chart"] .ind-grid { grid-template-columns: 1fr; }
+  .v2[data-page="chart"] .ind-grid .sub-panel + .sub-panel { border-left: none; border-top: 1px solid var(--border); }
+  .v2 .tx-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Footer (mockup, wyckoff_v2 pattern) ── */
+.v2 footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; color: var(--text-3); font-size: 12px; }
+.v2 footer .ver { font-family: var(--mono); font-size: 11.5px; font-weight: 600; letter-spacing: .06em; color: var(--text-2); }
+.v2 footer .ver i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--green); margin-right: 7px; }
+.v2 footer .foot-meta { font-family: var(--mono); font-size: 11px; color: var(--text-3); display: flex; gap: 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .v2 table.tbl tbody tr { transition: none; }
+  .v2 .chart-loading { transition: none; }
+  .v2 .spinner-sm { animation: none; }
+}
+</style>
+</head>
+<body class="sidebar-layout v2" data-page="chart">
+{% include 'sidebar_v2.html' %}
+
+<div class="main-content">
+  <div class="mobile-bar">
+    <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/>
+      </svg>
+    </button>
+    <span class="mobile-bar-title">Chart</span>
+  </div>
+
+  <a href="#main" class="skip-link">Skip to main content</a>
+  <main id="main" class="v2-content">
+
+    <!-- Header -->
+    <header class="page-head">
+      <div>
+        <h1>Chart</h1>
+        <p class="subline">Candlestick · OHLCV · Volume</p>
+      </div>
+      <div class="page-head-right">
+        <div class="head-period"><span class="pf-period-label">TX Date</span><div id="chartDatePicker"></div></div>
+        <div class="date-line" id="chart-date-line">—</div>
+      </div>
+    </header>
+
+    <!-- Tape · Top 10 gainers / losers from the selected range's /api/flow -->
+    <div class="tape" aria-label="Top gainers and losers tape"><div class="tape-track" id="tapeTrack"></div></div>
+
+    <!-- Segment · Price Chart -->
+    <section class="segment seg-pop" aria-label="Price Chart">
+      <div class="segment-head"><span class="segment-label"><i></i>Price Chart</span></div>
+      <div class="segment-body flush">
+        <div class="chart-controls">
+          <div class="search-box" id="tickerWrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg>
+            <input type="text" value="BBRI" id="chartTickerInput" aria-label="Ticker search" spellcheck="false" placeholder="Search ticker or company name..." maxlength="40" autocomplete="off"/>
+            <div class="ticker-suggest" id="tickerSuggest"></div>
+          </div>
+          <div class="seg" role="group" aria-label="Timeframe" id="tfSeg">
+            <button type="button" data-tf="5m">5M</button>
+            <button type="button" data-tf="15m">15M</button>
+            <button type="button" data-tf="30m">30M</button>
+            <button type="button" data-tf="1h">1H</button>
+            <button type="button" data-tf="1d" class="on">1D</button>
+          </div>
+          <span style="flex:1"></span>
+          <button type="button" class="toggle-pill on" data-overlay="cm" aria-pressed="true">CM <i></i></button>
+          <button type="button" class="toggle-pill on" data-overlay="sm" aria-pressed="true">SM <i></i></button>
+          <button type="button" class="toggle-pill on rose" data-overlay="bm" aria-pressed="true">BM <i></i></button>
+        </div>
+
+        <div class="ohlc-bar" aria-label="OHLC readout">
+          <span><span class="lbl">O</span> <b id="ohO">—</b></span>
+          <span><span class="lbl">H</span> <b class="pos" id="ohH">—</b></span>
+          <span><span class="lbl">L</span> <b class="neg" id="ohL">—</b></span>
+          <span><span class="lbl">C</span> <b id="ohC">—</b> <span class="pos" id="ohChg"></span></span>
+          <span class="sep"></span>
+          <span><span class="lbl">VOL</span> <b id="ohVol">—</b></span>
+          <span class="sep"></span>
+          <span><span class="lbl">RSI 14</span> <b id="ohRsi">—</b></span>
+          <span><span class="lbl">MACD 12, 26, 9</span> <b id="ohMacd">—</b></span>
+        </div>
+
+        <div class="card chart-card">
+          <div class="chart-wrap">
+            <div id="chartArea"></div>
+            <div class="chart-legend" id="chartLegend" hidden>
+              <div class="cl-title" id="chartTitle">—</div>
+              <div class="cl-row"><span class="cl-ma">— MA5</span><span class="cl-ov cm" id="lgCM">CM</span><span class="cl-ov sm" id="lgSM">SM</span><span class="cl-ov bm" id="lgBM">BM</span></div>
+            </div>
+            <div class="chart-loading" id="chartLoading">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+                <div class="spinner-sm"></div>
+                <div style="font-size:13px;color:var(--text-3)" id="chartLoadMsg">Loading...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Segment · Flow Book -->
+    <section class="segment" aria-label="Flow Book">
+      <div class="segment-head"><span class="segment-label"><i></i>Flow Book</span><span class="segment-meta"><span>SM vs BM</span><span id="fbMeta">IDX board · Rp M</span></span></div>
+      <div class="segment-body flush">
+        <div class="fb-grid">
+          <div class="flowbook">
+            <div class="fb-group-label dist"><span>DISTRIBUTION</span><span>BM</span></div>
+            <div id="fbDist"><div class="fb-empty">Memuat…</div></div>
+            <div class="fb-spread"><span class="fs-k">CLEAN MONEY</span><b id="fbClean">—</b></div>
+            <div class="fb-group-label acc"><span>ACCUMULATION</span><span>SM</span></div>
+            <div id="fbAcc"><div class="fb-empty">Memuat…</div></div>
+          </div>
+          <div class="fb-rail">
+            <div class="metric-card">
+              <h4>Flow Avg</h4>
+              <div class="metric-row"><span class="mr-name" title="Volume-weighted average price from Smart Money transactions">Avg SM</span><span class="mr-val pos" id="fbAvgSM">—</span></div>
+              <div class="metric-row"><span class="mr-name" title="Volume-weighted average price from Bad Money transactions">Avg BM</span><span class="mr-val neg" id="fbAvgBM">—</span></div>
+            </div>
+            <div class="metric-card">
+              <h4>Metric</h4>
+              <div class="metric-row"><span class="mr-name" title="Average True Range — daily volatility as % of price">ATR%</span><span class="mr-val" id="fbATR">—</span></div>
+              <div class="metric-row"><span class="mr-name" title="Smart Rotation Index — strength of smart money rotation, higher means more dominant">SRI</span><span class="mr-val" id="fbSRI">—</span></div>
+              <div class="metric-row"><span class="mr-name" title="Money Efficiency Score — efficiency of clean money relative to total transactions">MES</span><span class="mr-val" id="fbMES">—</span></div>
+              <div class="metric-row"><span class="mr-name" title="Risk/Reward Potential Ratio — estimated potential return vs risk">RPR</span><span class="mr-val" id="fbRPR">—</span></div>
+              <div class="metric-row"><span class="mr-name" title="Volume Excess Gap — difference in SM vs BM transaction dominance">Vx Gap</span><span class="mr-val" id="fbVXG">—</span></div>
+            </div>
+            <div class="metric-card">
+              <h4>Phase · Action</h4>
+              <div class="phase-big" id="fbPhase">—</div>
+              <p id="fbNarrative" style="margin:0;font-size:12.5px;color:var(--text-2);line-height:1.6" hidden></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Segment · Indicators -->
+    <section class="segment" aria-label="Indicators">
+      <div class="segment-head"><span class="segment-label"><i></i>Indicators</span></div>
+      <div class="segment-body flush">
+        <div class="ind-grid">
+          <div class="sub-panel">
+            <span class="sp-label">RSI 14</span><span class="sp-val" id="rsiVal">—</span>
+            <svg id="rsiSpark" viewBox="0 0 300 34" preserveAspectRatio="none" aria-hidden="true"></svg>
+          </div>
+          <div class="sub-panel">
+            <span class="sp-label">MACD 12, 26, 9</span><span class="sp-val" id="macdVal">—</span>
+            <svg id="macdSpark" viewBox="0 0 300 34" preserveAspectRatio="none" aria-hidden="true"></svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Segment · Transactions -->
+    <section class="segment" aria-label="Transactions">
+      <div class="segment-head"><span class="segment-label"><i></i>Transactions</span></div>
+      <div class="segment-body flush">
+        <div class="tx-grid">
+          <div class="card">
+            <div class="card-head"><div class="card-title">Smart Money <span class="badge acc">SM</span></div><div class="card-note" id="smNote"></div></div>
+            <div class="table-wrap"><table class="tbl compact">
+              <thead><tr><th scope="col">Time</th><th scope="col" class="num">Price</th><th scope="col" class="num">Gain</th><th scope="col" class="num">Val</th><th scope="col" class="num">VolX</th></tr></thead>
+              <tbody id="smBody"><tr><td colspan="5" class="tbl-empty">—</td></tr></tbody>
+            </table></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div class="card-title">Bad Money <span class="badge dist">BM</span></div><div class="card-note" id="bmNote"></div></div>
+            <div class="table-wrap"><table class="tbl compact">
+              <thead><tr><th scope="col">Time</th><th scope="col" class="num">Price</th><th scope="col" class="num">Gain</th><th scope="col" class="num">Val</th><th scope="col" class="num">VolX</th></tr></thead>
+              <tbody id="bmBody"><tr><td colspan="5" class="tbl-empty">—</td></tr></tbody>
+            </table></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div><span class="ver"><i></i>zenith v2.0</span> &nbsp;·&nbsp; Chart</div>
+      <div class="foot-meta"><span id="footName">—</span><span id="liveTs"></span></div>
+    </footer>
+
+  </main>
+</div>
+
+<script src="/static/focus-trap.js" defer></script>
+<script src="/static/animations.js" defer></script>
+<script src="/static/shortcuts.js" defer></script>
+<script src="/static/zenith-utils.js"></script>
+<script>
+(function(){
+'use strict';
+
+/* ── State (production chart.html) ── */
+var TF_LIST = ['5m','15m','30m','1h','1d'];
+var currentTicker = 'BBRI', currentTF = '1d';
+var INIT_CANDLES = 150;
+var prevCloseMap = {};
+var chart = null, candleSeries = null, volumeSeries = null;
+var ma5Series = null;
+var ovlSeriesCM = null, ovlSeriesSM = null, ovlSeriesBM = null;
+var ovlHoverVals = { cm:null, sm:null, bm:null };
+var ovlShow = { cm:true, sm:true, bm:true };   /* mockup: all three pills start on */
+var lastCandles = [];
+var indData = { rsi:[], macdLine:[], macdHist:[] };
+var timeToIdx = {};
+var txDateFrom = '', txDateTo = '', lastDateISO = '';
+
+/* ── Formatters (id-ID: decimal comma) ── */
+function fmtInt(v){ return v==null ? '—' : Math.round(v).toLocaleString('id-ID'); }
+function fmtPct2(v){
+  if (v==null) return '—';
+  return (v>0?'+':(v<0?'−':'')) + Math.abs(v).toFixed(2).replace('.',',') + '%';
+}
+function fmtPct1(v){
+  if (v==null || v===undefined) return '—';
+  return (v>0?'+':(v<0?'−':'')) + Math.abs(v).toFixed(1).replace('.',',') + '%';
+}
+function fmtValM(v){   /* hub_v2 fmtVal + M unit — values are Rp M */
+  if (v===null || v===undefined) return '—';
+  return (v>0?'+':(v<0?'−':'')) + Math.abs(v).toLocaleString('id-ID',{maximumFractionDigits:1}) + ' M';
+}
+function fmtVol(v){
+  if (v==null) return '—';
+  if (v>=1e9) return (v/1e9).toFixed(1).replace('.',',')+'B';
+  if (v>=1e6) return (v/1e6).toFixed(1).replace('.',',')+'M';
+  if (v>=1e3) return (v/1e3).toFixed(1).replace('.',',')+'K';
+  return String(v);
+}
+function fmtTxVal(v){   /* production fmtM thresholds, mockup "12.4 M" spacing, id-ID comma */
+  if (v==null) return '—';
+  var a = Math.abs(v), s = v<0?'−':'';
+  if (a>=1000) return s+(a/1000).toFixed(1).replace('.',',')+' B';
+  if (a>=1)    return s+a.toFixed(1).replace('.',',')+' M';
+  if (a>0)     return s+Math.round(a*1000)+' K';
+  return '0';
+}
+function fmt1(v){ return v==null ? '—' : v.toFixed(1).replace('.',','); }
+function fmt2(v){ return v==null ? '—' : v.toFixed(2).replace('.',','); }
+function isoToAPI(iso){ if(!iso) return ''; var p=iso.split('-'); return p[2]+'-'+p[1]+'-'+p[0]; }
+function fmtDateLong(iso){
+  if (!iso) return '—';
+  return new Date(iso+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+}
+function fmtDateShort(iso){
+  if (!iso) return '—';
+  return new Date(iso+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+}
+function rangeLabel(){
+  if (!txDateFrom) return '—';
+  if (txDateFrom === txDateTo) return fmtDateLong(txDateFrom);
+  return fmtDateShort(txDateFrom) + ' – ' + fmtDateShort(txDateTo);
+}
+function rangeLabelShort(){
+  if (!txDateFrom) return '';
+  if (txDateFrom === txDateTo) return txDateFrom === lastDateISO ? 'today' : fmtDateShort(txDateFrom);
+  return fmtDateShort(txDateFrom) + ' – ' + fmtDateShort(txDateTo);
+}
+function touchTs(){
+  document.getElementById('liveTs').textContent =
+    'Update ' + new Date().toLocaleTimeString('en-GB',{hour12:false});
+}
+
+/* ── Theme colours — read off the CSS tokens (production idiom), extended
+      with the mockup's overlay colours: CM = --accent (mockup #c8633a),
+      SM = --green (mockup #7fc39c), BM = --rose (mockup #d98a98),
+      MA5 = --amber (mockup #e3b356). ── */
+function isDark(){ return document.documentElement.getAttribute('data-theme') === 'dark'; }
+function themeCols(){
+  var cs = getComputedStyle(document.documentElement);
+  function v(name, fb){ return cs.getPropertyValue(name).trim() || fb; }
+  return {
+    bg:     v('--bg',       isDark() ? '#0b0d10' : '#fafaf7'),
+    text:   v('--text-3',   isDark() ? '#828a94' : '#6e6c63'),
+    border: v('--border',   isDark() ? 'rgba(255,255,255,.08)' : '#e7e5dc'),
+    grid:   isDark() ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)',
+    up:     v('--green',    isDark() ? '#7fc39c' : '#3a6b58'),
+    down:   v('--rose',     isDark() ? '#d98a98' : '#c03838'),
+    ma:     v('--amber',    isDark() ? '#e3b356' : '#c87d3a'),
+    cm:     v('--accent',   isDark() ? '#e08a6a' : '#c8633a'),
+    sm:     v('--green',    isDark() ? '#7fc39c' : '#3a6b58'),
+    bm:     v('--rose',     isDark() ? '#d98a98' : '#c03838'),
+  };
+}
+function withAlpha(col, hexAlpha){
+  return /^#[0-9a-f]{6}$/i.test(col) ? col + hexAlpha : col;
+}
+
+/* ── sizeChart — production method (measure what sits above the chart) ── */
+function sizeChart(){
+  var area = document.getElementById('chartArea');
+  if (!area) return;
+  var head = document.querySelector('.page-head');
+  var tape = document.querySelector('.tape');
+  var segHead = document.querySelector('.segment .segment-head');
+  var controls = document.querySelector('.chart-controls');
+  var ohlc = document.querySelector('.ohlc-bar');
+  if (!head || !controls || !ohlc) return;
+  var above = 24 /* main top padding */
+    + head.offsetHeight + 22
+    + (tape ? tape.offsetHeight + 14 : 0)
+    + (segHead ? segHead.offsetHeight : 0)
+    + 14 + controls.offsetHeight + 12
+    + ohlc.offsetHeight + 12
+    + 16 + 10;
+  area.style.height = Math.max(300, window.innerHeight - above - 24) + 'px';
+}
+
+/* ── Chart cleanup / init (production) ── */
+function cleanupChart(){
+  if (chart) { chart.remove(); chart = null; }
+  candleSeries = null; volumeSeries = null; ma5Series = null;
+  ovlSeriesCM = null; ovlSeriesSM = null; ovlSeriesBM = null;
+}
+
+function initChart(){
+  var container = document.getElementById('chartArea');
+  var c = themeCols();
+  chart = LightweightCharts.createChart(container, {
+    autoSize: true,
+    layout: { background: { type:'solid', color: c.bg }, textColor: c.text, fontFamily: "'Geist Mono', monospace" },
+    grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    rightPriceScale: { borderColor: c.border },
+    timeScale: {
+      borderColor: c.border,
+      timeVisible: true,
+      rightOffset: 8,
+      tickMarkFormatter: function(t){
+        var d = new Date(t*1000);
+        var h = String(d.getUTCHours()).padStart(2,'0'), m = String(d.getUTCMinutes()).padStart(2,'0');
+        var day = d.getUTCDate(), mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()];
+        return currentTF==='1d' ? (day+' '+mon) : (h+':'+m);
+      }
+    },
+    localization: { priceFormatter: function(p){ return Math.round(p).toLocaleString('id-ID'); } },
+    handleScroll: true, handleScale: true,
+  });
+
+  candleSeries = chart.addCandlestickSeries({
+    upColor: c.up, downColor: c.down,
+    borderUpColor: c.up, borderDownColor: c.down,
+    wickUpColor: c.up, wickDownColor: c.down,
+  });
+  volumeSeries = chart.addHistogramSeries({ color: c.border, priceFormat:{type:'volume'}, priceScaleId:'volume', scaleMargins:{top:0.85,bottom:0} });
+  chart.priceScale('volume').applyOptions({ scaleMargins:{top:0.85,bottom:0} });
+  chart.priceScale('overlay').applyOptions({ scaleMargins:{top:0.05,bottom:0.2}, visible:false, autoScale:true });
+  ovlSeriesCM = chart.addLineSeries({ color:c.cm, lineWidth:2, lineStyle:2, priceScaleId:'overlay', lastValueVisible:false, priceLineVisible:false });
+  ovlSeriesSM = chart.addLineSeries({ color:c.sm, lineWidth:1.5, priceScaleId:'overlay', lastValueVisible:false, priceLineVisible:false });
+  ovlSeriesBM = chart.addLineSeries({ color:c.bm, lineWidth:1.5, priceScaleId:'overlay', lastValueVisible:false, priceLineVisible:false });
+  ovlSeriesCM.applyOptions({visible:ovlShow.cm});
+  ovlSeriesSM.applyOptions({visible:ovlShow.sm});
+  ovlSeriesBM.applyOptions({visible:ovlShow.bm});
+  ma5Series = chart.addLineSeries({ color:c.ma, lineWidth:2, lastValueVisible:false, priceLineVisible:false, crosshairMarkerVisible:false });
+
+  chart.subscribeCrosshairMove(function(param){
+    if (!param.time || !param.seriesData) { resetReadouts(); return; }
+    var bar = param.seriesData.get(candleSeries);
+    if (!bar) { resetReadouts(); return; }
+    setOHLC(bar, param.time);
+    var vb = param.seriesData.get(volumeSeries);
+    if (vb) document.getElementById('ohVol').textContent = fmtVol(vb.value);
+    var cmPt = ovlSeriesCM ? param.seriesData.get(ovlSeriesCM) : null;
+    var smPt = ovlSeriesSM ? param.seriesData.get(ovlSeriesSM) : null;
+    var bmPt = ovlSeriesBM ? param.seriesData.get(ovlSeriesBM) : null;
+    ovlHoverVals = { cm: cmPt ? cmPt.value : null, sm: smPt ? smPt.value : null, bm: bmPt ? bmPt.value : null };
+    updateLegend();
+    setIndReadouts(timeToIdx[param.time]);
+    setTitle(bar, param.time);
+  });
+}
+
+/* ── Readouts ── */
+function setOHLC(bar, time){
+  document.getElementById('ohO').textContent = fmtInt(bar.open);
+  document.getElementById('ohH').textContent = fmtInt(bar.high);
+  document.getElementById('ohL').textContent = fmtInt(bar.low);
+  document.getElementById('ohC').textContent = fmtInt(bar.close);
+  var prev = prevCloseMap[time];
+  var chgEl = document.getElementById('ohChg');
+  if (prev != null && prev !== 0) {
+    var pct = (bar.close - prev) / prev * 100;
+    chgEl.textContent = fmtPct2(pct);
+    chgEl.className = pct >= 0 ? 'pos' : 'neg';
+  } else { chgEl.textContent = ''; }
+}
+function setTitle(bar, time){
+  var prev = prevCloseMap[time];
+  var s = currentTicker + ' · ' + fmtInt(bar.close);
+  if (prev != null && prev !== 0) s += ' · ' + fmtPct2((bar.close - prev) / prev * 100);
+  document.getElementById('chartTitle').textContent = s;
+}
+function updateLegend(){
+  function fmtOvl(v){ return v==null ? '' : ' ' + (v>=0?'+':'') + Math.round(v).toLocaleString('id-ID'); }
+  var cm = document.getElementById('lgCM'), sm = document.getElementById('lgSM'), bm = document.getElementById('lgBM');
+  cm.style.display = ovlShow.cm ? '' : 'none';
+  sm.style.display = ovlShow.sm ? '' : 'none';
+  bm.style.display = ovlShow.bm ? '' : 'none';
+  cm.textContent = 'CM' + fmtOvl(ovlHoverVals.cm);
+  sm.textContent = 'SM' + fmtOvl(ovlHoverVals.sm);
+  bm.textContent = 'BM' + fmtOvl(ovlHoverVals.bm);
+}
+function resetReadouts(){
+  ovlHoverVals = { cm:null, sm:null, bm:null };
+  updateLegend();
+  if (!lastCandles.length) return;
+  var last = lastCandles[lastCandles.length-1];
+  setOHLC(last, last.time);
+  document.getElementById('ohVol').textContent = fmtVol(last.volume || 0);
+  setTitle(last, last.time);
+  setIndReadouts(lastCandles.length - 1);
+}
+
+/* ── Indicator math (production chart.html, verbatim) ── */
+function calcSMAArray(closes, period){
+  var result = new Array(closes.length).fill(null);
+  if (closes.length < period) return result;
+  var sum = 0;
+  for (var i = 0; i < period; i++) sum += closes[i];
+  result[period-1] = sum / period;
+  for (var i = period; i < closes.length; i++) {
+    sum += closes[i] - closes[i-period];
+    result[i] = sum / period;
+  }
+  return result;
+}
+function calcRSIArray(closes, period){
+  var result = new Array(closes.length).fill(null);
+  if (closes.length < period+1) return result;
+  var gains = 0, losses = 0;
+  for (var i = 1; i <= period; i++) {
+    var d = closes[i]-closes[i-1];
+    if (d>0) gains+=d; else losses-=d;
+  }
+  var avgG = gains/period, avgL = losses/period;
+  result[period] = avgL===0 ? 100 : 100 - 100/(1+avgG/avgL);
+  for (var i = period+1; i < closes.length; i++) {
+    var d = closes[i]-closes[i-1];
+    avgG = (avgG*(period-1) + (d>0?d:0)) / period;
+    avgL = (avgL*(period-1) + (d<0?-d:0)) / period;
+    result[i] = avgL===0 ? 100 : 100 - 100/(1+avgG/avgL);
+  }
+  return result;
+}
+function calcEMAArray(vals, period){
+  var result = new Array(vals.length).fill(null);
+  var k = 2/(period+1);
+  var startIdx = -1;
+  for (var i = 0; i < vals.length; i++) { if (vals[i]!==null){ startIdx=i; break; } }
+  if (startIdx < 0 || vals.length-startIdx < period) return result;
+  var sum = 0;
+  for (var i = startIdx; i < startIdx+period; i++) sum += vals[i];
+  result[startIdx+period-1] = sum/period;
+  for (var i = startIdx+period; i < vals.length; i++) {
+    result[i] = vals[i]*k + result[i-1]*(1-k);
+  }
+  return result;
+}
+function calcMACDArrays(closes, fast, slow, signal){
+  var fastEMA = calcEMAArray(closes, fast);
+  var slowEMA = calcEMAArray(closes, slow);
+  var macdLine = closes.map(function(_,i){ return (fastEMA[i]!==null&&slowEMA[i]!==null) ? fastEMA[i]-slowEMA[i] : null; });
+  var sigLine = calcEMAArray(macdLine, signal);
+  var hist = closes.map(function(_,i){ return (macdLine[i]!==null&&sigLine[i]!==null) ? macdLine[i]-sigLine[i] : null; });
+  return { macd:macdLine, signal:sigLine, histogram:hist };
+}
+
+/* ── Sparklines — SVG built with createElementNS only ── */
+var SVGNS = 'http://www.w3.org/2000/svg';
+function clearSVG(svg){ while (svg.firstChild) svg.removeChild(svg.firstChild); }
+function svgEl(name, attrs){
+  var el = document.createElementNS(SVGNS, name);
+  for (var k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+function seriesPath(arr, W, H, min, max){
+  var span = (max - min) || 1, n = arr.length, d = '', pen = false;
+  for (var i = 0; i < n; i++) {
+    if (arr[i] === null || arr[i] === undefined) { pen = false; continue; }
+    var x = (i / (n - 1)) * W, y = H - ((arr[i] - min) / span) * H;
+    d += (pen ? ' L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1);
+    pen = true;
+  }
+  return d;
+}
+function drawRSISpark(){
+  var svg = document.getElementById('rsiSpark');
+  clearSVG(svg);
+  var arr = indData.rsi, W = 300, H = 34;
+  [70, 30].forEach(function(v){
+    var y = H - (v / 100) * H;
+    svg.appendChild(svgEl('line', { x1:0, y1:y.toFixed(1), x2:W, y2:y.toFixed(1), stroke:'rgba(255,255,255,.12)', 'stroke-dasharray':'3 4' }));
+  });
+  var d = seriesPath(arr, W, H, 0, 100);
+  if (d) svg.appendChild(svgEl('path', { d:d, fill:'none', stroke:'#e3b356', 'stroke-width':'1.8', 'stroke-linejoin':'round' }));
+}
+function drawMACDSpark(){
+  var svg = document.getElementById('macdSpark');
+  clearSVG(svg);
+  var hist = indData.macdHist, line = indData.macdLine, W = 300, H = 34, n = hist.length;
+  if (!n) return;
+  var min = Infinity, max = -Infinity;
+  hist.concat(line).forEach(function(v){ if (v!==null && v!==undefined) { if (v<min) min=v; if (v>max) max=v; } });
+  if (!isFinite(min)) return;
+  var pad = (max - min) * 0.08 || 1; min -= pad; max += pad;
+  var span = max - min;
+  function Y(v){ return H - ((v - min) / span) * H; }
+  var bw = Math.max(2, (W / n) * 0.66);
+  for (var i = 0; i < n; i++) {
+    if (hist[i] === null || hist[i] === undefined) continue;
+    var x = (i / n) * W, y0 = Y(0), y1 = Y(hist[i]);
+    svg.appendChild(svgEl('rect', { x:x.toFixed(1), y:Math.min(y0,y1).toFixed(1), width:bw.toFixed(1), height:Math.max(1, Math.abs(y0-y1)).toFixed(1), fill:'rgba(127,195,156,.5)' }));
+  }
+  var d = seriesPath(line, W, H, min, max);
+  if (d) svg.appendChild(svgEl('path', { d:d, fill:'none', stroke:'#9adbb6', 'stroke-width':'1.6', 'stroke-linejoin':'round' }));
+}
+
+/* ── Indicator readouts (last bar, or the crosshair bar) ── */
+function lastNonNull(arr){
+  for (var i = arr.length - 1; i >= 0; i--) if (arr[i] !== null && arr[i] !== undefined) return arr[i];
+  return null;
+}
+function setIndReadouts(idx){
+  var rsi = (idx != null && indData.rsi[idx] != null) ? indData.rsi[idx] : lastNonNull(indData.rsi);
+  var mac = (idx != null && indData.macdLine[idx] != null) ? indData.macdLine[idx] : lastNonNull(indData.macdLine);
+  document.getElementById('ohRsi').textContent = rsi==null ? '—' : fmt1(rsi);
+  document.getElementById('rsiVal').textContent = rsi==null ? '—' : fmt1(rsi);
+  var macTxt = mac==null ? '—' : (mac>0?'+':'') + fmt1(mac);
+  var ohM = document.getElementById('ohMacd');
+  ohM.textContent = macTxt;
+  ohM.className = mac==null ? '' : (mac >= 0 ? 'pos' : 'neg');
+  var mv = document.getElementById('macdVal');
+  mv.textContent = macTxt;
+  mv.className = 'sp-val' + (mac==null ? '' : (mac >= 0 ? ' pos' : ' neg'));
+}
+function computeIndicators(candles){
+  var closes = candles.map(function(c){ return c.close; });
+  var times = candles.map(function(c){ return c.time; });
+  timeToIdx = {};
+  candles.forEach(function(c, i){ timeToIdx[c.time] = i; });
+  var ma5 = calcSMAArray(closes, 5);
+  if (ma5Series) {
+    var d = [];
+    ma5.forEach(function(v, i){ if (v !== null) d.push({ time: times[i], value: v }); });
+    ma5Series.setData(d);
+  }
+  indData.rsi = calcRSIArray(closes, 14);
+  var macd = calcMACDArrays(closes, 12, 26, 9);
+  indData.macdLine = macd.macd; indData.macdHist = macd.histogram;
+  drawRSISpark();
+  drawMACDSpark();
+  setIndReadouts(candles.length - 1);
+}
+
+/* ── Loading state (production) ── */
+function showLoad(msg){
+  var el = document.getElementById('chartLoading');
+  el.classList.add('visible');
+  document.getElementById('chartLoadMsg').textContent = msg || 'Loading...';
+}
+function hideLoad(){ document.getElementById('chartLoading').classList.remove('visible'); }
+
+/* ── Load OHLCV (production doLoad) ── */
+async function doLoad(){
+  var input = document.getElementById('chartTickerInput').value.trim().toUpperCase();
+  if (!input) return;
+  currentTicker = input;
+  if (!window.LightweightCharts) {
+    document.getElementById('chartArea').innerHTML = '<div class="chart-error">Chart library failed to load.</div>';
+    return;
+  }
+  showLoad('Fetching data...');
+  cleanupChart();
+  initChart();
+  sizeChart();
+  try {
+    var res = await fetch('/api/ohlcv?ticker=' + encodeURIComponent(currentTicker) + '&tf=' + encodeURIComponent(currentTF));
+    var data = await res.json();
+    if (data.error) throw new Error(data.error);
+    var candles = data.candles || [];
+    if (!candles.length) throw new Error('No data');
+    lastCandles = candles;
+    prevCloseMap = {};
+    for (var i = 0; i < candles.length; i++) prevCloseMap[candles[i].time] = i > 0 ? candles[i-1].close : candles[i].open;
+    candleSeries.setData(candles);
+    var volCols = themeCols();
+    var volUp = withAlpha(volCols.up, '40'), volDn = withAlpha(volCols.down, '40');
+    volumeSeries.setData(candles.map(function(cd){ return { time: cd.time, value: cd.volume || 0, color: (cd.close >= cd.open) ? volUp : volDn }; }));
+    computeIndicators(candles);
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){
+      if (!chart) return;
+      if (candles.length > INIT_CANDLES) chart.timeScale().setVisibleLogicalRange({ from: candles.length - INIT_CANDLES, to: candles.length - 1 });
+      else chart.timeScale().fitContent();
+    }); });
+    hideLoad();
+    document.getElementById('chartLegend').hidden = false;
+    resetReadouts();
+    document.getElementById('footName').textContent = data.name || currentTicker;
+    touchTs();
+    loadOverlayData(candles);
+    loadTransactions();
+    loadFlowData();
+  } catch (err) { hideLoad(); }
+}
+
+/* ── Overlay (production algorithm: snap to candle times, carry cumulative) ── */
+async function loadOverlayData(candles){
+  if (!chart || !ovlSeriesCM) return;
+  try {
+    var res = await fetch('/api/overlay?ticker=' + encodeURIComponent(currentTicker) + '&tf=' + encodeURIComponent(currentTF));
+    var data = await res.json();
+    if (data.error || !data.points || !data.points.length) { ovlSeriesCM.setData([]); ovlSeriesSM.setData([]); ovlSeriesBM.setData([]); return; }
+    var candleArr = candles.map(function(c){ return c.time; }).sort(function(a, b){ return a - b; });
+    var candleTimes = {};
+    candleArr.forEach(function(t){ candleTimes[t] = true; });
+    function snapTime(t){
+      if (candleTimes[t]) return t;
+      var best = null, bestDist = Infinity;
+      for (var j = 0; j < candleArr.length; j++) { var dist = Math.abs(candleArr[j] - t); if (dist < bestDist) { bestDist = dist; best = candleArr[j]; } if (candleArr[j] > t) break; }
+      return best;
+    }
+    var ovlMap = {};
+    data.points.forEach(function(p){ var st = snapTime(p.time); if (st && !ovlMap[st]) ovlMap[st] = p; });
+    var cmD = [], smD = [], bmD = [];
+    var lastCum = { cm: 0, sm: 0, bm: 0 };
+    candleArr.forEach(function(ct){
+      var ovl = ovlMap[ct];
+      if (ovl) lastCum = { cm: ovl.cum_cm, sm: ovl.cum_sm, bm: ovl.cum_bm };
+      cmD.push({ time: ct, value: lastCum.cm });
+      smD.push({ time: ct, value: lastCum.sm });
+      bmD.push({ time: ct, value: lastCum.bm });
+    });
+    ovlSeriesCM.setData(cmD); ovlSeriesSM.setData(smD); ovlSeriesBM.setData(bmD);
+  } catch (_) { /* overlay is best-effort, as in production */ }
+}
+
+/* ── Flow data: tape + Flow Book + rail — one /api/flow fetch per TX range ── */
+function tapeSetHTML(gainers, losers){
+  var h = '<span class="tape-item tape-group g"><span class="tl">TOP GAINERS</span></span>';
+  gainers.forEach(function(t){ h += '<span class="tape-item"><span class="tl">' + t.ticker + '</span><span class="pos">' + fmtPct1(t.gain_pct) + '</span></span>'; });
+  h += '<span class="tape-item tape-group l"><span class="tl">TOP LOSERS</span></span>';
+  losers.forEach(function(t){ h += '<span class="tape-item"><span class="tl">' + t.ticker + '</span><span class="neg">' + fmtPct1(t.gain_pct) + '</span></span>'; });
+  return h;
+}
+function fbRow(r, type, val, maxAbs){
+  var pct = Math.min(100, Math.abs(val) / (maxAbs || 1) * 100);
+  return '<div class="fb-row ' + type + '"><span class="fb-tk">' + r.ticker + '</span>' +
+    '<span class="fb-bar"><i style="width:' + pct.toFixed(0) + '%"></i></span>' +
+    '<span class="fb-val">' + Math.abs(val).toLocaleString('id-ID', { maximumFractionDigits: 1 }) + '</span></div>';
+}
+var PHASE_MAP = { SOS: 'sos', SPRING: 'spring', ACCUM: 'accum', DISTRI: 'distri' };
+function phaseBadge(p){
+  if (!p) return '';
+  var cls = PHASE_MAP[(p || '').toUpperCase()];
+  if (cls) return '<span class="phase ' + cls + '">' + (p || '').toUpperCase() + '</span>';
+  return '<span class="phase markup">' + p + '</span>';
+}
+function actionBadge(r){
+  var a = (r.action || '').toUpperCase();
+  if (a === 'BUY') return '<span class="act buy">Buy</span>';
+  if (a === 'SELL') return '<span class="act avoid">Sell</span>';
+  if (a === 'HOLD' && r.watch === 'ARB_SPRING') return '<span class="act watch">Watch</span>';
+  if (a === 'HOLD') return '<span class="act watch">Hold</span>';
+  if (!a) return '';
+  return '<span class="act">' + r.action + '</span>';
+}
+async function loadFlowData(){
+  var ds = isoToAPI(txDateFrom);
+  if (!ds) return;
+  try {
+    var res = await fetch('/api/flow?date_from=' + encodeURIComponent(ds) + '&date_to=' + encodeURIComponent(isoToAPI(txDateTo || txDateFrom)));
+    var d = await res.json();
+    if (!d.tickers) return;
+    var tickers = d.tickers;
+
+    /* Tape — top 10 gainers / losers (hub_v2 builder) */
+    var withGain = tickers.filter(function(t){ return t.gain_pct !== null && t.gain_pct !== undefined; });
+    if (withGain.length) {
+      var gainers = withGain.slice().sort(function(a, b){ return b.gain_pct - a.gain_pct; }).slice(0, 10);
+      var losers = withGain.slice().sort(function(a, b){ return a.gain_pct - b.gain_pct; }).slice(0, 10);
+      var setHTML = tapeSetHTML(gainers, losers);
+      document.getElementById('tapeTrack').innerHTML =
+        '<div class="tape-set">' + setHTML + '</div><div class="tape-set dup" aria-hidden="true">' + setHTML + '</div>';
+    }
+
+    /* Flow Book — board-wide top 5 by BM (distribution) / SM (accumulation) */
+    var dist = tickers.filter(function(t){ return (t.bm_val || 0) > 0; })
+      .sort(function(a, b){ return (b.bm_val || 0) - (a.bm_val || 0); }).slice(0, 5);
+    var acc = tickers.filter(function(t){ return (t.sm_val || 0) > 0; })
+      .sort(function(a, b){ return (b.sm_val || 0) - (a.sm_val || 0); }).slice(0, 5);
+    var maxD = dist.length ? Math.abs(dist[0].bm_val || 0) : 1;
+    var maxA = acc.length ? Math.abs(acc[0].sm_val || 0) : 1;
+    document.getElementById('fbDist').innerHTML = dist.length
+      ? dist.map(function(r){ return fbRow(r, 'dist', r.bm_val || 0, maxD); }).join('')
+      : '<div class="fb-empty">Tidak ada data</div>';
+    document.getElementById('fbAcc').innerHTML = acc.length
+      ? acc.map(function(r){ return fbRow(r, 'acc', r.sm_val || 0, maxA); }).join('')
+      : '<div class="fb-empty">Tidak ada data</div>';
+    var cleanEl = document.getElementById('fbClean');
+    if (d.totals && d.totals.net_cm !== null && d.totals.net_cm !== undefined) {
+      cleanEl.textContent = fmtValM(d.totals.net_cm);
+      cleanEl.className = d.totals.net_cm < 0 ? 'neg' : '';
+    } else { cleanEl.textContent = '—'; cleanEl.className = ''; }
+    document.getElementById('fbMeta').textContent = 'IDX board · ' + rangeLabelShort() + ' · Rp M';
+
+    /* Rail — the selected ticker's /api/flow row (production loadMetrics) */
+    var r = tickers.find(function(t){ return t.ticker === currentTicker; });
+    var fmtPrice = function(v){ return v != null ? v.toLocaleString('id-ID') : '—'; };
+    document.getElementById('fbAvgSM').textContent = r && r.vwap_sm ? fmtPrice(r.vwap_sm) : '—';
+    document.getElementById('fbAvgBM').textContent = r && r.vwap_bm ? fmtPrice(r.vwap_bm) : '—';
+    document.getElementById('fbATR').textContent   = r && r.atr_pct  ? fmt1(r.atr_pct) + '%' : '—';
+    document.getElementById('fbSRI').textContent   = r && r.sri      ? fmt2(r.sri) : '—';
+    document.getElementById('fbMES').textContent   = r && r.mes      ? fmt2(r.mes) : '—';
+    document.getElementById('fbRPR').textContent   = r && r.rpr      ? fmt2(r.rpr) : '—';
+    var vxg = document.getElementById('fbVXG');
+    if (r && r.volx_gap != null) {
+      vxg.textContent = fmt2(r.volx_gap) + '%';
+      vxg.className = 'mr-val' + (r.volx_gap < -1.5 ? ' pos' : (r.volx_gap > 1.5 ? ' neg' : ''));
+    } else { vxg.textContent = '—'; vxg.className = 'mr-val'; }
+    var pbEl = document.getElementById('fbPhase');
+    if (r && (r.phase || r.action)) {
+      pbEl.innerHTML = phaseBadge(r.phase) + actionBadge(r);
+    } else { pbEl.textContent = '—'; }
+    var narEl = document.getElementById('fbNarrative');
+    if (r && r.narrative) { narEl.textContent = r.narrative; narEl.hidden = false; }
+    else { narEl.textContent = ''; narEl.hidden = true; }
+    touchTs();
+  } catch (_) { /* keep placeholders */ }
+}
+
+/* ── Transactions (production) ── */
+async function loadTransactions(){
+  var df = isoToAPI(txDateFrom);
+  if (!df) return;
+  var dt = isoToAPI(txDateTo || txDateFrom);
+  var url = '/api/transactions?ticker=' + encodeURIComponent(currentTicker) + '&date_from=' + encodeURIComponent(df) + '&date_to=' + encodeURIComponent(dt);
+  function buildRows(rows){
+    if (!rows.length) return '<tr><td colspan="5" class="tbl-empty">No data</td></tr>';
+    return rows.map(function(r){
+      var g = r.gain_pct;
+      var gc = g != null ? (g >= 0 ? 'pos' : 'neg') : '';
+      return '<tr>' +
+        '<td>' + (r.time || '—') + '</td>' +
+        '<td class="num">' + (r.price ? Math.round(r.price).toLocaleString('id-ID') : '—') + '</td>' +
+        '<td class="num ' + gc + '">' + (g != null ? fmtPct2(g) : '—') + '</td>' +
+        '<td class="num">' + fmtTxVal(r.mf_num) + '</td>' +
+        '<td class="num">' + (r.vol_x ? r.vol_x.toFixed(1).replace('.', ',') + 'x' : '—') + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+  try {
+    var res = await fetch(url);
+    var data = await res.json();
+    if (data.error) throw new Error(data.error);
+    document.getElementById('smNote').textContent = data.sm_count + ' prints · ' + rangeLabelShort();
+    document.getElementById('bmNote').textContent = data.bm_count + ' prints · ' + rangeLabelShort();
+    document.getElementById('smBody').innerHTML = buildRows(data.sm || []);
+    document.getElementById('bmBody').innerHTML = buildRows(data.bm || []);
+    touchTs();
+  } catch (e) {
+    var err = '<tr><td colspan="5" class="tbl-empty">Failed to load data</td></tr>';
+    document.getElementById('smBody').innerHTML = err;
+    document.getElementById('bmBody').innerHTML = err;
+  }
+}
+function reloadChartData(){ loadFlowData(); loadTransactions(); }
+
+/* ── Timeframe seg — production TF values driving /api/ohlcv?tf= ── */
+document.getElementById('tfSeg').querySelectorAll('button[data-tf]').forEach(function(b){
+  b.addEventListener('click', function(){
+    var tf = b.getAttribute('data-tf');
+    if (tf === currentTF) return;
+    currentTF = tf;
+    document.getElementById('tfSeg').querySelectorAll('button').forEach(function(x){ x.classList.toggle('on', x === b); });
+    doLoad();
+  });
+});
+
+/* ── Overlay pills (mockup toggles → production overlay series) ── */
+document.querySelectorAll('.toggle-pill').forEach(function(p){
+  p.addEventListener('click', function(){
+    var key = p.getAttribute('data-overlay');
+    var on = p.classList.toggle('on');
+    p.setAttribute('aria-pressed', on ? 'true' : 'false');
+    ovlShow[key] = on;
+    var series = key === 'cm' ? ovlSeriesCM : (key === 'sm' ? ovlSeriesSM : ovlSeriesBM);
+    if (series) series.applyOptions({ visible: on });
+    updateLegend();
+  });
+});
+
+/* ── Theme observer (production, extended to MA / overlay colours) ── */
+new MutationObserver(function(mutations){
+  mutations.forEach(function(m){
+    if (m.attributeName !== 'data-theme') return;
+    var c = themeCols();
+    var themeOpts = {
+      layout: { background: { type:'solid', color: c.bg }, textColor: c.text },
+      grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
+      rightPriceScale: { borderColor: c.border },
+      timeScale: { borderColor: c.border },
+    };
+    if (chart) chart.applyOptions(themeOpts);
+    if (candleSeries) candleSeries.applyOptions({
+      upColor: c.up, downColor: c.down,
+      borderUpColor: c.up, borderDownColor: c.down,
+      wickUpColor: c.up, wickDownColor: c.down,
+    });
+    if (ma5Series) ma5Series.applyOptions({ color: c.ma });
+    if (ovlSeriesCM) ovlSeriesCM.applyOptions({ color: c.cm });
+    if (ovlSeriesSM) ovlSeriesSM.applyOptions({ color: c.sm });
+    if (ovlSeriesBM) ovlSeriesBM.applyOptions({ color: c.bm });
+    if (volumeSeries && lastCandles.length) {
+      var vUp = withAlpha(c.up, '40'), vDn = withAlpha(c.down, '40');
+      volumeSeries.setData(lastCandles.map(function(k){
+        return { time: k.time, value: k.volume || 0, color: (k.close >= k.open) ? vUp : vDn };
+      }));
+    }
+  });
+}).observe(document.documentElement, { attributes: true });
+
+/* ── Ticker autocomplete (production) ── */
+var ZENITH_TICKERS = [];
+fetch('/api/ticker-search').then(function(r){ return r.json(); }).then(function(d){ ZENITH_TICKERS = d.tickers || []; }).catch(function(){});
+
+function hideSuggest(){ document.getElementById('tickerSuggest').style.display = 'none'; }
+function renderSuggest(query){
+  var box = document.getElementById('tickerSuggest');
+  var q = query.trim().toUpperCase();
+  var matches = q ? ZENITH_TICKERS.filter(function(t){ return t.ticker.indexOf(q) === 0; }).slice(0, 7) : [];
+  if (!matches.length) { hideSuggest(); return; }
+  box.innerHTML = matches.map(function(t, i){
+    return '<div class="ticker-suggest-item' + (i === 0 ? ' active' : '') + '" data-ticker="' + t.ticker + '">'
+      + '<span style="font-weight:700;color:var(--ink);font-family:var(--font-mono)">' + t.ticker + '</span>'
+      + '<span style="color:var(--muted);text-align:right;flex:1;margin-left:10px;font-family:var(--font-mono)">' + (t.price ? window.fmtPrice(t.price) : '') + '</span>'
+      + '</div>';
+  }).join('');
+  box.style.display = 'block';
+  box.querySelectorAll('.ticker-suggest-item').forEach(function(el){
+    el.addEventListener('mousedown', function(e){
+      e.preventDefault();
+      document.getElementById('chartTickerInput').value = el.dataset.ticker;
+      hideSuggest();
+      doLoad();
+    });
+  });
+}
+var tickerInput = document.getElementById('chartTickerInput');
+tickerInput.addEventListener('keydown', function(e){
+  var box = document.getElementById('tickerSuggest');
+  var items = box.querySelectorAll('.ticker-suggest-item');
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (!items.length) return;
+    e.preventDefault();
+    var cur = box.querySelector('.ticker-suggest-item.active');
+    var idx = cur ? Array.prototype.indexOf.call(items, cur) : -1;
+    idx = e.key === 'ArrowDown' ? Math.min(items.length - 1, idx + 1) : Math.max(0, idx - 1);
+    items.forEach(function(it){ it.classList.remove('active'); });
+    items[idx].classList.add('active');
+    items[idx].scrollIntoView({ block: 'nearest' });
+    return;
+  }
+  if (e.key === 'Enter') {
+    var active = box.querySelector('.ticker-suggest-item.active') || items[0];
+    if (active) tickerInput.value = active.dataset.ticker;
+    hideSuggest();
+    doLoad();
+    return;
+  }
+  if (e.key === 'Escape') hideSuggest();
+});
+tickerInput.addEventListener('input', function(){ renderSuggest(this.value); });
+tickerInput.addEventListener('focus', function(){ if (this.value) renderSuggest(this.value); });
+document.addEventListener('click', function(e){
+  if (!document.getElementById('tickerWrap').contains(e.target)) hideSuggest();
+});
+
+/* ── Init (production order: last-date → picker → ?ticker → load) ── */
+window.addEventListener('resize', sizeChart);
+window.addEventListener('DOMContentLoaded', async function(){
+  var initDate = window.todayLocal();
+  try {
+    var r = await fetch('/api/last-date');
+    var d = await r.json();
+    if (d.date) initDate = window.DD_MM_YYYYtoISO(d.date.replace(/\//g, '-'));
+  } catch (_) {}
+  txDateFrom = initDate; txDateTo = initDate; lastDateISO = initDate;
+  document.getElementById('chart-date-line').textContent = rangeLabel();
+
+  new window.StockbitDatePicker('chartDatePicker', {
+    from: initDate, to: initDate,
+    onChange: function(from, to){
+      txDateFrom = from; txDateTo = to || from;
+      document.getElementById('chart-date-line').textContent = rangeLabel();
+      reloadChartData();
+    }
+  });
+
+  var params = new URLSearchParams(location.search);
+  var pt = params.get('ticker');
+  if (pt) tickerInput.value = pt.toUpperCase();
+  updateLegend();
+  sizeChart();
+  doLoad();
+});
+
+/* Help modal (parity with Hub / Flow v2) */
+window.__showZenithHelp = function(){
+  if (typeof ZenithModal !== 'undefined' && document.getElementById('infoBackdrop')) {
+    ZenithModal.open('infoBackdrop', document.getElementById('sidebarHelpBtn'));
+  }
+};
+})();
+</script>
+</body>
+</html>
