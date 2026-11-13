@@ -13,6 +13,12 @@
    - ≤768px follows production's off-canvas drawer (the v2 pages' own
      mobile-bar calls sidebarOpen()); the mockup's ≤680px top-bar layout
      is not used. The mockup's ≤900px icon rail IS implemented (769–900px).
+   - Manual collapse (Resi, 2026-11-13): the Chart page's sb-mini toggle
+     is ported here — same 70px rail + hover tooltips, sharing the Chart
+     page's localStorage key 'zl-side' so the state follows the user
+     across pages. Active ≥901px (769–900px already auto-rails).
+   - Admin nav item removed (Resi, 2026-11-13): the account block already
+     carries Admin next to Sign out.
 #}
 <aside class="sidebar sb2" id="sidebar">
   <div class="brand">
@@ -21,48 +27,45 @@
       <div class="brand-name">Zenith{% if session.get('mode') == 'syariah' %}<svg class="sb2-syariah" viewBox="0 0 24 24" role="img" aria-label="Syariah mode"><title>Syariah mode — only stocks on OJK's Syariah Securities List</title><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>{% endif %}</div>
       <div class="brand-sub">IDX · Money Flow</div>
     </div>
+    <button type="button" class="sb2-toggle" id="sb2toggle" title="Ciutkan sidebar" aria-label="Ciutkan sidebar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg></button>
   </div>
 
   <div class="nav-label">Workspace</div>
   <nav class="nav" aria-label="Main">
     <span class="nav-glide" aria-hidden="true"></span>
-    <a href="/hub" class="{% if request.path == '/hub' %}active{% endif %}" {% if request.path == '/hub' %}aria-current="page"{% endif %}>
+    <a href="/hub" data-tip="Hub" class="{% if request.path == '/hub' %}active{% endif %}" {% if request.path == '/hub' %}aria-current="page"{% endif %}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>
       <span>Hub</span>
     </a>
-    <a href="/chart" class="{% if request.path == '/chart' %}active{% endif %}" {% if request.path == '/chart' %}aria-current="page"{% endif %}>
+    <a href="/chart" data-tip="Chart" class="{% if request.path == '/chart' %}active{% endif %}" {% if request.path == '/chart' %}aria-current="page"{% endif %}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17.5 8.5 11l3.5 3L18.5 6.5"/><path d="M15 6.5h3.5V10"/><path d="M3 21h18"/></svg>
       <span>Chart</span>
     </a>
-    <a href="/flow" class="{% if request.path == '/flow' %}active{% endif %}" {% if request.path == '/flow' %}aria-current="page"{% endif %}>
+    <a href="/flow" data-tip="Flow" class="{% if request.path == '/flow' %}active{% endif %}" {% if request.path == '/flow' %}aria-current="page"{% endif %}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13"/><path d="m14 3.5 3.5 3.5L14 10.5"/><path d="M20 17H7"/><path d="m10 13.5-3.5 3.5 3.5 3.5"/></svg>
       <span>Flow</span>
     </a>
-    <a href="/wyckoff" class="{% if request.path == '/wyckoff' %}active{% endif %}" {% if request.path == '/wyckoff' %}aria-current="page"{% endif %}>
+    <a href="/wyckoff" data-tip="Wyckoff" class="{% if request.path == '/wyckoff' %}active{% endif %}" {% if request.path == '/wyckoff' %}aria-current="page"{% endif %}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 15c2.5 0 2.5-6 5-6s2.5 9 5 9 2.5-12 5-12 2.5 4 4 4"/></svg>
       <span>Wyckoff</span>
     </a>
-    <a href="/bsjp" class="{% if request.path == '/bsjp' %}active{% endif %}" {% if request.path == '/bsjp' %}aria-current="page"{% endif %}>
+    <a href="/bsjp" data-tip="BSJP" class="{% if request.path == '/bsjp' %}active{% endif %}" {% if request.path == '/bsjp' %}aria-current="page"{% endif %}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2.5 4.5 13.5H11L9.8 21.5 18.5 10H12l1-7.5Z"/></svg>
       <span>BSJP</span>
     </a>
-    <a href="/portfolio" class="{% if request.path == '/portfolio' %}active{% endif %}" {% if request.path == '/portfolio' %}aria-current="page"{% endif %}>
+    <a href="/portfolio" data-tip="Portfolio" class="{% if request.path == '/portfolio' %}active{% endif %}" {% if request.path == '/portfolio' %}aria-current="page"{% endif %}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8.5 7V5.5A1.5 1.5 0 0 1 10 4h4a1.5 1.5 0 0 1 1.5 1.5V7"/><path d="M3 12.5h18"/></svg>
       <span>Portfolio</span>
     </a>
-    <a href="/sector" class="{% if request.path == '/sector' %}active{% endif %}" {% if request.path == '/sector' %}aria-current="page"{% endif %}>
+    <a href="/sector" data-tip="Sector" class="{% if request.path == '/sector' %}active{% endif %}" {% if request.path == '/sector' %}aria-current="page"{% endif %}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg>
       <span>Sector</span>
-    </a>
-    <a href="/admin" class="{% if request.path == '/admin' %}active{% endif %}" {% if request.path == '/admin' %}aria-current="page"{% endif %}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.06-.4.1-.8.1-1.2Z"/></svg>
-      <span>Admin</span>
     </a>
   </nav>
 
   <div class="sidebar-spacer"></div>
 
-  <a href="#" class="sb2-guide" id="sidebarHelpBtn" onclick="if(window.__showZenithHelp){window.__showZenithHelp();} return false;">
+  <a href="#" data-tip="Data guide" class="sb2-guide" id="sidebarHelpBtn" onclick="if(window.__showZenithHelp){window.__showZenithHelp();} return false;">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.3A2.6 2.6 0 0 1 12 7.5c1.4 0 2.5 1 2.5 2.2 0 1.7-2.4 1.9-2.4 3.3"/><circle cx="12" cy="16.8" r=".4" fill="currentColor"/></svg>
     <span>Data guide</span>
   </a>
@@ -149,6 +152,44 @@
   html[data-ui="v2"] .sb2 .account-links a{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12.5px;font-weight:500;color:var(--text-2);padding:8px 6px;border-radius:8px;border:1px solid var(--border);background:var(--hover);min-height:36px;transition:background-color .24s var(--ease-fluid),border-color .24s var(--ease-fluid),color .24s var(--ease-fluid);text-decoration:none}
   html[data-ui="v2"] .sb2 .account-links a:hover{color:var(--text);border-color:var(--border-strong)}
 
+  /* Collapse toggle (ported from the Chart page) */
+  html[data-ui="v2"] .sb2{transition:width .25s ease}
+  html[data-ui="v2"] .main-content{transition:margin-left .25s ease}
+  html[data-ui="v2"] .sb2 .sb2-toggle{margin-left:auto;background:none;border:1px solid var(--border);color:var(--text-2);width:24px;height:24px;border-radius:6px;display:grid;place-items:center;cursor:pointer;flex:none;padding:0;transition:transform .25s ease,color .15s ease,border-color .15s ease}
+  html[data-ui="v2"] .sb2 .sb2-toggle:hover{color:var(--text);border-color:var(--border-strong)}
+
+  /* Manual mini mode — Chart page's body.sb-mini rules, ≥901px only
+     (769–900px auto-rails below, ≤768px is the drawer) */
+  @media (min-width:901px){
+    html[data-ui="v2"] body.sb-mini .sb2{width:70px;padding:16px 10px 14px;align-items:center;overflow:visible}
+    html[data-ui="v2"] body.sb-mini .main-content{margin-left:70px}
+    html[data-ui="v2"] body.sb-mini .sb2 .brand{padding:2px 0 14px;border-bottom:none;margin-bottom:8px;flex-direction:column;gap:9px}
+    html[data-ui="v2"] body.sb-mini .sb2 .sb2-toggle{margin-left:0;transform:rotate(180deg)}
+    html[data-ui="v2"] body.sb-mini .sb2 .brand-text,
+    html[data-ui="v2"] body.sb-mini .sb2 .nav-label,
+    html[data-ui="v2"] body.sb-mini .sb2 .nav a span,
+    html[data-ui="v2"] body.sb-mini .sb2 .sb2-guide span,
+    html[data-ui="v2"] body.sb-mini .sb2 .account-name,
+    html[data-ui="v2"] body.sb-mini .sb2 .account-role,
+    html[data-ui="v2"] body.sb-mini .sb2 .account-links,
+    html[data-ui="v2"] body.sb-mini .sb2 .theme-control .tc-label,
+    html[data-ui="v2"] body.sb-mini .sb2 .theme-seg .ts-label{display:none}
+    html[data-ui="v2"] body.sb-mini .sb2 .nav a,
+    html[data-ui="v2"] body.sb-mini .sb2 .sb2-guide{justify-content:center;padding:10px}
+    html[data-ui="v2"] body.sb-mini .sb2 .sb2-guide{position:relative}
+    html[data-ui="v2"] body.sb-mini .sb2 .theme-control{padding:10px 0 2px;width:100%}
+    html[data-ui="v2"] body.sb-mini .sb2 .theme-seg{flex-direction:column}
+    html[data-ui="v2"] body.sb-mini .sb2 .theme-seg .seg-thumb{display:none}
+    html[data-ui="v2"] body.sb-mini .sb2 .theme-seg button.on{background:var(--accent-dim);box-shadow:inset 0 0 0 1px var(--accent)}
+    html[data-theme="dark"] body.sb-mini .sb2 .theme-seg button.on{background:var(--green-dim);box-shadow:inset 0 0 0 1px var(--green-border)}
+    html[data-ui="v2"] body.sb-mini .sb2 .account{width:100%;display:flex;flex-direction:column;align-items:center}
+    html[data-ui="v2"] body.sb-mini .sb2 .account-row{padding:2px 0 4px}
+    html[data-ui="v2"] body.sb-mini .sb2 .nav a::after,
+    html[data-ui="v2"] body.sb-mini .sb2 .sb2-guide::after{content:attr(data-tip);position:absolute;left:calc(100% + 12px);top:50%;transform:translateY(-50%) translateX(-3px);background:var(--surface);color:var(--text);border:1px solid var(--border);padding:5px 10px;border-radius:7px;font-size:12.5px;font-weight:600;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s ease,transform .15s ease;z-index:80;box-shadow:0 8px 22px rgba(0,0,0,.18)}
+    html[data-ui="v2"] body.sb-mini .sb2 .nav a:hover::after,
+    html[data-ui="v2"] body.sb-mini .sb2 .sb2-guide:hover::after{opacity:1;transform:translateY(-50%) translateX(0)}
+  }
+
   /* Icon rail — mockup ≤900px band, kept clear of production's ≤768 drawer */
   @media (min-width:769px) and (max-width:900px){
     html[data-ui="v2"] .sb2{width:70px;padding:16px 10px 14px;align-items:center}
@@ -233,6 +274,23 @@
   window.addEventListener('resize', positionGlide);
   window.addEventListener('load', positionGlide);
   positionGlide();
+
+  /* ── Manual collapse — ported from the Chart page; shares its
+        localStorage key 'zl-side' so the state follows across pages ── */
+  var sbToggle = document.getElementById('sb2toggle');
+  function applySide() {
+    var mini = false;
+    try { mini = localStorage.getItem('zl-side') === 'mini'; } catch (e) {}
+    document.body.classList.toggle('sb-mini', mini);
+    if (sbToggle) sbToggle.title = mini ? 'Lebarkan sidebar' : 'Ciutkan sidebar';
+    positionGlide();
+  }
+  if (sbToggle) sbToggle.addEventListener('click', function () {
+    try { localStorage.setItem('zl-side', document.body.classList.contains('sb-mini') ? 'full' : 'mini'); } catch (e) {}
+    applySide();
+    window.dispatchEvent(new Event('resize'));
+  });
+  applySide();
 
   /* ── Theme seg (mockup) on the production theme contract:
         data-theme on <html> + localStorage 'zenith-theme' ── */
