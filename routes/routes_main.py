@@ -6,7 +6,7 @@ from datetime import datetime
 from flask import Blueprint, render_template, redirect, request, jsonify
 
 from core.auth import is_authed, login, logout as auth_logout
-from config import WIB
+from config import WIB, ZENITH_UI_V2
 from core.db import fetchone, get_db
 from data.price_fetch import fetch_gain_range
 
@@ -57,7 +57,7 @@ def logout():
 def hub():
     if not is_authed():
         return redirect("/")
-    return render_template("hub.html")
+    return render_template("hub_v2.html" if ZENITH_UI_V2 else "hub.html")
 
 
 @bp_main.route("/chart")
@@ -95,6 +95,15 @@ def last_date():
 def ihsg():
     if not is_authed():
         return jsonify({"error": "unauthorized"}), 401
-    from data.price_cache import get_cached_ihsg
+    from data.price_cache import get_cached_ihsg, get_ihsg_history
     data = get_cached_ihsg()
-    return jsonify({"price": data["price"], "gain_pct": data["gain_pct"]})
+    closes = []
+    try:
+        hist = get_ihsg_history()
+        def _dmy_key(k):
+            d, m, y = k.split("-")
+            return (int(y), int(m), int(d))
+        closes = [hist[k] for k in sorted(hist.keys(), key=_dmy_key)][-30:]
+    except Exception:
+        closes = []
+    return jsonify({"price": data["price"], "gain_pct": data["gain_pct"], "closes": closes})

@@ -13,6 +13,12 @@ IS_RAILWAY = bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT
 IS_PRODUCTION = IS_RAILWAY or os.getenv("ZENITH_PRODUCTION", "") == "1"
 IS_LOCAL   = not IS_PRODUCTION
 
+# ── UI v2 rollout ─────────────────────────────────────────────────────────────
+# Set ZENITH_UI_V2=1 to render the *_v2 templates (2026 mockup design system,
+# see static/ui-v2.css). Default off: every page keeps its current template
+# until its v2 version is signed off, page by page.
+ZENITH_UI_V2 = os.getenv("ZENITH_UI_V2", "") == "1"
+
 # ── Database ───────────────────────────────────────────────────────────────────
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",

@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-ui="v2">
+<head>
+<meta charset="UTF-8"/>
+<script>(function(){var t=localStorage.getItem('zenith-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Zenith — Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/tokens.css">
+<link rel="stylesheet" href="/static/sidebar.css">
+<link rel="stylesheet" href="/static/ui-v2.css">
+<style>
+html, body { height: 100%; }
+body { display: flex; flex-direction: column; }
+</style>
+</head>
+<body class="sidebar-layout v2" data-page="hub">
+{% include 'sidebar.html' %}
+
+<div class="main-content">
+  <div class="mobile-bar">
+    <button class="sidebar-toggle" onclick="sidebarOpen()" aria-label="Open menu">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/>
+      </svg>
+    </button>
+    <span class="mobile-bar-title">Hub</span>
+  </div>
+
+  <a href="#main" class="skip-link">Skip to main content</a>
+  <main id="main" class="v2-content">
+
+    <!-- Header -->
+    <header class="topbar">
+      <div class="greeting-wrap">
+        <h1><span id="greetingWord">Good morning</span>, <span class="name">{{ session.get('user','Trader') | capitalize }}.</span></h1>
+        <p class="subline">Smart money is rotating. Here's where to look first today.</p>
+      </div>
+      <div class="topbar-right">
+        <div class="live-card">
+          <div>
+            <div class="live-label">Snapshot · WIB clock</div>
+            <div class="live-clock"><span id="wibClock">--:--:--</span> <span>WIB</span></div>
+          </div>
+          <div class="live-divider"></div>
+          <div class="market-pill">
+            <span class="dot" id="sessionDot"></span>
+            <span id="sessionLabel">—</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Tape · Top 10 gainers / losers from /api/flow gain_pct -->
+    <div class="tape" aria-label="Top gainers and losers tape"><div class="tape-track" id="tapeTrack"></div></div>
+
+    <!-- Segment 1 · Snapshot -->
+    <section class="segment" aria-label="Snapshot">
+      <div class="segment-head"><span class="segment-label"><i></i>Snapshot</span></div>
+      <div class="stat-bar">
+        <div class="stat-cell">
+          <div class="sc-label green"><i></i> IHSG <span class="delta up" id="ihsgDelta" style="margin-left:auto">—</span></div>
+          <div class="sc-main"><span class="sc-value" id="ihsgValue">—</span><span class="sc-pts" id="ihsgPts"></span></div>
+          <div class="sc-mid"><div class="spark" id="ihsgSpark" aria-hidden="true"></div></div>
+          <div class="sc-desc">Indeks acuan seluruh saham tercatat di BEI.</div>
+        </div>
+        <div class="stat-cell">
+          <div class="sc-label green"><i></i> Clean Money</div>
+          <div class="sc-main"><span class="sc-value" id="cmValue">—</span></div>
+          <div class="sc-desc">Selisih Smart Money dan Bad Money. Positif = akumulasi dominan, negatif = distribusi.</div>
+        </div>
+        <div class="stat-cell">
+          <div class="sc-label amber"><i></i> Smart-active</div>
+          <div class="sc-main"><span class="sc-value" id="smActiveValue">—</span></div>
+          <div class="sc-desc">Emiten dengan aktivitas Smart Money terdeteksi hari ini.</div>
+        </div>
+        <div class="stat-cell">
+          <div class="sc-label rose"><i></i> Net MF</div>
+          <div class="sc-main"><span class="sc-value" id="netMfValue">—</span></div>
+          <div class="sc-desc">Selisih money flow masuk (MF+) dan keluar (MF−) hari ini.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Segment 2 · Modules -->
+    <section class="segment" aria-label="Modules">
+      <div class="segment-head"><span class="segment-label"><i></i>Modules</span></div>
+      <div class="modules">
+        <article class="module">
+          <div class="module-top">
+            <div class="module-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13"/><path d="m14 3.5 3.5 3.5L14 10.5"/><path d="M20 17H7"/><path d="m10 13.5-3.5 3.5 3.5 3.5"/></svg></div>
+            <div><div class="module-name">Flow</div></div>
+          </div>
+          <h3>Daily SM/BM ledger per stock</h3>
+          <p>Institutional fund flow table — Smart Money, Bad Money, Clean Money, and RSM per ticker.</p>
+          <div class="module-foot">
+            <div class="module-stat" id="statFlow"><i></i> —</div>
+            <a class="open-link" href="/flow">Open <span class="arr">→</span></a>
+          </div>
+        </article>
+
+        <article class="module">
+          <div class="module-top">
+            <div class="module-icon amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 15c2.5 0 2.5-6 5-6s2.5 9 5 9 2.5-12 5-12 2.5 4 4 4"/></svg></div>
+            <div><div class="module-name">Wyckoff</div></div>
+          </div>
+          <h3>Smart money phase scanner</h3>
+          <p>SOS / SPRING / ACCUM / DISTRI, SM dominance over BM, three safety gates.</p>
+          <div class="module-foot">
+            <a class="open-link" href="/wyckoff">Open <span class="arr">→</span></a>
+          </div>
+        </article>
+
+        <article class="module">
+          <div class="module-top">
+            <div class="module-icon rose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2.5 4.5 13.5H11L9.8 21.5 18.5 10H12l1-7.5Z"/></svg></div>
+            <div><div class="module-name">BSJP</div></div>
+          </div>
+          <h3>Overnight MA5 breakout</h3>
+          <p>EOD entry signal from SMA5 breakout and pullback, pure OHLCV, no Telegram flow data.</p>
+          <div class="module-foot">
+            <div class="module-stat" id="statBSJP"><i></i> —</div>
+            <a class="open-link" href="/bsjp">Open <span class="arr">→</span></a>
+          </div>
+        </article>
+
+        <article class="module">
+          <div class="module-top">
+            <div class="module-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg></div>
+            <div><div class="module-name">Sector</div></div>
+          </div>
+          <h3>Rotation map</h3>
+          <p>Which industries are being accumulated or distributed by smart money.</p>
+          <div class="module-foot">
+            <div class="module-stat" id="statSector"><i></i> —</div>
+            <a class="open-link" href="/sector">Open <span class="arr">→</span></a>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Segment 3 · Today's accumulation -->
+    <section class="segment" aria-label="Today's accumulation">
+      <div class="segment-head">
+        <span class="segment-label"><i></i>Today's accumulation</span>
+        <span class="segment-meta"><span id="accumDate">—</span><a class="view-all" href="/flow">View all →</a></span>
+      </div>
+      <div class="flow-grid">
+        <article class="flow-panel">
+          <div class="flow-panel-head"><div class="flow-title">Accumulation · Top 5</div></div>
+          <div class="flow-list" id="accumList"><div class="flow-empty">Memuat…</div></div>
+        </article>
+        <article class="flow-panel">
+          <div class="flow-panel-head"><div class="flow-title">Distribution · Top 5</div></div>
+          <div class="flow-list" id="distList"><div class="flow-empty">Memuat…</div></div>
+        </article>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="/static/focus-trap.js" defer></script>
+<script src="/static/animations.js" defer></script>
+<script src="/static/shortcuts.js" defer></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ── Formatters (id-ID: decimal comma) ── */
+  function fmtVal(v) {
+    if (v === null || v === undefined) return '—';
+    var s = v > 0 ? '+' : (v < 0 ? '−' : '');
+    return s + Math.abs(v).toLocaleString('id-ID', { maximumFractionDigits: 1 });
+  }
+  function fmtPct1(v) {
+    if (v === null || v === undefined) return '—';
+    var s = v > 0 ? '+' : (v < 0 ? '−' : '');
+    return s + Math.abs(v).toFixed(1).replace('.', ',') + '%';
+  }
+  function fmtPrice(v) {
+    if (v === null || v === undefined) return '';
+    return Number(v).toLocaleString('id-ID', { maximumFractionDigits: 0 });
+  }
+  function setVal(id, v) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = '';
+    el.appendChild(document.createTextNode(fmtVal(v)));
+    var u = document.createElement('span');
+    u.className = 'unit';
+    u.textContent = ' Rp M';
+    el.appendChild(u);
+    el.classList.toggle('pos', v >= 0);
+    el.classList.toggle('neg', v < 0);
+  }
+
+  /* ── WIB clock, greeting, session pill ── */
+  var wibParts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, weekday: 'short' });
+  function tickClock() {
+    var now = new Date();
+    var parts = {};
+    wibParts.formatToParts(now).forEach(function (p) { parts[p.type] = p.value; });
+    var clockEl = document.getElementById('wibClock');
+    if (clockEl) clockEl.textContent = parts.hour + ':' + parts.minute + ':' + parts.second;
+    var h = parseInt(parts.hour, 10), m = parseInt(parts.minute, 10);
+    var mins = h * 60 + m;
+    var gw = document.getElementById('greetingWord');
+    if (gw) gw.textContent = h < 11 ? 'Good morning' : (h < 15 ? 'Good afternoon' : 'Good evening');
+    var fri = parts.weekday === 'Fri';
+    var s1 = [9 * 60, fri ? 11 * 60 + 30 : 12 * 60];
+    var s2 = [fri ? 14 * 60 : 13 * 60 + 30, 16 * 60];
+    var label = 'Pasar tutup', on = false;
+    if (parts.weekday !== 'Sat' && parts.weekday !== 'Sun') {
+      if (mins >= s1[0] && mins < s1[1]) { label = 'Sesi 1'; on = true; }
+      else if (mins >= s2[0] && mins < s2[1]) { label = 'Sesi 2'; on = true; }
+    }
+    var lbl = document.getElementById('sessionLabel');
+    var dot = document.getElementById('sessionDot');
+    if (lbl) lbl.textContent = label;
+    if (dot) dot.classList.toggle('on', on);
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  /* ── IHSG sparkline (SVG built with DOM methods, never innerHTML) ── */
+  function drawSpark(closes, up) {
+    var host = document.getElementById('ihsgSpark');
+    if (!host || !closes || closes.length < 2) return;
+    var NS = 'http://www.w3.org/2000/svg';
+    var W = 300, H = 56, PAD = 5;
+    var min = Math.min.apply(null, closes), max = Math.max.apply(null, closes);
+    var span = (max - min) || 1;
+    var pts = closes.map(function (c, i) {
+      var x = (i / (closes.length - 1)) * W;
+      var y = PAD + (1 - (c - min) / span) * (H - 2 * PAD);
+      return [x, y];
+    });
+    var line = pts.map(function (p, i) { return (i ? 'L' : 'M') + p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ');
+    var svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.setAttribute('preserveAspectRatio', 'none');
+    var defs = document.createElementNS(NS, 'defs');
+    var grad = document.createElementNS(NS, 'linearGradient');
+    grad.setAttribute('id', 'v2SparkFill');
+    grad.setAttribute('x1', '0'); grad.setAttribute('y1', '0');
+    grad.setAttribute('x2', '0'); grad.setAttribute('y2', '1');
+    var st1 = document.createElementNS(NS, 'stop');
+    st1.setAttribute('offset', '0%'); st1.setAttribute('stop-color', '#7fc39c'); st1.setAttribute('stop-opacity', '.32');
+    var st2 = document.createElementNS(NS, 'stop');
+    st2.setAttribute('offset', '100%'); st2.setAttribute('stop-color', '#7fc39c'); st2.setAttribute('stop-opacity', '0');
+    grad.appendChild(st1); grad.appendChild(st2); defs.appendChild(grad); svg.appendChild(defs);
+    var area = document.createElementNS(NS, 'path');
+    area.setAttribute('d', line + ' L' + W + ',' + H + ' L0,' + H + ' Z');
+    area.setAttribute('fill', 'url(#v2SparkFill)');
+    svg.appendChild(area);
+    var path = document.createElementNS(NS, 'path');
+    path.setAttribute('d', line);
+    path.setAttribute('class', 'spark-line' + (up ? '' : ' down'));
+    svg.appendChild(path);
+    var last = pts[pts.length - 1];
+    var dotEl = document.createElementNS(NS, 'circle');
+    dotEl.setAttribute('cx', last[0].toFixed(1)); dotEl.setAttribute('cy', last[1].toFixed(1));
+    dotEl.setAttribute('r', '3');
+    dotEl.setAttribute('class', 'spark-dot' + (up ? '' : ' down'));
+    svg.appendChild(dotEl);
+    host.appendChild(svg);
+  }
+
+  /* ── Tape ── */
+  function tapeSetHTML(gainers, losers) {
+    var h = '<span class="tape-item tape-group g"><span class="tl">TOP GAINERS</span></span>';
+    gainers.forEach(function (t) { h += '<span class="tape-item"><span class="tl">' + t.ticker + '</span><span class="pos">' + fmtPct1(t.gain_pct) + '</span></span>'; });
+    h += '<span class="tape-item tape-group l"><span class="tl">TOP LOSERS</span></span>';
+    losers.forEach(function (t) { h += '<span class="tape-item"><span class="tl">' + t.ticker + '</span><span class="neg">' + fmtPct1(t.gain_pct) + '</span></span>'; });
+    return h;
+  }
+
+  /* ── Accumulation rows ── */
+  function flowRow(r, type, maxAbs) {
+    var cm = r.clean_money || 0;
+    var pct = Math.min(100, Math.abs(cm) / (maxAbs || 1) * 100);
+    var meta = '';
+    if (r.price) meta += fmtPrice(r.price);
+    if (r.gain_pct !== null && r.gain_pct !== undefined) meta += (meta ? ' · ' : '') + fmtPct1(r.gain_pct);
+    return '<div class="flow-row">' +
+      '<div class="flow-row-top"><span class="ticker">' + r.ticker + '</span>' +
+      (meta ? '<span class="meta">' + meta + '</span>' : '') +
+      '<span class="flow-val ' + (type === 'accum' ? 'pos' : 'neg') + '">' + fmtVal(cm) + ' <small>Rp M</small></span></div>' +
+      '<div class="bar-track"><div class="bar ' + (type === 'accum' ? 'acc' : 'dist') + '" style="width:' + pct.toFixed(0) + '%"></div></div>' +
+      '</div>';
+  }
+
+  /* ── Main data fetch — same endpoints & semantics as the current Hub ── */
+  async function init() {
+    try {
+      var ri = await fetch('/api/ihsg');
+      var di = await ri.json();
+      if (di.price) {
+        document.getElementById('ihsgValue').textContent =
+          di.price.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        var g = di.gain_pct;
+        if (g !== null && g !== undefined) {
+          var dEl = document.getElementById('ihsgDelta');
+          dEl.textContent = (g >= 0 ? '▲ ' : '▼ ') + fmtPct1(g).replace('+', '').replace('−', '');
+          dEl.className = 'delta ' + (g >= 0 ? 'up' : 'down');
+          dEl.style.marginLeft = 'auto';
+          var pts = di.price - di.price / (1 + g / 100);
+          document.getElementById('ihsgPts').textContent =
+            (pts >= 0 ? '+' : '−') + Math.abs(pts).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' pts';
+        }
+        drawSpark(di.closes, (g || 0) >= 0);
+      }
+    } catch (_) { /* keep placeholders */ }
+
+    var dt;
+    try {
+      var rld = await fetch('/api/last-date');
+      var ld = await rld.json();
+      if (!ld.date) return;
+      dt = ld.date.replace(/\//g, '-');
+      var p = dt.split('-');
+      var dObj = new Date(Number(p[2]), Number(p[1]) - 1, Number(p[0]));
+      document.getElementById('accumDate').textContent =
+        dObj.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    } catch (_) { return; }
+
+    var results = await Promise.allSettled([
+      fetch('/api/flow?date_from=' + dt + '&date_to=' + dt).then(function (r) { return r.json(); }),
+      fetch('/api/sector?date_from=' + dt + '&date_to=' + dt).then(function (r) { return r.json(); }),
+      fetch('/api/bsjp/signals?date=' + dt).then(function (r) { return r.json(); })
+    ]);
+    var fd = results[0].status === 'fulfilled' ? results[0].value : null;
+    var sd = results[1].status === 'fulfilled' ? results[1].value : null;
+    var bd = results[2].status === 'fulfilled' ? results[2].value : null;
+
+    var tickers = (fd && fd.tickers) ? fd.tickers : [];
+
+    if (fd && fd.totals) {
+      setVal('cmValue', fd.totals.net_cm || 0);
+      var active = tickers.filter(function (t) { return (t.sm_val || 0) > 0 && (t.bm_val || 0) > 0; }).length;
+      var smEl = document.getElementById('smActiveValue');
+      smEl.innerHTML = '';
+      smEl.appendChild(document.createTextNode(String(active)));
+      var u = document.createElement('span');
+      u.className = 'unit';
+      u.textContent = ' / ' + tickers.length;
+      smEl.appendChild(u);
+      if (fd.totals.net_mf !== null && fd.totals.net_mf !== undefined) setVal('netMfValue', fd.totals.net_mf);
+      var sf = document.getElementById('statFlow');
+      if (sf) sf.innerHTML = '<i></i> ' + tickers.length + ' tickers · data ' + dt;
+    }
+
+    if (tickers.length > 0) {
+      var withGain = tickers.filter(function (t) { return t.gain_pct !== null && t.gain_pct !== undefined; });
+      var gainers = withGain.slice().sort(function (a, b) { return b.gain_pct - a.gain_pct; }).slice(0, 10);
+      var losers = withGain.slice().sort(function (a, b) { return a.gain_pct - b.gain_pct; }).slice(0, 10);
+      var setHTML = tapeSetHTML(gainers, losers);
+      document.getElementById('tapeTrack').innerHTML =
+        '<div class="tape-set">' + setHTML + '</div><div class="tape-set dup" aria-hidden="true">' + setHTML + '</div>';
+
+      var sorted = tickers.slice().sort(function (a, b) { return (b.clean_money || 0) - (a.clean_money || 0); });
+      var top5 = sorted.slice(0, 5);
+      var bot5 = sorted.slice().reverse().slice(0, 5);
+      var maxA = Math.max.apply(null, top5.map(function (r) { return Math.abs(r.clean_money || 0); })) || 1;
+      var maxD = Math.max.apply(null, bot5.map(function (r) { return Math.abs(r.clean_money || 0); })) || 1;
+      document.getElementById('accumList').innerHTML = top5.map(function (r) { return flowRow(r, 'accum', maxA); }).join('');
+      document.getElementById('distList').innerHTML = bot5.map(function (r) { return flowRow(r, 'dist', maxD); }).join('');
+    } else {
+      document.getElementById('accumList').innerHTML = '<div class="flow-empty">Tidak ada data untuk tanggal terakhir.</div>';
+      document.getElementById('distList').innerHTML = '<div class="flow-empty">Tidak ada data untuk tanggal terakhir.</div>';
+    }
+
+    if (sd && sd.sectors && sd.sectors.length > 0) {
+      var top = sd.sectors[0];
+      var ss = document.getElementById('statSector');
+      if (ss && top.name) ss.innerHTML = '<i></i> ' + top.name + (top.cm ? ' · ' + fmtVal(top.cm) + ' Rp M' : '');
+    }
+
+    if (bd && bd.count !== null && bd.count !== undefined) {
+      var bs = document.getElementById('statBSJP');
+      if (bs) bs.innerHTML = '<i></i> ' + bd.count + ' signals today';
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', init);
+
+  /* Help modal (parity with current Hub) */
+  window.__showZenithHelp = function () {
+    if (typeof ZenithModal !== 'undefined' && document.getElementById('infoBackdrop')) {
+      ZenithModal.open('infoBackdrop', document.getElementById('sidebarHelpBtn'));
+    }
+  };
+})();
+</script>
+
+<!-- Info modal (help) -->
+<div class="info-backdrop" id="infoBackdrop" style="position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;" onclick="if(event.target===this&&typeof ZenithModal!=='undefined')ZenithModal.close('infoBackdrop')">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;width:min(90vw,580px);max-height:82vh;display:flex;flex-direction:column;box-shadow:0 16px 64px rgba(0,0,0,.16);transform:scale(.97);transition:transform .2s;">
+    <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-size:16px;font-weight:600;color:var(--ink);">Guide to reading the data</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;">Smart Money Analysis — Zenith</div>
+      </div>
+      <button onclick="if(typeof ZenithModal!=='undefined')ZenithModal.close('infoBackdrop')" style="background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;padding:2px 8px;">✕</button>
+    </div>
+    <div style="overflow-y:auto;padding:20px 22px;display:flex;flex-direction:column;gap:14px;">
+      <div style="padding:14px 16px;background:var(--surface2);border-radius:10px;border-left:3px solid var(--moss);">
+        <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px;">SM VAL — Smart Money</div>
+        <div style="font-size:12.5px;color:var(--text-dim);line-height:1.55;">Total large funds flowing into a stock from institutional players. Larger = higher accumulation potential.</div>
+      </div>
+      <div style="padding:14px 16px;background:var(--surface2);border-radius:10px;border-left:3px solid var(--accent);">
+        <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px;">BM VAL — Bad Money</div>
+        <div style="font-size:12.5px;color:var(--text-dim);line-height:1.55;">Total large funds flowing out of a stock. Bad Money dominance = distribution / large-scale selling.</div>
+      </div>
+      <div style="padding:14px 16px;background:var(--surface2);border-radius:10px;border-left:3px solid var(--moss);">
+        <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px;">CM — Clean Money</div>
+        <div style="font-size:12.5px;color:var(--text-dim);line-height:1.55;">SM Val − BM Val. Large positive = inflow dominates. Negative = distribution dominates.</div>
+      </div>
+      <div style="padding:14px 16px;background:var(--surface2);border-radius:10px;border-left:3px solid var(--muted);">
+        <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px;">RSM — Smart Money Ratio</div>
+        <div style="font-size:12.5px;color:var(--text-dim);line-height:1.55;">SM / (SM + BM) × 100%. Above 70% = strong accumulation signal.</div>
+      </div>
+      <div style="padding:14px 16px;background:var(--accent-soft);border-radius:10px;">
+        <div style="font-size:12.5px;color:var(--accent);font-weight:600;margin-bottom:6px;">Clean Money Formula</div>
+        <div style="font-family:var(--font-mono);font-size:12px;color:var(--ink);line-height:1.7;">
+          CM = SM − BM<br>
+          Positive → accumulation dominant<br>
+          Negative → distribution dominant<br>
+          RSM &gt; 70% → strong SM signal
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
